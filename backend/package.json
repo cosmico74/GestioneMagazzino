@@ -13,11 +13,10 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.1",
     "mysql2": "^3.6.0",
-    "tar": "^6.2.1",
-    "node": "20.18.0"
+    "node": "20.18.0",
+    "tar": "^6.2.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   }
-  
 }
