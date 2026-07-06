@@ -162,7 +162,7 @@
         <label>Magazzini associati</label>
         <div id="magazziniCheckbox" class="checkbox-group"></div>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="utenteGroup">
         <label>Utente associato (esistente)</label>
         <select id="utenteAssociato" class="form-control"><option value="">-- Nessuno --</option></select>
       </div>
@@ -187,7 +187,16 @@ function showMessage(m, t) { const d = document.getElementById('messageArea'); d
 async function apiFetch(e, o = {}) {
   const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...o.headers };
   const r = await fetch('/api' + e, { ...o, headers });
-  if (r.status === 401 || r.status === 403) { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; throw new Error('Sessione scaduta'); }
+  if (r.status === 401 || r.status === 403) {
+    // Per i promoter, se ricevono 403 su /utenti, non vogliamo fare logout automatico
+    // Controlliamo l'URL per evitare logout su /utenti
+    if (e !== '/utenti') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = 'Login.html';
+    }
+    throw new Error('Accesso negato');
+  }
   if (!r.ok) { let msg = 'Errore ' + r.status; try { const d = await r.json(); msg = d.message || msg; } catch(e) {} throw new Error(msg); }
   return r.json();
 }
@@ -214,13 +223,25 @@ async function caricaMagazzini() {
   try { magazzini = await apiFetch('/anagrafiche/magazzini'); } catch(e) { console.error(e); }
 }
 async function caricaUtentiLiberi() {
+  // Solo admin può caricare gli utenti
+  if (!isAdmin) {
+    document.getElementById('utenteAssociato').innerHTML = '<option value="">-- Solo admin --</option>';
+    document.getElementById('utenteAssociato').disabled = true;
+    return;
+  }
   try {
     const r = await apiFetch('/utenti');
     if (r.success) { utentiLiberi = r.data.filter(u => !u.riferimento_id); }
     const sel = document.getElementById('utenteAssociato');
     sel.innerHTML = '<option value="">-- Nessuno --</option>';
+    sel.disabled = false;
     utentiLiberi.forEach(u => sel.appendChild(new Option(u.username + ' (' + u.ruolo + ')', u.id)));
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error('Errore caricamento utenti:', e);
+    const sel = document.getElementById('utenteAssociato');
+    sel.innerHTML = '<option value="">-- Errore --</option>';
+    sel.disabled = true;
+  }
 }
 async function caricaSoggetti() {
   try {
@@ -276,7 +297,7 @@ function renderTabella(lista) {
 function togglePasswordField() {
   const tipo = document.getElementById('tipo').value;
   const utenteSel = document.getElementById('utenteAssociato').value;
-  const show = (tipo === 'PROMOTER' && !utenteSel);
+  const show = (tipo === 'PROMOTER' && !utenteSel && isAdmin); // solo admin può creare utenti
   document.getElementById('passwordGroup').style.display = show ? 'block' : 'none';
 }
 async function apriModaleNuovo() {
@@ -295,6 +316,8 @@ async function apriModaleNuovo() {
   document.getElementById('attivo').value = '1';
   document.getElementById('note').value = '';
   document.getElementById('nuovaPassword').value = '';
+  
+  // Carica utenti solo se admin
   await caricaUtentiLiberi();
   document.getElementById('utenteAssociato').value = '';
   togglePasswordField();
@@ -309,6 +332,10 @@ async function apriModaleNuovo() {
       }
     }
     tipoSelect.value = 'PROMOTER';
+    // Disabilita il campo utente
+    document.getElementById('utenteAssociato').disabled = true;
+  } else {
+    document.getElementById('utenteAssociato').disabled = false;
   }
 
   popolaCheckboxes([]);
@@ -332,6 +359,7 @@ async function modificaSoggetto(id) {
     document.getElementById('livello').value = s.livello || '0';
     document.getElementById('attivo').value = s.attivo ? '1' : '0';
     document.getElementById('note').value = s.note || '';
+    
     await caricaUtentiLiberi();
     const selUt = document.getElementById('utenteAssociato');
     if (s.utenteAssociato) {
@@ -470,7 +498,6 @@ window.onload = async () => {
   try { currentUser = JSON.parse(localStorage.getItem('user')); } catch(e) { logout(); return; }
   isAdmin = (currentUser.ruolo === 'admin');
 
-  // Se non è admin, verifica che sia promoter di livello 1
   if (!isAdmin) {
     if (currentUser.ruolo !== 'promoter') {
       document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin o promoter di livello 1.</div>';
@@ -480,7 +507,6 @@ window.onload = async () => {
       document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: utente promoter senza soggetto associato.</div>';
       return;
     }
-    // Ottieni il livello del soggetto
     try {
       const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
       userLevel = sog.livello || 0;
