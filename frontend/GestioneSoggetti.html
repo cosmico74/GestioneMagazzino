@@ -82,11 +82,11 @@
 
   <!-- COMPACT BAR con LOGO CENTRATO -->
   <div class="compact-bar">
-    <div style="flex:1;"></div>
+    <div style="flex: 1;"></div>
     <div class="logo">
       <img src="/images/kastle-logo.png" alt="Kastle">
     </div>
-    <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
+    <div style="display: flex; gap: 6px; align-items: center; flex: 1; justify-content: flex-end;">
       <span id="loginInfo" class="login-info"></span>
       <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
       <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
@@ -105,7 +105,7 @@
       <label>Ricerca</label>
       <input type="text" id="filtroTesto" placeholder="Nome, cognome, email...">
     </div>
-    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+    <div style="display:flex; gap:6px;">
       <button class="btn btn-success" onclick="apriModaleNuovo()">➕ Nuovo</button>
       <button class="btn btn-secondary" onclick="caricaSoggetti()">🔄 Aggiorna</button>
     </div>
@@ -119,7 +119,7 @@
           <th>Livello</th><th>Referenti</th><th>Magazzini</th><th>Utente</th><th>Azioni</th>
         </tr>
       </thead>
-      <tbody id="tabellaBody"><tr><td colspan="11" class="text-center">Caricamento...</td></tr></tbody>
+      <tbody id="tabellaBody"><tr><td colspan="10" class="text-center">Caricamento...</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -200,8 +200,9 @@ let currentUser = null;
 let soggetti = [];
 let magazzini = [];
 let utentiLiberi = [];
-let isAdmin = false;
 let currentSoggettoId = null;
+let isAdmin = false;
+let userLevel = 0;
 
 const filtroTipo = document.getElementById('filtroTipo');
 const filtroTesto = document.getElementById('filtroTesto');
@@ -239,7 +240,7 @@ function applicaFiltri() {
 function renderTabella(lista) {
   const tbody = document.getElementById('tabellaBody');
   tbody.innerHTML = '';
-  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="11" class="text-center">Nessun soggetto</td></tr>'; return; }
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun soggetto</td></tr>'; return; }
   lista.forEach(s => {
     const refNomi = (s.referenti||[]).map(id => { const r = soggetti.find(x => x.id == id); return r ? (r.nome||'') + ' ' + (r.cognome||'') : ''; }).filter(n => n).join(', ') || '-';
     const magNomi = (s.magazziniAssociati||[]).map(id => { const m = magazzini.find(x => x.id == id); return m ? m.nome : ''; }).filter(n => n).join(', ') || '-';
@@ -258,7 +259,6 @@ function renderTabella(lista) {
     const actions = row.insertCell(10);
     actions.className = 'actions';
     let actionsHtml = '';
-    // Permessi: admin può fare tutto; promoter può modificare solo se referente
     const canEdit = isAdmin || (s.referenti && s.referenti.includes(currentSoggettoId));
     if (canEdit) {
       actionsHtml += `<button class="btn btn-sm" onclick="modificaSoggetto(${s.id})">✏️</button>`;
@@ -299,7 +299,6 @@ async function apriModaleNuovo() {
   document.getElementById('utenteAssociato').value = '';
   togglePasswordField();
 
-  // Se non admin, limita i tipi selezionabili
   if (!isAdmin) {
     const tipoSelect = document.getElementById('tipo');
     const options = tipoSelect.options;
@@ -310,10 +309,6 @@ async function apriModaleNuovo() {
       }
     }
     tipoSelect.value = 'PROMOTER';
-  } else {
-    // Admin: ripristina tutti i tipi
-    const tipoSelect = document.getElementById('tipo');
-    tipoSelect.innerHTML = '<option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option>';
   }
 
   popolaCheckboxes([]);
@@ -357,11 +352,9 @@ function popolaCheckboxes(sog) {
   containerRef.innerHTML = '';
   const currentId = document.getElementById('soggettoId').value;
 
-  // Se non admin e in modifica, mostra solo i referenti attuali (non permette di modificarli)
-  // Se in creazione, mostra solo il promoter stesso (e disabilita)
   if (!isAdmin) {
-    // In creazione, precompila con il promoter stesso
     if (!currentId) {
+      // Nuovo soggetto: precompila con il promoter stesso come referente
       const label = document.createElement('label');
       const cb = document.createElement('input');
       cb.type = 'checkbox';
@@ -374,7 +367,7 @@ function popolaCheckboxes(sog) {
       label.appendChild(document.createTextNode(' ' + nome + ' (tu)'));
       containerRef.appendChild(label);
     } else {
-      // In modifica, mostra solo i referenti esistenti (non permette di modificarli)
+      // Modifica: mostra solo i referenti esistenti (disabilitati)
       soggetti.forEach(s => {
         if (s.id == currentId) return;
         if (!currentRefs.includes(s.id)) return;
@@ -390,7 +383,6 @@ function popolaCheckboxes(sog) {
       });
     }
   } else {
-    // Admin: mostra tutti i soggetti
     soggetti.forEach(s => {
       if (currentId && s.id == currentId) return;
       const label = document.createElement('label');
@@ -404,7 +396,6 @@ function popolaCheckboxes(sog) {
     });
   }
 
-  // Magazzini associati: solo admin può modificarli
   const containerMag = document.getElementById('magazziniCheckbox');
   containerMag.innerHTML = '';
   magazzini.forEach(m => {
@@ -474,34 +465,38 @@ async function eliminaSoggetto(id) {
 // ============================================================
 window.onload = async () => {
   const token = localStorage.getItem('token');
-  if (!token) {
-    document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>';
-    return;
-  }
-  try {
-    currentUser = JSON.parse(localStorage.getItem('user'));
-    if (!currentUser.riferimento_id && currentUser.RiferimentoID) {
-      currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
-    }
-  } catch(e) { logout(); return; }
+  if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
 
+  try { currentUser = JSON.parse(localStorage.getItem('user')); } catch(e) { logout(); return; }
   isAdmin = (currentUser.ruolo === 'admin');
 
-  // Solo admin o promoter di livello 1 possono accedere
+  // Se non è admin, verifica che sia promoter di livello 1
   if (!isAdmin) {
-    const isPromoterLevel1 = (currentUser.ruolo === 'promoter' && currentUser.livello === 1);
-    if (!isPromoterLevel1) {
+    if (currentUser.ruolo !== 'promoter') {
       document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin o promoter di livello 1.</div>';
+      return;
+    }
+    if (!currentUser.riferimento_id) {
+      document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: utente promoter senza soggetto associato.</div>';
+      return;
+    }
+    // Ottieni il livello del soggetto
+    try {
+      const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
+      userLevel = sog.livello || 0;
+      currentSoggettoId = parseInt(currentUser.riferimento_id);
+      if (userLevel !== 1) {
+        document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin o promoter di livello 1.</div>';
+        return;
+      }
+    } catch(e) {
+      document.querySelector('.container').innerHTML = '<div class="message error">Errore nel recupero del livello: ' + e.message + '</div>';
       return;
     }
   }
 
-  // Ottieni l'ID del soggetto dell'utente (se esiste)
-  if (currentUser.riferimento_id) {
-    currentSoggettoId = parseInt(currentUser.riferimento_id);
-  }
-
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
+
   await caricaMagazzini();
   await caricaSoggetti();
 
@@ -509,12 +504,6 @@ window.onload = async () => {
   filtroTesto.addEventListener('input', applicaFiltri);
   document.getElementById('utenteAssociato').addEventListener('change', togglePasswordField);
   document.getElementById('tipo').addEventListener('change', togglePasswordField);
-
-  // Se non admin, nascondi alcuni elementi
-  if (!isAdmin) {
-    // Non mostrare il pulsante "➕ Nuovo" per i promoter? (per ora lo lasciamo)
-    // Ma limitiamo le opzioni nella creazione
-  }
 };
 </script>
 </body>
