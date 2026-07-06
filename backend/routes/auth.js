@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');   // <-- USO BCRYPTJS
-const pool = require('../db');
+const pool = require('./db');
 const { generateToken } = require('../auth');
 const router = express.Router();
 
