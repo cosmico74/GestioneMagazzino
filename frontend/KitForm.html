@@ -186,136 +186,148 @@
 </div>
 
 <script>
-  // ============================================================
-  // UTILITY
-  // ============================================================
-  function getAuthHeader() {
-    const token = localStorage.getItem('token');
-    return token ? { 'Authorization': 'Bearer ' + token } : {};
+// ============================================================
+// UTILITY
+// ============================================================
+function getAuthHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+function showMessage(msg, type) {
+  const div = document.getElementById('messageArea');
+  div.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
+  setTimeout(() => div.innerHTML = '', 5000);
+}
+async function apiFetch(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
+  const res = await fetch('/api' + endpoint, { ...options, headers });
+  if (!res.ok) {
+    let err = 'Errore ' + res.status;
+    try { const data = await res.json(); err = data.message || err; } catch(e) {}
+    throw new Error(err);
   }
-  function showMessage(msg, type) {
-    const div = document.getElementById('messageArea');
-    div.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
-    setTimeout(() => div.innerHTML = '', 5000);
+  return res.json();
+}
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = 'Login.html';
+}
+
+// ============================================================
+// VARIABILI GLOBALI
+// ============================================================
+let currentUser = null;
+let magazzini = [];
+let articoliSci = [];
+let articoliAttacchi = [];
+let articoliSkistopper = [];
+let allKits = [];
+let sigleUsateInKit = [];
+let currentSigleDisponibili = [];
+let currentKitId = null;
+
+const kitMagazzinoSelect = document.getElementById('kitMagazzino');
+const kitSciSelect = document.getElementById('kitSci');
+
+// ============================================================
+// HELPER: calcola giacenza reale
+// ============================================================
+function getGiacenzaArticolo(articolo) {
+  if (articolo.GIACENZA_REALE !== undefined) {
+    return articolo.GIACENZA_REALE;
   }
-  async function apiFetch(endpoint, options = {}) {
-    const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
-    const res = await fetch('/api' + endpoint, { ...options, headers });
-    if (!res.ok) {
-      let err = 'Errore ' + res.status;
-      try { const data = await res.json(); err = data.message || err; } catch(e) {}
-      throw new Error(err);
+  return (articolo.quantita_totale || 0) - (articolo.quantita_obsoleta || 0);
+}
+
+function getLabelAttacco(attacco) {
+  const giacenza = getGiacenzaArticolo(attacco);
+  let label = (attacco.descrizione + ' ' + (attacco.lunghezza || '')).trim();
+  label += ' (disp: ' + giacenza + ')';
+  return label;
+}
+
+function getLabelSkistopper(skistopper) {
+  const giacenza = getGiacenzaArticolo(skistopper);
+  let label = (skistopper.descrizione + ' ' + (skistopper.lunghezza || '')).trim();
+  label += ' (disp: ' + giacenza + ')';
+  return label;
+}
+
+// ============================================================
+// CARICAMENTO ANAGRAFICHE (con filtro magazzini)
+// ============================================================
+async function caricaAnagrafiche() {
+  try {
+    magazzini = await apiFetch('/anagrafiche/magazzini');
+    kitMagazzinoSelect.innerHTML = '<option value="">Seleziona magazzino</option>';
+    magazzini.forEach(m => kitMagazzinoSelect.appendChild(new Option(m.nome, m.id)));
+
+    // Imposta default: Race se presente e disponibile, altrimenti primo disponibile
+    const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
+    if (defaultMag) {
+      const exists = Array.from(kitMagazzinoSelect.options).some(opt => opt.value == defaultMag.id);
+      if (exists) {
+        kitMagazzinoSelect.value = defaultMag.id;
+      } else if (kitMagazzinoSelect.options.length > 1) {
+        kitMagazzinoSelect.selectedIndex = 1;
+      }
+    } else if (kitMagazzinoSelect.options.length > 1) {
+      kitMagazzinoSelect.selectedIndex = 1;
     }
-    return res.json();
-  }
-  function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = 'Login.html';
-  }
 
-  // ============================================================
-  // VARIABILI GLOBALI
-  // ============================================================
-  let currentUser = null;
-  let magazzini = [];
-  let articoliSci = [];
-  let articoliAttacchi = [];
-  let articoliSkistopper = [];
-  let allKits = [];
-  let sigleUsateInKit = [];
-  let currentSigleDisponibili = [];
-  let currentKitId = null;
+    const categorie = await apiFetch('/anagrafiche/categorie');
+    const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
+    const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
+    const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-  const kitMagazzinoSelect = document.getElementById('kitMagazzino');
-  const kitSciSelect = document.getElementById('kitSci');
+    // Carica sci
+    let params = new URLSearchParams({ min_giacenza: '1' });
+    if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
+    if (sciCat) params.append('categoria', sciCat.id);
+    const sciRes = await apiFetch('/articoli?' + params.toString());
+    articoliSci = sciRes.success ? sciRes.data : [];
 
-  // ============================================================
-  // HELPER: calcola giacenza reale usando GIACENZA_REALE se disponibile
-  // ============================================================
-  function getGiacenzaArticolo(articolo) {
-    if (articolo.GIACENZA_REALE !== undefined) {
-      return articolo.GIACENZA_REALE;
+    kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
+    articoliSci.forEach(a => {
+      const label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
+      kitSciSelect.appendChild(new Option(label, a.articolo_id));
+    });
+
+    // Carica attacchi e skistoppers
+    await caricaArticoliPerCategoria();
+
+    // Carica sigle usate nei kit
+    await caricaSigleUsate();
+
+    if (articoliSci.length > 0) {
+      kitSciSelect.selectedIndex = 1;
+      await caricaSiglePerSci(kitSciSelect.value);
+      aggiornaTutteLeRighe();
     }
-    return (articolo.quantita_totale || 0) - (articolo.quantita_obsoleta || 0);
-  }
 
-  function getLabelAttacco(attacco) {
-    const giacenza = getGiacenzaArticolo(attacco);
-    let label = (attacco.descrizione + ' ' + (attacco.lunghezza || '')).trim();
-    label += ' (disp: ' + giacenza + ')';
-    return label;
-  }
-
-  function getLabelSkistopper(skistopper) {
-    const giacenza = getGiacenzaArticolo(skistopper);
-    let label = (skistopper.descrizione + ' ' + (skistopper.lunghezza || '')).trim();
-    label += ' (disp: ' + giacenza + ')';
-    return label;
-  }
-
-  // ============================================================
-  // CARICAMENTO ANAGRAFICHE E DATI
-  // ============================================================
-  async function caricaAnagrafiche() {
-    try {
-      magazzini = await apiFetch('/anagrafiche/magazzini');
-      kitMagazzinoSelect.innerHTML = '<option value="">Seleziona magazzino</option>';
-      magazzini.forEach(m => kitMagazzinoSelect.appendChild(new Option(m.nome, m.id)));
-
-      const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
-      if (defaultMag) kitMagazzinoSelect.value = defaultMag.id;
-
-      const categorie = await apiFetch('/anagrafiche/categorie');
-      const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
-      const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
-      const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
-
-      // Carica sci
-      let params = new URLSearchParams({ min_giacenza: '1' });
-      if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
-      if (sciCat) params.append('categoria', sciCat.id);
-      const sciRes = await apiFetch('/articoli?' + params.toString());
-      articoliSci = sciRes.success ? sciRes.data : [];
-
-      kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
-      articoliSci.forEach(a => {
-        const label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
-        kitSciSelect.appendChild(new Option(label, a.articolo_id));
-      });
-
-      // Carica attacchi e skistoppers
-      await caricaArticoliPerCategoria();
-
-      // Carica sigle usate nei kit
-      await caricaSigleUsate();
-
-      if (articoliSci.length > 0) {
-        kitSciSelect.selectedIndex = 1;
-        await caricaSiglePerSci(kitSciSelect.value);
+    kitSciSelect.addEventListener('change', async () => {
+      const sciId = kitSciSelect.value;
+      if (sciId) {
+        await caricaSiglePerSci(sciId);
         aggiornaTutteLeRighe();
       }
+    });
 
-      kitSciSelect.addEventListener('change', async () => {
-        const sciId = kitSciSelect.value;
-        if (sciId) {
-          await caricaSiglePerSci(sciId);
-          aggiornaTutteLeRighe();
-        }
-      });
+    kitMagazzinoSelect.addEventListener('change', () => {
+      caricaArticoliPerCategoria();
+      caricaKit();
+    });
 
-      kitMagazzinoSelect.addEventListener('change', () => {
-        caricaArticoliPerCategoria();
-        caricaKit();
-      });
+    await caricaKit();
+    resetForm();
 
-      await caricaKit();
-      resetForm();
-
-    } catch (err) {
-      showMessage('Errore caricamento dati: ' + err.message, 'error');
-    }
+  } catch (err) {
+    showMessage('Errore caricamento dati: ' + err.message, 'error');
   }
+}
+
+
 
   // ============================================================
   // CARICA ARTICOLI PER CATEGORIA (attacchi e skistoppers) con GIACENZA_REALE

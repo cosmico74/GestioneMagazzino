@@ -19,6 +19,21 @@ async function ricalcolaQuantitaTotale(connection, articoloId) {
 }
 
 // ============================================================
+// HELPER: verifica se l'utente può usare un magazzino
+// ============================================================
+async function canUserUseMagazzino(userId, userRole, magazzinoId) {
+  if (userRole === 'admin') return true;
+  const [user] = await db.query('SELECT riferimento_id FROM utenti WHERE id = ?', [userId]);
+  if (!user.length || !user[0].riferimento_id) return false;
+  const soggettoId = user[0].riferimento_id;
+  const [rows] = await db.query(
+    'SELECT 1 FROM soggetti_magazzini WHERE soggetto_id = ? AND magazzino_id = ?',
+    [soggettoId, magazzinoId]
+  );
+  return rows.length > 0;
+}
+
+// ============================================================
 // HELPER: genera codice e descrizione
 // ============================================================
 function generateArticleCode(articleData, id) {
@@ -115,7 +130,7 @@ router.get('/:id/sigle', verifyToken, async (req, res) => {
 router.post('/:id/sigle', verifyToken, async (req, res) => {
   const { sigla, lunghezza, durezza, codice_modello, note, quantita } = req.body;
   if (!sigla) return res.status(400).json({ error: 'Sigla obbligatoria' });
-  const quantitaAustria = quantita || 0; // default: uguale a quantita
+  const quantitaAustria = quantita || 0;
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -187,9 +202,6 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   }
 });
 
-// ============================================================
-// PUT /sigle/:id/austria – aggiorna solo la quantità Austria
-// ============================================================
 router.put('/sigle/:id/austria', verifyToken, async (req, res) => {
   const { quantita_austria } = req.body;
   if (quantita_austria === undefined || quantita_austria < 0) {
@@ -230,6 +242,12 @@ router.delete('/sigle/:id', verifyToken, async (req, res) => {
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria } = req.body;
+  
+  // Verifica permesso sul magazzino
+  if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
+    return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
+  }
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -245,7 +263,6 @@ router.post('/', verifyToken, async (req, res) => {
         [artId]
       );
       if (na.length) {
-        // Aggiorna sia quantita che quantita_austria (aggiungi la stessa quantità)
         await connection.query('UPDATE sigle_articoli SET quantita = quantita + ?, quantita_austria = quantita_austria + ? WHERE id = ?', [quantita, quantita, na[0].id]);
       } else {
         await connection.query('INSERT INTO sigle_articoli (articolo_id, sigla, quantita, quantita_austria) VALUES (?, \'NA\', ?, ?)', [artId, quantita, quantita]);
@@ -279,7 +296,6 @@ router.post('/', verifyToken, async (req, res) => {
       codiceModello || null,
       invAustria
     ]);
-    // Inserisci sigla NA con quantita_austria = quantita
     await connection.query('INSERT INTO sigle_articoli (articolo_id, sigla, quantita, quantita_austria) VALUES (?, \'NA\', ?, ?)', [newId, quantita, quantita]);
     await ricalcolaQuantitaTotale(connection, newId);
     await connection.commit();
@@ -300,17 +316,21 @@ router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { descrizione, lunghezza, durezza, quantita_totale, quantita_obsoleta, versione, stato, note, codiceModello,
           magazzino, settore, categoria, marca, inventario_austria } = req.body;
+  
+  // Verifica permesso sul magazzino
+  if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
+    return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
+  }
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
-    // --- AGGIUNTA: Se viene modificata quantita_totale, aggiorna la sigla NA se è unica ---
     if (quantita_totale !== undefined) {
       const [sigle] = await connection.query(
         'SELECT id, sigla FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1',
         [id]
       );
-      // Se l'articolo ha una sola sigla attiva e questa è 'NA', aggiorna automaticamente
       if (sigle.length === 1 && sigle[0].sigla === 'NA') {
         await connection.query(
           'UPDATE sigle_articoli SET quantita = ?, quantita_austria = ? WHERE id = ?',
@@ -319,7 +339,6 @@ router.put('/:id', verifyToken, async (req, res) => {
         await ricalcolaQuantitaTotale(connection, id);
       }
     }
-    // --- FINE AGGIUNTA ---
 
     const now = db.now();
     const invAustria = (inventario_austria !== undefined) ? (inventario_austria ? 1 : 0) : 1;
@@ -397,14 +416,11 @@ router.get('/valori/:campo', verifyToken, async (req, res) => {
   let sql = `SELECT DISTINCT ${col} AS ${col} FROM articoli WHERE ${col} IS NOT NULL AND ${col} != ''`;
   const params = [];
 
-  // Filtri comuni (magazzino, settore, categoria, marca)
   if (req.query.magazzino) { sql += ' AND magazzino = ?'; params.push(req.query.magazzino); }
   if (req.query.settore) { sql += ' AND settore = ?'; params.push(req.query.settore); }
   if (req.query.categoria) { sql += ' AND categoria = ?'; params.push(req.query.categoria); }
   if (req.query.marca) { sql += ' AND marca = ?'; params.push(req.query.marca); }
 
-  // Filtri per gli altri campi (descrizione, codice_modello, lunghezza, durezza)
-  // Escludiamo il campo corrente per evitare auto-filtro
   const filterableFields = ['descrizione', 'codice_modello', 'lunghezza', 'durezza'];
   for (const f of filterableFields) {
     if (f !== col && req.query[f]) {
@@ -420,3 +436,4 @@ router.get('/valori/:campo', verifyToken, async (req, res) => {
 
 module.exports = router;
 module.exports.ricalcolaQuantitaTotale = ricalcolaQuantitaTotale;
+module.exports.canUserUseMagazzino = canUserUseMagazzino;

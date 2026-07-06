@@ -6,6 +6,19 @@ const { ricalcolaQuantitaTotale } = require('./articoli');
 
 const router = express.Router();
 
+// Helper: verifica se l'utente può usare un magazzino
+async function canUserUseMagazzino(userId, userRole, magazzinoId) {
+  if (userRole === 'admin') return true;
+  const [user] = await pool.query('SELECT riferimento_id FROM utenti WHERE id = ?', [userId]);
+  if (!user.length || !user[0].riferimento_id) return false;
+  const soggettoId = user[0].riferimento_id;
+  const [rows] = await pool.query(
+    'SELECT 1 FROM soggetti_magazzini WHERE soggetto_id = ? AND magazzino_id = ?',
+    [soggettoId, magazzinoId]
+  );
+  return rows.length > 0;
+}
+
 // ============================================================
 // HELPER: Calcola la disponibilità reale di una sigla
 // ============================================================

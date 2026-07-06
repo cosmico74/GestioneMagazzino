@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { verifyToken } = require('../auth');
+const { canUserUseMagazzino } = require('./articoli');
 
 // ============================================================
 // HELPER: aggiungi/rimuovi in kit (aggiorna quantita_in_kit)
@@ -113,6 +114,11 @@ router.post('/', verifyToken, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
   }
 
+  // Verifica permesso sul magazzino
+  if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
+    return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
+  }
+
   const connection = await db.getConnection();
   await connection.beginTransaction();
   try {
@@ -180,6 +186,11 @@ router.put('/:id', verifyToken, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
   }
 
+  // Verifica permesso sul magazzino
+  if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
+    return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
+  }
+
   const connection = await db.getConnection();
   await connection.beginTransaction();
   try {
@@ -234,7 +245,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/kit/:id/note – AGGIORNA SOLO LA NOTA DEL KIT
+// PATCH /api/kit/:id/note
 // ============================================================
 router.patch('/:id/note', verifyToken, async (req, res) => {
   const { note } = req.body;
