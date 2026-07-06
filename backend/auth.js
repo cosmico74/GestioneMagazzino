@@ -1,19 +1,28 @@
-const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET;
-function generateToken(userId, username, ruolo) {
-    return jwt.sign({ userId, username, ruolo }, JWT_SECRET, { expiresIn: '8h' });
-}
-async function verifyToken(req, res, next) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Token mancante' });
-    const token = authHeader.split(' ')[1];
+const express = require('express');
+const bcrypt = require('bcryptjs');  // <-- USO BCRYPTJS
+const pool = require('../db');
+const { generateToken } = require('../auth');
+const router = express.Router();
+
+router.post('/login', async (req, res) => {
+    const { username, password } = req.body;
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.userId = decoded.userId;
-        req.userRole = decoded.ruolo;
-        next();
+        const [rows] = await pool.query('SELECT * FROM utenti WHERE username = ?', [username]);
+        if (rows.length === 0) {
+            return res.status(401).json({ success: false, message: 'Credenziali errate' });
+        }
+        const user = rows[0];
+        const match = await bcrypt.compare(password, user.password_hash);
+        if (!match) {
+            return res.status(401).json({ success: false, message: 'Credenziali errate' });
+        }
+        const token = generateToken(user.id, user.username, user.ruolo);
+        delete user.password_hash;
+        res.json({ success: true, token, user });
     } catch (err) {
-        return res.status(401).json({ error: 'Token non valido' });
+        console.error('Errore login:', err);
+        res.status(500).json({ success: false, message: err.message });
     }
-}
-module.exports = { generateToken, verifyToken };
+});
+
+module.exports = router;
