@@ -1,7 +1,7 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');   // <-- USO BCRYPTJS
-const pool = require('./db');
-const { generateToken } = require('../auth');
+const bcrypt = require('bcryptjs');   // <-- BCRYPTJS
+const pool = require('../db');
+const { generateToken } = require('../auth');   // <-- RIFERIMENTO AL FILE auth.js (nella root)
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
