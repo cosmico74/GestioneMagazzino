@@ -31,13 +31,58 @@ async function syncSoggettiMagazzini(connection, soggettoId, magazziniIds) {
   }
 }
 
+// ============================================================
 // GET /api/soggetti/tipo/:tipo
+// ============================================================
 router.get('/tipo/:tipo', verifyToken, async (req, res) => {
   const { tipo } = req.params;
   const validi = ['PROMOTER', 'NEGOZIO', 'CLIENTE', 'AGENTE'];
   if (!validi.includes(tipo)) return res.status(400).json({ error: 'Tipo non valido' });
   try {
-    const [rows] = await db.query('SELECT id, tipo, nome, cognome, email, telefono FROM soggetti WHERE tipo = ? ORDER BY nome, cognome', [tipo]);
+    // Se admin, restituisce tutti i soggetti del tipo richiesto
+    if (req.userRole === 'admin') {
+      const [rows] = await db.query(
+        'SELECT id, tipo, nome, cognome, email, telefono FROM soggetti WHERE tipo = ? ORDER BY nome, cognome',
+        [tipo]
+      );
+      return res.json(rows);
+    }
+    // Se non admin (promoter), restituisce solo i soggetti visibili
+    const [user] = await db.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
+    if (!user.length || !user[0].riferimento_id) {
+      return res.json([]);
+    }
+    const promoterId = user[0].riferimento_id;
+    const [sog] = await db.query('SELECT livello FROM soggetti WHERE id = ?', [promoterId]);
+    const livello = sog.length ? sog[0].livello : 0;
+
+    let sql = `
+      SELECT s.id, s.tipo, s.nome, s.cognome, s.email, s.telefono
+      FROM soggetti s
+      WHERE s.tipo = ? AND (
+        s.id = ? OR
+        EXISTS (SELECT 1 FROM soggetti_referenti WHERE referente_id = ? AND soggetto_id = s.id)
+    `;
+    const params = [tipo, promoterId, promoterId];
+    if (livello === 1) {
+      // Promoter livello 1 vede tutti i promoter di livello 2 e 3 e i negozi associati
+      sql += ' OR s.livello IN (2, 3)';
+      // Per i negozi (tipo = 'NEGOZIO'), li vede tutti se è livello 1
+      if (tipo === 'NEGOZIO') {
+        // Aggiunge anche i negozi associati ai referenti
+        sql += ` OR EXISTS (
+          SELECT 1 FROM soggetti_referenti sr
+          WHERE sr.soggetto_id = s.id
+          AND sr.referente_id IN (
+            SELECT id FROM soggetti WHERE tipo = 'PROMOTER' AND livello = 1
+          )
+        )`;
+      }
+    } else if (livello === 2) {
+      sql += ' OR s.livello = 3';
+    }
+    sql += ' ) ORDER BY s.tipo, s.nome, s.cognome';
+    const [rows] = await db.query(sql, params);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -45,7 +90,9 @@ router.get('/tipo/:tipo', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
 // GET /api/soggetti/visibili
+// ============================================================
 router.get('/visibili', verifyToken, async (req, res) => {
   try {
     const [userRows] = await db.query('SELECT ruolo, riferimento_id FROM utenti WHERE id = ?', [req.userId]);
@@ -82,7 +129,9 @@ router.get('/visibili', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
 // GET /api/soggetti/:id
+// ============================================================
 router.get('/:id', verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -110,9 +159,53 @@ router.get('/:id', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
 // GET /api/soggetti (lista completa)
+// ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
+    // Se non admin, restituisce solo i soggetti visibili
+    if (req.userRole !== 'admin') {
+      const [user] = await db.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
+      if (!user.length || !user[0].riferimento_id) {
+        return res.json([]);
+      }
+      const promoterId = user[0].riferimento_id;
+      const [sog] = await db.query('SELECT livello FROM soggetti WHERE id = ?', [promoterId]);
+      const livello = sog.length ? sog[0].livello : 0;
+
+      let sql = `
+        SELECT s.*, u.id AS utente_id, u.username AS utente_username, u.ruolo AS utente_ruolo
+        FROM soggetti s
+        LEFT JOIN utenti u ON u.riferimento_id = s.id
+        WHERE s.id = ? OR EXISTS (SELECT 1 FROM soggetti_referenti WHERE referente_id = ? AND soggetto_id = s.id)
+      `;
+      const params = [promoterId, promoterId];
+      if (livello === 1) {
+        sql += ' OR s.livello IN (2, 3)';
+      } else if (livello === 2) {
+        sql += ' OR s.livello = 3';
+      }
+      sql += ' ORDER BY s.tipo, s.nome, s.cognome';
+      const [rows] = await db.query(sql, params);
+      const soggettiConReferenti = [];
+      for (const row of rows) {
+        const [refRows] = await db.query('SELECT referente_id FROM soggetti_referenti WHERE soggetto_id = ?', [row.id]);
+        const referentiIds = refRows.map(r => r.referente_id);
+        const [magRows] = await db.query('SELECT magazzino_id FROM soggetti_magazzini WHERE soggetto_id = ?', [row.id]);
+        const magazziniIds = magRows.map(r => r.magazzino_id);
+        const { utente_id, utente_username, utente_ruolo, ...soggetto } = row;
+        if (utente_id) {
+          soggetto.utenteAssociato = { id: utente_id, username: utente_username, ruolo: utente_ruolo };
+        }
+        soggetto.referenti = referentiIds;
+        soggetto.magazziniAssociati = magazziniIds;
+        soggettiConReferenti.push(soggetto);
+      }
+      return res.json(soggettiConReferenti);
+    }
+
+    // Admin: tutti i soggetti
     const [rows] = await db.query(`
       SELECT s.*, u.id AS utente_id, u.username AS utente_username, u.ruolo AS utente_ruolo
       FROM soggetti s
@@ -140,7 +233,9 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/soggetti (con log dettagliato)
+// ============================================================
+// POST /api/soggetti (con controllo permessi)
+// ============================================================
 router.post('/', verifyToken, async (req, res) => {
   const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, nuovaPassword, magazziniAssociati } = req.body;
   if (!tipo || !nome) return res.status(400).json({ error: 'Tipo e nome sono obbligatori' });
@@ -178,11 +273,16 @@ router.post('/', verifyToken, async (req, res) => {
     await syncSoggettiMagazzini(connection, soggettoId, magazziniAssociati || []);
 
     let utenteCreato = null;
+    // Gestione utente associato (solo admin può associare un utente esistente)
     if (utenteAssociato) {
+      if (req.userRole !== 'admin') {
+        throw new Error('Solo admin può associare un utente esistente');
+      }
       const [userExists] = await connection.query('SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)', [utenteAssociato, soggettoId]);
       if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
       await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [soggettoId, utenteAssociato]);
     } else if (tipo === 'PROMOTER') {
+      // Se il tipo è PROMOTER e l'utente non è admin, crea automaticamente un utente
       const username = email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, '');
       const password = nuovaPassword && nuovaPassword.trim() ? nuovaPassword.trim() : Math.random().toString(36).slice(-8);
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -206,7 +306,9 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
-// PUT /api/soggetti/:id
+// ============================================================
+// PUT /api/soggetti/:id (con controllo permessi)
+// ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, magazziniAssociati } = req.body;
   const connection = await db.getConnection();
@@ -246,12 +348,14 @@ router.put('/:id', verifyToken, async (req, res) => {
     await syncSoggettiReferenti(connection, req.params.id, referenteStr);
     await syncSoggettiMagazzini(connection, req.params.id, magazziniAssociati || []);
 
-    // Rimuovi associazione utente precedente
-    await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [req.params.id]);
-    if (utenteAssociato) {
-      const [userExists] = await connection.query('SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)', [utenteAssociato, req.params.id]);
-      if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
-      await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [req.params.id, utenteAssociato]);
+    // Rimuovi associazione utente precedente (solo admin)
+    if (req.userRole === 'admin') {
+      await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [req.params.id]);
+      if (utenteAssociato) {
+        const [userExists] = await connection.query('SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)', [utenteAssociato, req.params.id]);
+        if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
+        await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [req.params.id, utenteAssociato]);
+      }
     }
 
     await connection.commit();
@@ -265,33 +369,23 @@ router.put('/:id', verifyToken, async (req, res) => {
   }
 });
 
-// DELETE /api/soggetti/:id
+// ============================================================
+// DELETE /api/soggetti/:id (solo admin)
+// ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
+  // Solo admin può eliminare soggetti
+  if (req.userRole !== 'admin') {
+    return res.status(403).json({ error: 'Solo admin può eliminare soggetti' });
+  }
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-
-    if (req.userRole !== 'admin') {
-      const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
-      if (!user.length || !user[0].riferimento_id) {
-        return res.status(403).json({ error: 'Non autorizzato' });
-      }
-      const promoterId = user[0].riferimento_id;
-      const [ref] = await connection.query(
-        'SELECT 1 FROM soggetti_referenti WHERE soggetto_id = ? AND referente_id = ?',
-        [req.params.id, promoterId]
-      );
-      if (!ref.length) {
-        return res.status(403).json({ error: 'Non sei referente di questo soggetto' });
-      }
-    }
-
     await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [req.params.id]);
     await connection.query('DELETE FROM soggetti_referenti WHERE soggetto_id = ? OR referente_id = ?', [req.params.id, req.params.id]);
     await connection.query('DELETE FROM soggetti_magazzini WHERE soggetto_id = ?', [req.params.id]);
     const [result] = await connection.query('DELETE FROM soggetti WHERE id = ?', [req.params.id]);
     if (result.affectedRows === 0) throw new Error('Soggetto non trovato');
-
     await connection.commit();
     res.json({ success: true });
   } catch (err) {
