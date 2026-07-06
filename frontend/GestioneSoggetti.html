@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>👥 Gestione Soggetti</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 25px; }
+    .compact-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      border-radius: 0 0 12px 12px;
+      padding: 4px 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      margin-bottom: 15px;
+    }
+    .logo { display: flex; justify-content: center; flex: 1; }
+    .logo img { height: 120px; width: auto; display: block; }
+    .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; }
+    h2 { border-left: 5px solid #1a73e8; padding-left: 15px; color: #1e2a3a; margin-top: 0; margin-bottom: 15px; }
+    .btn { background: #1a73e8; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    .btn:hover { background: #0f5bb5; transform: translateY(-1px); }
+    .btn-success { background: #27ae60; }
+    .btn-danger { background: #dc3545; }
+    .btn-secondary { background: #6c757d; }
+    .checkbox-group { max-height: 200px; overflow-y: auto; border: 1px solid #cbd5e0; border-radius: 6px; padding: 8px 12px; min-height: 60px; background: white; }
+    .checkbox-group label { display: block; font-weight: normal; margin: 4px 0; font-size: 0.8rem; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
+    .checkbox-group label:hover { background: #f0f4ff; }
+    .checkbox-group input[type="checkbox"] { margin-right: 8px; transform: scale(1.1); }
+    .btn-sm { padding: 3px 8px; font-size: 0.7rem; }
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: flex-end; }
+    .filter-group { flex: 1; min-width: 150px; }
+    .filter-group label { display: block; font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; color: #2c3e50; }
+    .filter-group input, .filter-group select { width: 100%; padding: 5px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.8rem; }
+    .table-wrapper { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+    th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+    tr:hover td { background: #fefce8; }
+    .actions { display: flex; gap: 4px; justify-content: center; }
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 700px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
+    .modal-header h3 { margin: 0; }
+    .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
+    .close:hover { color: black; }
+    .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-weight: 600; font-size: 0.75rem; margin-bottom: 2px; color: #2c3e50; }
+    .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.8rem; }
+    .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
+    .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
+    .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
+    .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
+    .text-center { text-align: center; }
+    @media (max-width: 768px) { .filter-bar { flex-direction: column; } .container { padding: 15px; } }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- COMPACT BAR con LOGO CENTRATO -->
+  <div class="compact-bar">
+    <div style="flex:1;"></div>
+    <div class="logo">
+      <img src="/images/kastle-logo.png" alt="Kastle">
+    </div>
+    <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
+      <span id="loginInfo" class="login-info"></span>
+      <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
+      <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+
+  <h2>👥 Gestione Soggetti</h2>
+  <div id="messageArea"></div>
+
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Tipo</label>
+      <select id="filtroTipo"><option value="">Tutti</option><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Ricerca</label>
+      <input type="text" id="filtroTesto" placeholder="Nome, cognome, email...">
+    </div>
+    <div style="display:flex; gap:6px;">
+      <button class="btn btn-success" onclick="apriModaleNuovo()">➕ Nuovo</button>
+      <button class="btn btn-secondary" onclick="caricaSoggetti()">🔄 Aggiorna</button>
+    </div>
+  </div>
+
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Tipo</th><th>Nome</th><th>Cognome</th><th>Email</th><th>Telefono</th>
+          <th>Livello</th><th>Referenti</th><th>Magazzini</th><th>Utente</th><th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="tabellaBody"><tr><td colspan="10" class="text-center">Caricamento...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="soggettoModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modalTitle">Nuovo Soggetto</h3>
+      <span class="close" onclick="chiudiModal()">&times;</span>
+    </div>
+    <form id="soggettoForm" onsubmit="return false;">
+      <input type="hidden" id="soggettoId">
+      <div class="form-group"><label>Tipo *</label><select id="tipo" class="form-control" onchange="togglePasswordField()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
+      <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="form-group"><label>Nome *</label><input type="text" id="nome" class="form-control"></div>
+        <div class="form-group"><label>Cognome</label><input type="text" id="cognome" class="form-control"></div>
+      </div>
+      <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="form-group"><label>Email</label><input type="email" id="email" class="form-control"></div>
+        <div class="form-group"><label>Telefono</label><input type="text" id="telefono" class="form-control"></div>
+      </div>
+      <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+        <div class="form-group"><label>Indirizzo</label><input type="text" id="indirizzo" class="form-control"></div>
+        <div class="form-group"><label>Città</label><input type="text" id="citta" class="form-control"></div>
+        <div class="form-group"><label>CAP</label><input type="text" id="cap" class="form-control"></div>
+      </div>
+      <div class="form-group"><label>Regione</label><input type="text" id="regione" class="form-control"></div>
+      <div class="form-group">
+        <label>Livello (1=alto, 3=basso)</label>
+        <select id="livello" class="form-control"><option value="0">Nessuno</option><option value="1">1 - Alto</option><option value="2">2 - Medio</option><option value="3">3 - Basso</option></select>
+      </div>
+      <div class="form-group"><label>Attivo</label><select id="attivo" class="form-control"><option value="1">SI</option><option value="0">NO</option></select></div>
+      <div class="form-group"><label>Note</label><textarea id="note" rows="2" class="form-control"></textarea></div>
+      <div class="form-group">
+        <label>Referenti (soggetti che possono vedere questo)</label>
+        <div id="referentiCheckbox" class="checkbox-group"></div>
+      </div>
+      <div class="form-group">
+        <label>Magazzini associati</label>
+        <div id="magazziniCheckbox" class="checkbox-group"></div>
+      </div>
+      <div class="form-group">
+        <label>Utente associato (esistente)</label>
+        <select id="utenteAssociato" class="form-control"><option value="">-- Nessuno --</option></select>
+      </div>
+      <div class="form-group" id="passwordGroup" style="display:none;">
+        <label>Password (nuovo utente, solo per promoter)</label>
+        <input type="password" id="nuovaPassword" class="form-control" placeholder="Lascia vuoto per generare automatica">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="chiudiModal()">Annulla</button>
+        <button type="button" class="btn btn-success" onclick="salvaSoggetto()">💾 Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// UTILITY
+// ============================================================
+function getAuthHeader() { const t = localStorage.getItem('token'); return t ? { 'Authorization': 'Bearer ' + t } : {}; }
+function showMessage(m, t) { const d = document.getElementById('messageArea'); d.innerHTML = '<div class="message ' + t + '">' + m + '</div>'; setTimeout(() => d.innerHTML = '', 5000); }
+async function apiFetch(e, o = {}) {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...o.headers };
+  const r = await fetch('/api' + e, { ...o, headers });
+  if (r.status === 401 || r.status === 403) { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; throw new Error('Sessione scaduta'); }
+  if (!r.ok) { let msg = 'Errore ' + r.status; try { const d = await r.json(); msg = d.message || msg; } catch(e) {} throw new Error(msg); }
+  return r.json();
+}
+function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; }
+
+// ============================================================
+// VARIABILI
+// ============================================================
+let currentUser = null;
+let soggetti = [];
+let magazzini = [];
+let utentiLiberi = [];
+
+const filtroTipo = document.getElementById('filtroTipo');
+const filtroTesto = document.getElementById('filtroTesto');
+
+// ============================================================
+// CARICAMENTO DATI
+// ============================================================
+async function caricaMagazzini() {
+  try { magazzini = await apiFetch('/anagrafiche/magazzini'); } catch(e) { console.error(e); }
+}
+async function caricaUtentiLiberi() {
+  try {
+    const r = await apiFetch('/utenti');
+    if (r.success) { utentiLiberi = r.data.filter(u => !u.riferimento_id); }
+    const sel = document.getElementById('utenteAssociato');
+    sel.innerHTML = '<option value="">-- Nessuno --</option>';
+    utentiLiberi.forEach(u => sel.appendChild(new Option(u.username + ' (' + u.ruolo + ')', u.id)));
+  } catch(e) { console.error(e); }
+}
+async function caricaSoggetti() {
+  try {
+    const data = await apiFetch('/soggetti');
+    soggetti = Array.isArray(data) ? data : [];
+    applicaFiltri();
+  } catch(e) { showMessage('Errore caricamento soggetti: '+e.message, 'error'); }
+}
+function applicaFiltri() {
+  const tipo = filtroTipo.value;
+  const testo = filtroTesto.value.toLowerCase();
+  let filtrati = soggetti;
+  if (tipo) filtrati = filtrati.filter(s => s.tipo === tipo);
+  if (testo) filtrati = filtrati.filter(s => (s.nome||'').toLowerCase().includes(testo) || (s.cognome||'').toLowerCase().includes(testo) || (s.email||'').toLowerCase().includes(testo));
+  renderTabella(filtrati);
+}
+function renderTabella(lista) {
+  const tbody = document.getElementById('tabellaBody');
+  tbody.innerHTML = '';
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun soggetto</td></tr>'; return; }
+  lista.forEach(s => {
+    const refNomi = (s.referenti||[]).map(id => { const r = soggetti.find(x => x.id == id); return r ? (r.nome||'') + ' ' + (r.cognome||'') : ''; }).filter(n => n).join(', ') || '-';
+    const magNomi = (s.magazziniAssociati||[]).map(id => { const m = magazzini.find(x => x.id == id); return m ? m.nome : ''; }).filter(n => n).join(', ') || '-';
+    const row = tbody.insertRow();
+    row.insertCell(0).innerText = s.id || '';
+    row.insertCell(1).innerText = s.tipo || '';
+    row.insertCell(2).innerText = s.nome || '';
+    row.insertCell(3).innerText = s.cognome || '';
+    row.insertCell(4).innerText = s.email || '';
+    row.insertCell(5).innerText = s.telefono || '';
+    row.insertCell(6).innerText = s.livello || '';
+    row.insertCell(7).innerText = refNomi;
+    row.insertCell(8).innerText = magNomi;
+    row.insertCell(9).innerText = s.utenteAssociato ? s.utenteAssociato.username : '-';
+    const actions = row.insertCell(10);
+    actions.className = 'actions';
+    actions.innerHTML = '<button class="btn btn-sm" onclick="modificaSoggetto('+s.id+')">✏️</button><button class="btn btn-sm btn-danger" onclick="eliminaSoggetto('+s.id+')">🗑️</button>';
+  });
+}
+
+// ============================================================
+// MODALE
+// ============================================================
+function togglePasswordField() {
+  const tipo = document.getElementById('tipo').value;
+  const utenteSel = document.getElementById('utenteAssociato').value;
+  const show = (tipo === 'PROMOTER' && !utenteSel);
+  document.getElementById('passwordGroup').style.display = show ? 'block' : 'none';
+}
+async function apriModaleNuovo() {
+  document.getElementById('modalTitle').innerText = 'Nuovo Soggetto';
+  document.getElementById('soggettoId').value = '';
+  document.getElementById('tipo').value = 'PROMOTER';
+  document.getElementById('nome').value = '';
+  document.getElementById('cognome').value = '';
+  document.getElementById('email').value = '';
+  document.getElementById('telefono').value = '';
+  document.getElementById('indirizzo').value = '';
+  document.getElementById('citta').value = '';
+  document.getElementById('cap').value = '';
+  document.getElementById('regione').value = '';
+  document.getElementById('livello').value = '0';
+  document.getElementById('attivo').value = '1';
+  document.getElementById('note').value = '';
+  document.getElementById('nuovaPassword').value = '';
+  await caricaUtentiLiberi();
+  document.getElementById('utenteAssociato').value = '';
+  togglePasswordField();
+  popolaCheckboxes([]);
+  document.getElementById('soggettoModal').style.display = 'flex';
+}
+async function modificaSoggetto(id) {
+  try {
+    const s = await apiFetch('/soggetti/' + id);
+    if (!s) return;
+    document.getElementById('modalTitle').innerText = 'Modifica Soggetto';
+    document.getElementById('soggettoId').value = s.id;
+    document.getElementById('tipo').value = s.tipo;
+    document.getElementById('nome').value = s.nome || '';
+    document.getElementById('cognome').value = s.cognome || '';
+    document.getElementById('email').value = s.email || '';
+    document.getElementById('telefono').value = s.telefono || '';
+    document.getElementById('indirizzo').value = s.indirizzo || '';
+    document.getElementById('citta').value = s.citta || '';
+    document.getElementById('cap').value = s.cap || '';
+    document.getElementById('regione').value = s.regione || '';
+    document.getElementById('livello').value = s.livello || '0';
+    document.getElementById('attivo').value = s.attivo ? '1' : '0';
+    document.getElementById('note').value = s.note || '';
+    await caricaUtentiLiberi();
+    const selUt = document.getElementById('utenteAssociato');
+    if (s.utenteAssociato) {
+      let exists = false;
+      for (let i=0; i<selUt.options.length; i++) { if (selUt.options[i].value == s.utenteAssociato.id) { exists = true; break; } }
+      if (!exists) selUt.appendChild(new Option(s.utenteAssociato.username + ' (' + s.utenteAssociato.ruolo + ')', s.utenteAssociato.id));
+      selUt.value = s.utenteAssociato.id;
+    } else selUt.value = '';
+    document.getElementById('passwordGroup').style.display = 'none';
+    popolaCheckboxes(s);
+    document.getElementById('soggettoModal').style.display = 'flex';
+  } catch(e) { showMessage('Errore caricamento soggetto: '+e.message, 'error'); }
+}
+function popolaCheckboxes(sog) {
+  const currentRefs = sog.referenti || [];
+  const currentMags = sog.magazziniAssociati || [];
+  const containerRef = document.getElementById('referentiCheckbox');
+  containerRef.innerHTML = '';
+  const currentId = document.getElementById('soggettoId').value;
+  soggetti.forEach(s => {
+    if (currentId && s.id == currentId) return;
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = s.id;
+    cb.checked = currentRefs.includes(s.id);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + s.tipo + ' - ' + (s.nome||'') + ' ' + (s.cognome||'') + (s.livello ? ' (liv.'+s.livello+')' : '')));
+    containerRef.appendChild(label);
+  });
+  const containerMag = document.getElementById('magazziniCheckbox');
+  containerMag.innerHTML = '';
+  magazzini.forEach(m => {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = m.id;
+    cb.checked = currentMags.includes(m.id);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + m.nome));
+    containerMag.appendChild(label);
+  });
+}
+function chiudiModal() { document.getElementById('soggettoModal').style.display = 'none'; }
+
+// ============================================================
+// SALVA / ELIMINA
+// ============================================================
+async function salvaSoggetto() {
+  const id = document.getElementById('soggettoId').value;
+  const referenti = Array.from(document.querySelectorAll('#referentiCheckbox input:checked')).map(cb => parseInt(cb.value)).filter(v => !isNaN(v));
+  const magazziniAssociati = Array.from(document.querySelectorAll('#magazziniCheckbox input:checked')).map(cb => parseInt(cb.value)).filter(v => !isNaN(v));
+  const dati = {
+    tipo: document.getElementById('tipo').value,
+    nome: document.getElementById('nome').value.trim(),
+    cognome: document.getElementById('cognome').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    telefono: document.getElementById('telefono').value.trim(),
+    indirizzo: document.getElementById('indirizzo').value.trim(),
+    citta: document.getElementById('citta').value.trim(),
+    cap: document.getElementById('cap').value.trim(),
+    regione: document.getElementById('regione').value.trim(),
+    referente: referenti.join(','),
+    magazziniAssociati: magazziniAssociati,
+    attivo: parseInt(document.getElementById('attivo').value),
+    livello: parseInt(document.getElementById('livello').value) || null,
+    note: document.getElementById('note').value.trim(),
+    utenteAssociato: document.getElementById('utenteAssociato').value || null,
+    nuovaPassword: document.getElementById('nuovaPassword').value || null
+  };
+  if (!dati.nome) { showMessage('Il nome è obbligatorio', 'error'); return; }
+  try {
+    if (id) {
+      await apiFetch('/soggetti/' + id, { method: 'PUT', body: JSON.stringify(dati) });
+      showMessage('Soggetto aggiornato', 'success');
+    } else {
+      const res = await apiFetch('/soggetti', { method: 'POST', body: JSON.stringify(dati) });
+      if (res.utenteCreato) showMessage('Soggetto creato. Utente "' + res.utenteCreato.username + '" con password: ' + res.utenteCreato.password, 'info');
+      else showMessage('Soggetto creato', 'success');
+    }
+    chiudiModal();
+    caricaSoggetti();
+  } catch(e) { showMessage('Errore: '+e.message, 'error'); }
+}
+async function eliminaSoggetto(id) {
+  if (!confirm('Eliminare questo soggetto? L\'utente associato rimarrà senza riferimento.')) return;
+  try {
+    await apiFetch('/soggetti/' + id, { method: 'DELETE' });
+    showMessage('Soggetto eliminato', 'success');
+    caricaSoggetti();
+  } catch(e) { showMessage('Errore: '+e.message, 'error'); }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.onload = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
+  try { currentUser = JSON.parse(localStorage.getItem('user')); } catch(e) { logout(); return; }
+  if (currentUser.ruolo !== 'admin') { document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin.</div>'; return; }
+  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato||currentUser.username) + ' (' + currentUser.ruolo + ')';
+  await caricaMagazzini();
+  await caricaSoggetti();
+  filtroTipo.addEventListener('change', applicaFiltri);
+  filtroTesto.addEventListener('input', applicaFiltri);
+  document.getElementById('utenteAssociato').addEventListener('change', togglePasswordField);
+  document.getElementById('tipo').addEventListener('change', togglePasswordField);
+};
+</script>
+</body>
+</html>

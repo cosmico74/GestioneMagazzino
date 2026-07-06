@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="UTF-8"><title>Login</title>
+<style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;height:100vh;background:#f0f2f5;margin:0}.card{background:white;padding:40px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.1);width:340px}h2{text-align:center;color:#1a73e8}input{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:8px;box-sizing:border-box}button{width:100%;padding:12px;background:#1a73e8;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer}button:hover{background:#0f5bb5}.error{color:red;margin-top:10px;text-align:center}</style>
+</head>
+<body>
+<div class="card"><h2>🔐 Accesso</h2><input type="text" id="username" placeholder="Username"><input type="password" id="password" placeholder="Password"><button onclick="login()">Accedi</button><div id="error" class="error"></div></div>
+<script>
+async function login(){const u=document.getElementById('username').value,p=document.getElementById('password').value,e=document.getElementById('error');e.innerText='';if(!u||!p){e.innerText='Inserisci username e password';return}try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});const d=await r.json();if(d.success){localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));window.location.href='MenuPrincipale.html'}else{e.innerText=d.message||'Errore login'}}catch(err){e.innerText='Errore di connessione'}}
+</script>
+</body>
+</html>

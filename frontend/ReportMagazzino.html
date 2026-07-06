@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📊 Report di Magazzino</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      padding: 20px;
+    }
+    .compact-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      border-radius: 0 0 12px 12px;
+      padding: 4px 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      margin-bottom: 15px;
+    }
+    .logo { display: flex; justify-content: center; flex: 1; }
+    .logo img { height: 120px; width: auto; display: block; }
+    .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px; }
+    h2 { border-left: 5px solid #1a73e8; padding-left: 15px; color: #1e2a3a; margin: 15px 0; }
+    .btn { background: #1a73e8; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    .btn:hover { background: #0f5bb5; transform: translateY(-1px); }
+    .btn-secondary { background: #6c757d; }
+    .btn-success { background: #27ae60; }
+    .btn-warning { background: #f39c12; color: white; }
+    .filter-bar {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 10px 15px;
+      margin-bottom: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+      border: 1px solid #e2e8f0;
+    }
+    .filter-group { flex: 1; min-width: 140px; }
+    .filter-group label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      color: #2c3e50;
+      margin-bottom: 2px;
+    }
+    .filter-group input, .filter-group select {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      background: white;
+    }
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: center;
+    }
+    .radio-group label { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: normal; cursor: pointer; }
+    .radio-group input[type="radio"] { cursor: pointer; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; flex-wrap: wrap; }
+    .tab { padding: 8px 20px; cursor: pointer; border-radius: 8px 8px 0 0; font-weight: 600; font-size: 0.85rem; color: #6c757d; transition: 0.2s; border: none; background: transparent; }
+    .tab.active { background: #1a73e8; color: white; }
+    .tab:hover:not(.active) { background: #e8f0fe; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .table-wrapper {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      max-height: 65vh;
+      overflow-y: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; }
+    th, td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+    th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+    tr:hover td { background: #f8fafc; }
+    .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
+    .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
+    .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
+    .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
+    .text-center { text-align: center; }
+    .action-bar { display: flex; gap: 10px; margin-top: 10px; justify-content: flex-end; flex-wrap: wrap; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; }
+    .badge-articolo { background: #e3f2fd; color: #0d47a1; }
+    .badge-kit { background: #fff3e0; color: #e65100; }
+    .badge-stato-magazzino { background: #d4edda; color: #155724; }
+    .badge-stato-assegnato { background: #fff3cd; color: #856404; }
+    .btn-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    @media (max-width: 768px) {
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .radio-group { flex-direction: column; gap: 5px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- COMPACT BAR con LOGO CENTRATO -->
+  <div class="compact-bar">
+    <div style="flex: 1;"></div>
+    <div class="logo">
+      <img src="/images/kastle-logo.png" alt="Kastle">
+    </div>
+    <div style="display: flex; gap: 6px; align-items: center; flex: 1; justify-content: flex-end;">
+      <span id="loginInfo" class="login-info"></span>
+      <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
+      <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+
+  <h2>📊 Report di Magazzino</h2>
+  <div id="messageArea"></div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" data-tab="austria" onclick="switchTab('austria')">🇦🇹 Austria</button>
+    <button class="tab" data-tab="italia" onclick="switchTab('italia')">🇮🇹 Italia</button>
+    <button class="tab" data-tab="soggetti" onclick="switchTab('soggetti')">👤 Per Soggetto</button>
+  </div>
+
+  <!-- TAB AUSTRIA -->
+  <div id="tab-austria" class="tab-content active">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Magazzino</label>
+        <select id="austriaMagazzino"><option value="">Tutti</option></select>
+      </div>
+      <div class="btn-group">
+        <button class="btn" onclick="caricaAustria()">🔍 Carica</button>
+        <button class="btn btn-warning" onclick="anteprimaPDF('austria')">👁️ Anteprima PDF</button>
+        <button class="btn btn-secondary" onclick="esportaPDF('austria')">📄 PDF</button>
+        <button class="btn btn-success" onclick="esportaCSV('austria')">📊 CSV</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="austriaTable">
+        <thead>
+          <tr><th>#</th><th>Codice</th><th>Codice Modello</th><th>Descrizione</th><th>Lunghezza</th><th>Nota</th><th>Quantità Totale</th><th>Magazzino</th></tr>
+        </thead>
+        <tbody id="austriaBody"><tr><td colspan="8" class="text-center">Caricare il report</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB ITALIA -->
+  <div id="tab-italia" class="tab-content">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Magazzino</label>
+        <select id="italiaMagazzino"><option value="">Tutti</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Tipo</label>
+        <select id="italiaTipo">
+          <option value="ENTRAMBI">Articoli e Kit</option>
+          <option value="ARTICOLO">Solo Articoli</option>
+          <option value="KIT">Solo Kit</option>
+        </select>
+      </div>
+      <div class="btn-group">
+        <button class="btn" onclick="caricaItalia()">🔍 Carica</button>
+        <button class="btn btn-warning" onclick="anteprimaPDF('italia')">👁️ Anteprima PDF</button>
+        <button class="btn btn-secondary" onclick="esportaPDF('italia')">📄 PDF</button>
+        <button class="btn btn-success" onclick="esportaCSV('italia')">📊 CSV</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="italiaTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Tipo</th>
+            <th>Codice</th>
+            <th>Descrizione</th>
+            <th>Lunghezza</th>
+            <th>Sigla (solo Kit)</th>
+            <th>Nota</th>
+            <th>Stato</th>
+            <th>Destinatario</th>
+            <th>Quantità</th>
+            <th>Giacenza</th>
+            <th>Magazzino</th>
+          </tr>
+        </thead>
+        <tbody id="italiaBody"><tr><td colspan="12" class="text-center">Caricare il report</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB SOGGETTI -->
+  <div id="tab-soggetti" class="tab-content">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Soggetto</label>
+        <select id="soggettoSelect"><option value="">Seleziona...</option></select>
+      </div>
+      <div class="radio-group">
+        <label><input type="radio" name="soggettoMode" value="incarico" checked> In carico</label>
+        <label><input type="radio" name="soggettoMode" value="inviati"> Inviato ad altri</label>
+        <label><input type="radio" name="soggettoMode" value="entrambi"> Tutti</label>
+      </div>
+      <div class="btn-group">
+        <button class="btn" onclick="caricaSoggetti()">🔍 Carica</button>
+        <button class="btn btn-warning" onclick="anteprimaPDF('soggetti')">👁️ Anteprima PDF</button>
+        <button class="btn btn-secondary" onclick="esportaPDF('soggetti')">📄 PDF</button>
+        <button class="btn btn-success" onclick="esportaCSV('soggetti')">📊 CSV</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="soggettiTable">
+        <thead>
+          <tr><th>#</th><th>Tipo</th><th>Codice / Sigla</th><th>Descrizione</th><th>Lunghezza</th><th>Sigla</th><th>Nota</th><th>Quantità</th><th>Stato</th><th>Destinatario</th><th>Data</th></tr>
+        </thead>
+        <tbody id="soggettiBody"><tr><td colspan="11" class="text-center">Seleziona un soggetto e carica</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURAZIONE LOGO
+// ============================================================
+const LOGO_PATH = '/images/kastle-logo.png';
+let logoBase64 = null;
+
+// ============================================================
+// UTILITY
+// ============================================================
+function getAuthHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
+function showMessage(msg, type) {
+  const d = document.getElementById('messageArea');
+  d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
+  setTimeout(() => d.innerHTML = '', 5000);
+}
+
+async function apiFetch(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
+  const r = await fetch('/api' + endpoint, { ...options, headers });
+  if (r.status === 401 || r.status === 403) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = 'Login.html';
+    throw new Error('Sessione scaduta');
+  }
+  if (!r.ok) {
+    let msg = 'Errore ' + r.status;
+    try { const data = await r.json(); msg = data.message || msg; } catch(e) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = 'Login.html';
+}
+
+function formatDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '-';
+  return String(dt.getDate()).padStart(2,'0') + '-' +
+         String(dt.getMonth()+1).padStart(2,'0') + '-' +
+         dt.getFullYear();
+}
+
+// ============================================================
+// CARICAMENTO LOGO IN BASE64 PER I PDF
+// ============================================================
+async function loadLogoAsBase64() {
+  try {
+    const response = await fetch(LOGO_PATH);
+    if (!response.ok) throw new Error('Logo non trovato');
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn('Logo non caricato per i PDF:', e.message);
+    return null;
+  }
+}
+
+// ============================================================
+// VARIABILI GLOBALI
+// ============================================================
+let currentUser = null;
+let magazzini = [];
+let soggetti = [];
+let austriaData = [];
+let italiaData = [];
+let soggettiData = [];
+
+// ============================================================
+// CARICAMENTO ANAGRAFICHE
+// ============================================================
+async function caricaMagazzini() {
+  try {
+    magazzini = await apiFetch('/anagrafiche/magazzini');
+    const selects = ['austriaMagazzino', 'italiaMagazzino'];
+    selects.forEach(id => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = '<option value="">Tutti</option>';
+      magazzini.forEach(m => sel.appendChild(new Option(m.nome, m.id)));
+    });
+  } catch(e) { console.error('Errore magazzini:', e); }
+}
+
+async function caricaSoggettiVisibili() {
+  try {
+    const data = await apiFetch('/soggetti/visibili');
+    soggetti = data || [];
+    const sel = document.getElementById('soggettoSelect');
+    sel.innerHTML = '<option value="">Seleziona...</option>';
+    soggetti.forEach(s => {
+      let nome;
+      if (s.tipo === 'PROMOTER') {
+        nome = ((s.nome || '') + ' ' + (s.cognome || '')).trim() || s.tipo + ' ' + s.id;
+      } else {
+        nome = s.nome || s.tipo + ' ' + s.id;
+      }
+      sel.appendChild(new Option(nome + ' (' + s.tipo + ')', s.id));
+    });
+    if (currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
+      sel.value = currentUser.riferimento_id;
+      sel.disabled = true;
+    } else {
+      sel.disabled = false;
+    }
+  } catch(e) { console.error('Errore soggetti:', e); }
+}
+
+// ============================================================
+// TAB SWITCH
+// ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab === 'austria' && !austriaData.length) caricaAustria();
+  if (tab === 'italia' && !italiaData.length) caricaItalia();
+  if (tab === 'soggetti' && document.getElementById('soggettoSelect').value) caricaSoggetti();
+}
+
+// ============================================================
+// REPORT AUSTRIA
+// ============================================================
+async function caricaAustria() {
+  const magazzino = document.getElementById('austriaMagazzino').value;
+  const tbody = document.getElementById('austriaBody');
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center">⏳ Caricamento...</td></tr>';
+  try {
+    const params = new URLSearchParams();
+    if (magazzino) params.append('magazzino', magazzino);
+    const r = await apiFetch('/report/austria?' + params.toString());
+    if (r.success) {
+      austriaData = r.data;
+      renderAustria(austriaData);
+    } else showMessage(r.message, 'error');
+  } catch(e) {
+    showMessage(e.message, 'error');
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">❌ Errore nel caricamento</td></tr>';
+  }
+}
+
+function renderAustria(data) {
+  const tbody = document.getElementById('austriaBody');
+  tbody.innerHTML = '';
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">📭 Nessun dato</td></tr>';
+    return;
+  }
+  data.forEach((r, i) => {
+    const row = tbody.insertRow();
+    row.insertCell(0).innerText = i + 1;
+    row.insertCell(1).innerText = r.codice || '-';
+    row.insertCell(2).innerText = r.codice_modello || '-';
+    row.insertCell(3).innerText = r.descrizione || '-';
+    row.insertCell(4).innerText = r.lunghezza || '-';
+    row.insertCell(5).innerText = r.nota || '';
+    row.insertCell(6).innerText = r.quantita_totale || 0;
+    row.insertCell(7).innerText = r.magazzino_nome || '-';
+  });
+}
+
+// ============================================================
+// REPORT ITALIA (con giacenza)
+// ============================================================
+async function caricaItalia() {
+  const magazzino = document.getElementById('italiaMagazzino').value;
+  const tipo = document.getElementById('italiaTipo').value;
+  const tbody = document.getElementById('italiaBody');
+  tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>';
+  try {
+    const params = new URLSearchParams();
+    if (magazzino) params.append('magazzino', magazzino);
+    if (tipo) params.append('tipo', tipo);
+    const r = await apiFetch('/report/italia?' + params.toString());
+    if (r.success) {
+      italiaData = r.data;
+      renderItalia(italiaData);
+    } else showMessage(r.message, 'error');
+  } catch(e) {
+    showMessage(e.message, 'error');
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center">❌ Errore nel caricamento</td></tr>';
+  }
+}
+
+function renderItalia(data) {
+  const tbody = document.getElementById('italiaBody');
+  tbody.innerHTML = '';
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center">📭 Nessun dato</td></tr>';
+    return;
+  }
+  data.forEach((r, i) => {
+    const row = tbody.insertRow();
+    const tipo = r.tipo_oggetto || 'ARTICOLO';
+    const badge = tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    const stato = r.stato || 'In magazzino';
+    const statoBadge = stato === 'In magazzino' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
+    
+    row.insertCell(0).innerText = i + 1;
+    row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
+    row.insertCell(2).innerText = r.codice || '-';
+    row.insertCell(3).innerText = r.descrizione || '-';
+    row.insertCell(4).innerText = r.lunghezza || '-';
+    if (tipo === 'KIT') {
+      row.insertCell(5).innerText = r.sigla_sci || 'NA';
+    } else {
+      row.insertCell(5).innerText = '';
+    }
+    row.insertCell(6).innerText = r.nota || '';
+    row.insertCell(7).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    row.insertCell(8).innerText = r.destinatario || '-';
+    row.insertCell(9).innerText = r.quantita || 0;
+    row.insertCell(10).innerText = r.giacenza || 0;
+    row.insertCell(11).innerText = r.magazzino_nome || '-';
+  });
+}
+
+// ============================================================
+// REPORT SOGGETTI
+// ============================================================
+async function caricaSoggetti() {
+  const soggettoId = document.getElementById('soggettoSelect').value;
+  if (!soggettoId) {
+    showMessage('Seleziona un soggetto', 'info');
+    return;
+  }
+  const mode = document.querySelector('input[name="soggettoMode"]:checked');
+  const modeVal = mode ? mode.value : 'incarico';
+  const tbody = document.getElementById('soggettiBody');
+  tbody.innerHTML = '<tr><td colspan="11" class="text-center">⏳ Caricamento...</td></tr>';
+
+  try {
+    const soggetto = soggetti.find(s => s.id == soggettoId);
+    const tipo = soggetto ? soggetto.tipo : 'PROMOTER';
+    let risultati = [];
+
+    if (modeVal === 'incarico' || modeVal === 'entrambi') {
+      const body = { targetTipo: tipo, targetId: parseInt(soggettoId) };
+      const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) });
+      if (r.success) {
+        (r.oggetti || []).forEach(o => {
+          risultati.push({
+            tipo: o.tipo || 'ARTICOLO',
+            codice_sigla: o.codice || '',
+            descrizione: o.descrizione || '',
+            lunghezza: o.LUNGHEZZA || '',
+            sigla: o.SIGLA_CORRENTE || 'NA',
+            quantita: o.quantita || 0,
+            stato: 'In carico',
+            destinatario: o.destinatarioNome || 'Magazzino',
+            data: o.dataAssegnazione || null,
+            nota: ''
+          });
+        });
+      }
+    }
+
+    if (modeVal === 'inviati' || modeVal === 'entrambi') {
+      const r = await apiFetch('/assegnazioni/inviati?provenienza_tipo=' + tipo + '&provenienza_id=' + soggettoId);
+      if (Array.isArray(r)) {
+        r.forEach(o => {
+          risultati.push({
+            tipo: o.tipo_oggetto || 'ARTICOLO',
+            codice_sigla: o.codice || '',
+            descrizione: o.descrizione || '',
+            lunghezza: o.lunghezza || '',
+            sigla: o.sigla || 'NA',
+            quantita: o.quantita || 0,
+            stato: 'Assegnato',
+            destinatario: o.destinatarioNome || 'Magazzino',
+            data: o.data_assegnazione || null,
+            nota: ''
+          });
+        });
+      }
+    }
+
+    soggettiData = risultati;
+    renderSoggetti(soggettiData);
+  } catch(e) {
+    showMessage(e.message, 'error');
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center">❌ Errore nel caricamento</td></tr>';
+  }
+}
+
+function renderSoggetti(data) {
+  const tbody = document.getElementById('soggettiBody');
+  tbody.innerHTML = '';
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun oggetto</td></tr>';
+    return;
+  }
+  data.forEach((r, i) => {
+    const row = tbody.insertRow();
+    const badge = r.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    const stato = r.stato || 'In carico';
+    const statoBadge = stato === 'In carico' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
+    
+    row.insertCell(0).innerText = i + 1;
+    row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + r.tipo + '</span>';
+    row.insertCell(2).innerText = r.codice_sigla || '-';
+    row.insertCell(3).innerText = r.descrizione || '-';
+    row.insertCell(4).innerText = r.lunghezza || '-';
+    row.insertCell(5).innerText = r.sigla || 'NA';
+    row.insertCell(6).innerText = r.nota || '';
+    row.insertCell(7).innerText = r.quantita || 0;
+    row.insertCell(8).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    row.insertCell(9).innerText = r.destinatario || '-';
+    row.insertCell(10).innerText = r.data ? formatDate(r.data) : '-';
+  });
+}
+
+// ============================================================
+// GENERAZIONE PDF
+// ============================================================
+async function generaPDF(tab, anteprima = false) {
+  let data, columns, title, filename;
+
+  if (tab === 'austria') {
+    data = austriaData;
+    columns = [
+      { header: '#', dataKey: 'index' },
+      { header: 'Codice', dataKey: 'codice' },
+      { header: 'Codice Modello', dataKey: 'codice_modello' },
+      { header: 'Descrizione', dataKey: 'descrizione' },
+      { header: 'Lunghezza', dataKey: 'lunghezza' },
+      { header: 'Nota', dataKey: 'nota' },
+      { header: 'Quantità Totale', dataKey: 'quantita_totale' },
+      { header: 'Magazzino', dataKey: 'magazzino_nome' }
+    ];
+    title = 'Report Austria - Inventario';
+    filename = 'report_austria.pdf';
+  } else if (tab === 'italia') {
+    data = italiaData;
+    columns = [
+      { header: '#', dataKey: 'index' },
+      { header: 'Tipo', dataKey: 'tipo_oggetto' },
+      { header: 'Codice', dataKey: 'codice' },
+      { header: 'Descrizione', dataKey: 'descrizione' },
+      { header: 'Lunghezza', dataKey: 'lunghezza' },
+      { header: 'Sigla (Kit)', dataKey: 'sigla_sci' },
+      { header: 'Nota', dataKey: 'nota' },
+      { header: 'Stato', dataKey: 'stato' },
+      { header: 'Destinatario', dataKey: 'destinatario' },
+      { header: 'Quantità', dataKey: 'quantita' },
+      { header: 'Giacenza', dataKey: 'giacenza' },
+      { header: 'Magazzino', dataKey: 'magazzino_nome' }
+    ];
+    title = 'Report Italia - Giacenze e Assegnazioni';
+    filename = 'report_italia.pdf';
+  } else if (tab === 'soggetti') {
+    data = soggettiData;
+    columns = [
+      { header: '#', dataKey: 'index' },
+      { header: 'Tipo', dataKey: 'tipo' },
+      { header: 'Codice/Sigla', dataKey: 'codice_sigla' },
+      { header: 'Descrizione', dataKey: 'descrizione' },
+      { header: 'Lunghezza', dataKey: 'lunghezza' },
+      { header: 'Sigla', dataKey: 'sigla' },
+      { header: 'Nota', dataKey: 'nota' },
+      { header: 'Quantità', dataKey: 'quantita' },
+      { header: 'Stato', dataKey: 'stato' },
+      { header: 'Destinatario', dataKey: 'destinatario' },
+      { header: 'Data', dataKey: 'data' }
+    ];
+    title = 'Report Soggetti - Assegnazioni';
+    filename = 'report_soggetti.pdf';
+  } else {
+    showMessage('Report non valido', 'error');
+    return;
+  }
+
+  if (!data || !data.length) {
+    showMessage('Nessun dato da esportare', 'error');
+    return;
+  }
+
+  const dataWithIndex = data.map((r, i) => {
+    const row = { ...r, index: i + 1 };
+    if (row.stato) row.stato = row.stato.replace(/[📦📤]/g, '').trim();
+    if (row.tipo_oggetto) row.tipo_oggetto = row.tipo_oggetto.replace(/[📦📤]/g, '').trim();
+    if (row.tipo) row.tipo = row.tipo.replace(/[📦📤]/g, '').trim();
+    return row;
+  });
+
+  const doc = new jspdf.jsPDF('landscape', 'pt', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  if (logoBase64) {
+    try {
+      const img = new Image();
+      img.src = logoBase64;
+      let logoWidth = 80;
+      let logoHeight = (img.height / img.width) * logoWidth;
+      if (logoHeight > 50) {
+        logoHeight = 50;
+        logoWidth = (img.width / img.height) * logoHeight;
+      }
+      const xLogo = (pageWidth - logoWidth) / 2;
+      const yLogo = 15;
+      doc.addImage(logoBase64, 'PNG', xLogo, yLogo, logoWidth, logoHeight);
+      doc.setFontSize(14);
+      doc.text(title, pageWidth / 2, yLogo + logoHeight + 12, { align: 'center' });
+    } catch (e) {
+      doc.setFontSize(14);
+      doc.text(title, pageWidth / 2, 30, { align: 'center' });
+    }
+  } else {
+    doc.setFontSize(14);
+    doc.text(title, pageWidth / 2, 30, { align: 'center' });
+  }
+
+  doc.setFontSize(10);
+  const infoY = logoBase64 ? 90 : 50;
+  doc.text('Generato il ' + new Date().toLocaleString('it-IT'), pageWidth / 2, infoY, { align: 'center' });
+  doc.text('Utente: ' + (currentUser.nome_visualizzato || currentUser.username), pageWidth / 2, infoY + 14, { align: 'center' });
+
+  let startY = infoY + 30;
+  if (logoBase64) startY = Math.max(startY, 110);
+
+  doc.autoTable({
+    columns: columns,
+    body: dataWithIndex,
+    startY: startY,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [26, 115, 232] },
+    margin: { left: 20, right: 20 },
+    didParseCell: function(data) {
+      if (data.section === 'body' && data.column.dataKey === 'tipo_oggetto' && data.cell.raw) {
+        if (data.cell.raw === 'KIT') {
+          data.cell.styles.fillColor = [255, 243, 224];
+          data.cell.styles.textColor = [230, 81, 0];
+        } else if (data.cell.raw === 'ARTICOLO') {
+          data.cell.styles.fillColor = [227, 242, 253];
+          data.cell.styles.textColor = [13, 71, 161];
+        }
+      }
+    }
+  });
+
+  if (anteprima) {
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } else {
+    doc.save(filename);
+  }
+}
+
+function esportaPDF(tab) {
+  generaPDF(tab, false);
+}
+
+function anteprimaPDF(tab) {
+  generaPDF(tab, true);
+}
+
+// ============================================================
+// ESPORTAZIONE CSV
+// ============================================================
+function esportaCSV(tab) {
+  let data, columns, filename;
+
+  if (tab === 'austria') {
+    data = austriaData;
+    columns = ['codice', 'codice_modello', 'descrizione', 'lunghezza', 'nota', 'quantita_totale', 'magazzino_nome'];
+    filename = 'report_austria.csv';
+  } else if (tab === 'italia') {
+    data = italiaData;
+    columns = ['tipo_oggetto', 'codice', 'descrizione', 'lunghezza', 'sigla_sci', 'nota', 'stato', 'destinatario', 'quantita', 'giacenza', 'magazzino_nome'];
+    filename = 'report_italia.csv';
+  } else if (tab === 'soggetti') {
+    data = soggettiData;
+    columns = ['tipo', 'codice_sigla', 'descrizione', 'lunghezza', 'sigla', 'nota', 'quantita', 'stato', 'destinatario', 'data'];
+    filename = 'report_soggetti.csv';
+  } else {
+    showMessage('Report non valido', 'error');
+    return;
+  }
+
+  if (!data || !data.length) {
+    showMessage('Nessun dato da esportare', 'error');
+    return;
+  }
+
+  const headers = {
+    codice: 'Codice',
+    codice_modello: 'Codice Modello',
+    descrizione: 'Descrizione',
+    lunghezza: 'Lunghezza',
+    nota: 'Nota',
+    quantita_totale: 'Quantità Totale',
+    magazzino_nome: 'Magazzino',
+    tipo_oggetto: 'Tipo',
+    quantita: 'Quantità',
+    giacenza: 'Giacenza',
+    stato: 'Stato',
+    destinatario: 'Destinatario',
+    sigla_sci: 'Sigla (Kit)',
+    tipo: 'Tipo',
+    codice_sigla: 'Codice/Sigla',
+    sigla: 'Sigla',
+    data: 'Data'
+  };
+
+  const cleanData = data.map(row => {
+    const newRow = { ...row };
+    if (newRow.stato) newRow.stato = newRow.stato.replace(/[📦📤]/g, '').trim();
+    if (newRow.tipo_oggetto) newRow.tipo_oggetto = newRow.tipo_oggetto.replace(/[📦📤]/g, '').trim();
+    if (newRow.tipo) newRow.tipo = newRow.tipo.replace(/[📦📤]/g, '').trim();
+    return newRow;
+  });
+
+  const headerRow = columns.map(c => headers[c] || c).join(',');
+  const rows = cleanData.map(row => {
+    return columns.map(c => {
+      let val = row[c];
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+        return '"' + val.replace(/"/g, '""') + '"';
+      }
+      return val;
+    }).join(',');
+  });
+
+  const csv = [headerRow, ...rows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.onload = async function() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    document.body.innerHTML = '<div class="container"><h2>⛔ Accesso negato</h2><a href="Login.html">Login</a></div>';
+    return;
+  }
+
+  try {
+    currentUser = JSON.parse(localStorage.getItem('user'));
+    if (!currentUser.riferimento_id && currentUser.RiferimentoID) {
+      currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
+    }
+  } catch(e) {
+    logout();
+    return;
+  }
+
+  document.getElementById('loginInfo').innerHTML =
+    '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
+
+  logoBase64 = await loadLogoAsBase64();
+
+  await caricaMagazzini();
+  await caricaSoggettiVisibili();
+
+  if (currentUser.ruolo === 'admin') {
+    caricaAustria();
+    caricaItalia();
+  } else {
+    if (currentUser.riferimento_id) {
+      caricaSoggetti();
+    }
+  }
+
+  document.getElementById('soggettoSelect').addEventListener('change', function() {
+    if (this.value) caricaSoggetti();
+    else {
+      document.getElementById('soggettiBody').innerHTML =
+        '<tr><td colspan="11" class="text-center">Seleziona un soggetto e carica</td></tr>';
+      soggettiData = [];
+    }
+  });
+
+  document.querySelectorAll('input[name="soggettoMode"]').forEach(el => {
+    el.addEventListener('change', function() {
+      if (document.getElementById('soggettoSelect').value) caricaSoggetti();
+    });
+  });
+
+  document.getElementById('italiaTipo').addEventListener('change', caricaItalia);
+  document.getElementById('italiaMagazzino').addEventListener('change', caricaItalia);
+  document.getElementById('austriaMagazzino').addEventListener('change', caricaAustria);
+};
+</script>
+</body>
+</html>

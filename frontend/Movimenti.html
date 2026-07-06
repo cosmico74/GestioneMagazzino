@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📜 Storico Movimenti</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 20px; }
+    .compact-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      border-radius: 0 0 12px 12px;
+      padding: 4px 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      margin-bottom: 15px;
+    }
+    .logo { display: flex; justify-content: center; flex: 1; }
+    .logo img { height: 120px; width: auto; display: block; }
+    .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px; }
+    h2 { border-left: 5px solid #1a73e8; padding-left: 15px; color: #1e2a3a; margin: 15px 0; }
+    .btn { background: #1a73e8; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    .btn:hover { background: #0f5bb5; transform: translateY(-1px); }
+    .btn-secondary { background: #6c757d; }
+    .btn-success { background: #27ae60; }
+    .btn-warning { background: #f39c12; color: white; }
+    .filter-bar {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 10px 15px;
+      margin-bottom: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+      border: 1px solid #e2e8f0;
+    }
+    .filter-group { flex: 1; min-width: 140px; position: relative; }
+    .filter-group label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      color: #2c3e50;
+      margin-bottom: 2px;
+    }
+    .filter-group input, .filter-group select {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      background: white;
+    }
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #ccc;
+      border-top: none;
+      max-height: 150px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .autocomplete-list li {
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+    .autocomplete-list li:hover {
+      background: #e8f0fe;
+    }
+    .btn-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .table-wrapper {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.7rem; white-space: nowrap; }
+    th, td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+    th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; }
+    tr:hover td { background: #f8fafc; }
+    .text-center { text-align: center; }
+    .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
+    .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
+    .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      background: #f8f9fa;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.7rem;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pagination-info { display: flex; align-items: center; gap: 8px; }
+    .pagination-bar input, .pagination-bar select { width: auto; padding: 2px 6px; border: 1px solid #cbd5e0; border-radius: 4px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; }
+    .badge-uscita { background: #ffebee; color: #c62828; }
+    .badge-rientro { background: #e8f5e9; color: #2e7d32; }
+    .badge-trasferimento { background: #fff3e0; color: #e65100; }
+    .badge-vendita { background: #e3f2fd; color: #0d47a1; }
+    @media (max-width: 768px) { .filter-bar { flex-direction: column; align-items: stretch; } }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- COMPACT BAR -->
+  <div class="compact-bar">
+    <div style="flex: 1;"></div>
+    <div class="logo">
+      <img src="/images/kastle-logo.png" alt="Kastle">
+    </div>
+    <div style="display: flex; gap: 6px; align-items: center; flex: 1; justify-content: flex-end;">
+      <span id="loginInfo" class="login-info"></span>
+      <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
+      <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+
+  <h2>📜 Storico Movimenti</h2>
+  <div id="messageArea"></div>
+
+  <!-- FILTRI con autocomplete -->
+  <div class="filter-bar" id="filterBar">
+    <div class="filter-group" style="max-width:150px;">
+      <label>Data da</label>
+      <input type="date" id="filtroDataDa">
+    </div>
+    <div class="filter-group" style="max-width:150px;">
+      <label>Data a</label>
+      <input type="date" id="filtroDataA">
+    </div>
+    <div class="filter-group" style="max-width:160px;">
+      <label>Tipo</label>
+      <select id="filtroTipo">
+        <option value="">Tutti</option>
+        <option value="USCITA">Uscita</option>
+        <option value="RIENTRO">Rientro</option>
+        <option value="TRASFERIMENTO">Trasferimento</option>
+        <option value="VENDITA">Vendita</option>
+      </select>
+    </div>
+    <div class="filter-group" style="max-width:160px;">
+      <label>Operatore</label>
+      <div class="autocomplete-wrapper">
+        <input type="text" id="filtroOperatore" placeholder="Username...">
+        <ul class="autocomplete-list" id="listaOperatore"></ul>
+      </div>
+    </div>
+    <div class="filter-group" style="max-width:180px;">
+      <label>Soggetto</label>
+      <div class="autocomplete-wrapper">
+        <input type="text" id="filtroSoggetto" placeholder="Mittente/Destinatario...">
+        <ul class="autocomplete-list" id="listaSoggetto"></ul>
+      </div>
+    </div>
+    <div class="filter-group" style="max-width:180px;">
+      <label>Descrizione</label>
+      <div class="autocomplete-wrapper">
+        <input type="text" id="filtroDescrizione" placeholder="Parola chiave...">
+        <ul class="autocomplete-list" id="listaDescrizione"></ul>
+      </div>
+    </div>
+    <div class="filter-group" style="max-width:150px;">
+      <label>Sigla</label>
+      <div class="autocomplete-wrapper">
+        <input type="text" id="filtroSigla" placeholder="Sigla...">
+        <ul class="autocomplete-list" id="listaSigla"></ul>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn" onclick="caricaMovimenti()">🔍 Cerca</button>
+      <button class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
+      <button class="btn btn-warning" onclick="anteprimaPDF()">👁️ PDF</button>
+      <button class="btn btn-secondary" onclick="esportaPDF()">📄 PDF</button>
+      <button class="btn btn-success" onclick="esportaCSV()">📊 CSV</button>
+    </div>
+  </div>
+
+  <!-- TABELLA -->
+  <div class="table-wrapper">
+    <table id="tabellaMovimenti">
+      <thead>
+        <tr>
+          <th data-sort="data">Data</th>
+          <th data-sort="tipo">Tipo</th>
+          <th data-sort="operatore">Operatore</th>
+          <th data-sort="tipo_oggetto">Oggetto</th>
+          <th data-sort="descrizione_oggetto">Descrizione</th>
+          <th data-sort="misura">Misura</th>
+          <th data-sort="sigla_oggetto">Sigla</th>
+          <th data-sort="quantita">Qtà</th>
+          <th data-sort="mittente_nome">Mittente</th>
+          <th data-sort="destinatario_nome">Destinatario</th>
+          <th data-sort="note">Note</th>
+        </tr>
+      </thead>
+      <tbody id="tabellaBody"><tr><td colspan="11" class="text-center">Caricamento...</td></tr></tbody>
+    </table>
+    <!-- PAGINAZIONE -->
+    <div class="pagination-bar">
+      <div class="pagination-info">
+        <span>Righe per pagina:</span>
+        <select id="rowsPerPage" onchange="cambiaRighePerPagina()">
+          <option value="10">10</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+      <div class="pagination-info">
+        <span id="paginationStats">Mostrando 0-0 di 0</span>
+        <button class="btn btn-secondary" id="btnPrevPage" onclick="paginaPrecedente()">◀</button>
+        <span id="paginationCurrentPage">1</span>
+        <button class="btn btn-secondary" id="btnNextPage" onclick="paginaSuccessiva()">▶</button>
+        <input type="number" id="gotoPageInput" min="1" style="width:50px;" onchange="vaiAPagina(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar" style="margin-top:10px; display:flex; justify-content:flex-end;">
+    <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// UTILITY
+// ============================================================
+function getAuthHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
+function showMessage(msg, type) {
+  const d = document.getElementById('messageArea');
+  d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
+  setTimeout(() => d.innerHTML = '', 5000);
+}
+
+async function apiFetch(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
+  const r = await fetch('/api' + endpoint, { ...options, headers });
+  if (r.status === 401 || r.status === 403) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = 'Login.html';
+    throw new Error('Sessione scaduta');
+  }
+  if (!r.ok) {
+    let msg = 'Errore ' + r.status;
+    try { const data = await r.json(); msg = data.message || msg; } catch(e) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = 'Login.html';
+}
+
+function formatDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '-';
+  return String(dt.getDate()).padStart(2,'0') + '-' +
+         String(dt.getMonth()+1).padStart(2,'0') + '-' +
+         dt.getFullYear() + ' ' +
+         String(dt.getHours()).padStart(2,'0') + ':' +
+         String(dt.getMinutes()).padStart(2,'0');
+}
+
+// ============================================================
+// VARIABILI GLOBALI
+// ============================================================
+let currentUser = null;
+let movimentiData = [];
+let movimentiFiltrati = [];
+let sortColumn = 'data', sortAsc = false;
+let paginaCorrente = 1, righePerPagina = 25;
+
+// ============================================================
+// AUTCOMPLETE
+// ============================================================
+function initAutocomplete(inputId, listId, valori) {
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  if (!input || !list) return;
+
+  function filtra() {
+    const txt = input.value.toLowerCase();
+    const filtered = valori.filter(v => v.toLowerCase().includes(txt));
+    list.innerHTML = '';
+    if (filtered.length === 0) {
+      list.style.display = 'none';
+      return;
+    }
+    filtered.forEach(v => {
+      const li = document.createElement('li');
+      li.textContent = v;
+      li.addEventListener('click', function() {
+        input.value = v;
+        list.style.display = 'none';
+        input.dispatchEvent(new Event('change'));
+      });
+      list.appendChild(li);
+    });
+    list.style.display = 'block';
+  }
+
+  input.addEventListener('input', filtra);
+  input.addEventListener('focus', function() {
+    if (this.value === '') filtra();
+  });
+  input.addEventListener('blur', function() {
+    setTimeout(() => { list.style.display = 'none'; }, 200);
+  });
+  document.addEventListener('click', function(e) {
+    if (!input.closest('.filter-group')?.contains(e.target)) {
+      list.style.display = 'none';
+    }
+  });
+}
+
+// ============================================================
+// CARICAMENTO VALORI FILTRI E AUTCOMPLETE
+// ============================================================
+async function caricaValoriFiltri() {
+  const campi = ['operatore', 'soggetto', 'descrizione', 'sigla'];
+  const mapping = {
+    operatore: { inputId: 'filtroOperatore', listId: 'listaOperatore' },
+    soggetto: { inputId: 'filtroSoggetto', listId: 'listaSoggetto' },
+    descrizione: { inputId: 'filtroDescrizione', listId: 'listaDescrizione' },
+    sigla: { inputId: 'filtroSigla', listId: 'listaSigla' }
+  };
+
+  for (const campo of campi) {
+    try {
+      const r = await apiFetch('/movimenti/valori?campo=' + campo);
+      if (r.success) {
+        const valori = r.data || [];
+        const { inputId, listId } = mapping[campo];
+        initAutocomplete(inputId, listId, valori);
+      }
+    } catch(e) {
+      console.warn('Errore caricamento valori per ' + campo, e);
+    }
+  }
+}
+
+// ============================================================
+// CARICAMENTO MOVIMENTI
+// ============================================================
+async function caricaMovimenti() {
+  const params = new URLSearchParams();
+  const dataDa = document.getElementById('filtroDataDa').value;
+  const dataA = document.getElementById('filtroDataA').value;
+  const tipo = document.getElementById('filtroTipo').value;
+  const operatore = document.getElementById('filtroOperatore').value.trim();
+  const soggetto = document.getElementById('filtroSoggetto').value.trim();
+  const descrizione = document.getElementById('filtroDescrizione').value.trim();
+  const sigla = document.getElementById('filtroSigla').value.trim();
+
+  if (dataDa) params.append('data_da', dataDa);
+  if (dataA) params.append('data_a', dataA);
+  if (tipo) params.append('tipo', tipo);
+  if (operatore) params.append('operatore', operatore);
+  if (soggetto) params.append('soggetto', soggetto);
+  if (descrizione) params.append('descrizione', descrizione);
+  if (sigla) params.append('sigla', sigla);
+
+  const tbody = document.getElementById('tabellaBody');
+  tbody.innerHTML = '<tr><td colspan="11" class="text-center">⏳ Caricamento...</td></tr>';
+
+  try {
+    const r = await apiFetch('/movimenti?' + params.toString());
+    if (r.success) {
+      movimentiData = r.data;
+      movimentiFiltrati = [...movimentiData];
+      paginaCorrente = 1;
+      ordinaMovimenti();
+      renderTabella();
+    } else {
+      showMessage(r.message, 'error');
+    }
+  } catch(e) {
+    showMessage(e.message, 'error');
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center">❌ Errore nel caricamento</td></tr>';
+  }
+}
+
+function resetFiltri() {
+  document.getElementById('filtroDataDa').value = '';
+  document.getElementById('filtroDataA').value = '';
+  document.getElementById('filtroTipo').value = '';
+  document.getElementById('filtroOperatore').value = '';
+  document.getElementById('filtroSoggetto').value = '';
+  document.getElementById('filtroDescrizione').value = '';
+  document.getElementById('filtroSigla').value = '';
+  // Nascondi le liste autocomplete
+  document.querySelectorAll('.autocomplete-list').forEach(l => l.style.display = 'none');
+  caricaMovimenti();
+}
+
+// ============================================================
+// ORDINAMENTO E PAGINAZIONE
+// ============================================================
+function ordinaMovimenti() {
+  movimentiFiltrati.sort((a, b) => {
+    let va = a[sortColumn] || '';
+    let vb = b[sortColumn] || '';
+    if (sortColumn === 'data') {
+      va = new Date(va).getTime() || 0;
+      vb = new Date(vb).getTime() || 0;
+    } else if (sortColumn === 'quantita') {
+      va = parseFloat(va) || 0;
+      vb = parseFloat(vb) || 0;
+    } else {
+      va = va.toString().toLowerCase();
+      vb = vb.toString().toLowerCase();
+    }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+}
+
+function handleSort(col) {
+  if (sortColumn === col) sortAsc = !sortAsc;
+  else { sortColumn = col; sortAsc = true; }
+  ordinaMovimenti();
+  paginaCorrente = 1;
+  renderTabella();
+  aggiornaIntestazioni();
+}
+
+function aggiornaIntestazioni() {
+  document.querySelectorAll('#tabellaMovimenti th[data-sort]').forEach(th => {
+    const col = th.getAttribute('data-sort');
+    if (col === sortColumn) {
+      th.innerText = th.innerText.replace(/[↑↓]/g, '') + (sortAsc ? ' ↑' : ' ↓');
+    } else {
+      th.innerText = th.innerText.replace(/[↑↓]/g, '');
+    }
+  });
+}
+
+function renderTabella() {
+  const tbody = document.getElementById('tabellaBody');
+  tbody.innerHTML = '';
+  const totali = movimentiFiltrati.length;
+  if (totali === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun movimento trovato</td></tr>';
+    updatePagination(0, 0, 0);
+    return;
+  }
+  const totPag = Math.ceil(totali / righePerPagina);
+  if (paginaCorrente > totPag) paginaCorrente = totPag;
+  if (paginaCorrente < 1) paginaCorrente = 1;
+  const start = (paginaCorrente - 1) * righePerPagina;
+  const end = Math.min(start + righePerPagina, totali);
+  const pagina = movimentiFiltrati.slice(start, end);
+  updatePagination(totali, start, end);
+
+  pagina.forEach(r => {
+    const row = tbody.insertRow();
+    const tipoBadge = {
+      'USCITA': 'badge-uscita',
+      'RIENTRO': 'badge-rientro',
+      'TRASFERIMENTO': 'badge-trasferimento',
+      'VENDITA': 'badge-vendita'
+    }[r.tipo] || '';
+    row.insertCell(0).innerText = formatDate(r.data);
+    row.insertCell(1).innerHTML = `<span class="badge ${tipoBadge}">${r.tipo}</span>`;
+    row.insertCell(2).innerText = r.operatore || '-';
+    row.insertCell(3).innerText = r.tipo_oggetto || '-';
+    row.insertCell(4).innerText = r.descrizione_oggetto || '-';
+    row.insertCell(5).innerText = r.misura || '';
+    row.insertCell(6).innerText = r.sigla_oggetto || 'NA';
+    row.insertCell(7).innerText = r.quantita || 0;
+    row.insertCell(8).innerText = r.mittente_nome || '-';
+    row.insertCell(9).innerText = r.destinatario_nome || '-';
+    row.insertCell(10).innerText = r.note || '';
+  });
+  aggiornaIntestazioni();
+}
+
+function updatePagination(totali, start, end) {
+  const stats = document.getElementById('paginationStats');
+  if (totali > 0) stats.innerText = 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali;
+  else stats.innerText = 'Mostrando 0-0 di 0';
+  document.getElementById('paginationCurrentPage').innerText = paginaCorrente;
+  const totPag = Math.ceil(totali / righePerPagina);
+  document.getElementById('btnPrevPage').disabled = (paginaCorrente <= 1);
+  document.getElementById('btnNextPage').disabled = (paginaCorrente >= totPag);
+  document.getElementById('gotoPageInput').max = totPag || 1;
+}
+
+function cambiaRighePerPagina() {
+  righePerPagina = parseInt(document.getElementById('rowsPerPage').value);
+  paginaCorrente = 1;
+  renderTabella();
+}
+function paginaPrecedente() { if (paginaCorrente > 1) { paginaCorrente--; renderTabella(); } }
+function paginaSuccessiva() { const max = Math.ceil(movimentiFiltrati.length / righePerPagina); if (paginaCorrente < max) { paginaCorrente++; renderTabella(); } }
+function vaiAPagina(v) { const p = parseInt(v); if (p && p > 0) { const max = Math.ceil(movimentiFiltrati.length / righePerPagina); if (p <= max) { paginaCorrente = p; renderTabella(); } } }
+
+// ============================================================
+// ESPORTAZIONI PDF E CSV
+// ============================================================
+function generaPDF(anteprima = false) {
+  const data = movimentiFiltrati;
+  if (!data || !data.length) {
+    showMessage('Nessun dato da esportare', 'error');
+    return;
+  }
+  const columns = [
+    { header: 'Data', dataKey: 'data' },
+    { header: 'Tipo', dataKey: 'tipo' },
+    { header: 'Operatore', dataKey: 'operatore' },
+    { header: 'Oggetto', dataKey: 'tipo_oggetto' },
+    { header: 'Descrizione', dataKey: 'descrizione_oggetto' },
+    { header: 'Misura', dataKey: 'misura' },
+    { header: 'Sigla', dataKey: 'sigla_oggetto' },
+    { header: 'Qtà', dataKey: 'quantita' },
+    { header: 'Mittente', dataKey: 'mittente_nome' },
+    { header: 'Destinatario', dataKey: 'destinatario_nome' },
+    { header: 'Note', dataKey: 'note' }
+  ];
+
+  const doc = new jspdf.jsPDF('landscape', 'pt', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  doc.setFontSize(14);
+  doc.text('Storico Movimenti', pageWidth / 2, 30, { align: 'center' });
+  doc.setFontSize(10);
+  doc.text('Generato il ' + new Date().toLocaleString('it-IT'), pageWidth / 2, 46, { align: 'center' });
+
+  const rows = data.map(r => ({
+    data: formatDate(r.data),
+    tipo: r.tipo || '',
+    operatore: r.operatore || '',
+    tipo_oggetto: r.tipo_oggetto || '',
+    descrizione_oggetto: r.descrizione_oggetto || '',
+    misura: r.misura || '',
+    sigla_oggetto: r.sigla_oggetto || '',
+    quantita: r.quantita || 0,
+    mittente_nome: r.mittente_nome || '',
+    destinatario_nome: r.destinatario_nome || '',
+    note: r.note || ''
+  }));
+
+  doc.autoTable({
+    columns: columns,
+    body: rows,
+    startY: 60,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [26, 115, 232] },
+    margin: { left: 20, right: 20 }
+  });
+
+  if (anteprima) {
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } else {
+    doc.save('storico_movimenti.pdf');
+  }
+}
+
+function anteprimaPDF() { generaPDF(true); }
+function esportaPDF() { generaPDF(false); }
+
+function esportaCSV() {
+  const data = movimentiFiltrati;
+  if (!data || !data.length) {
+    showMessage('Nessun dato da esportare', 'error');
+    return;
+  }
+  const headers = ['Data', 'Tipo', 'Operatore', 'Oggetto', 'Descrizione', 'Misura', 'Sigla', 'Quantità', 'Mittente', 'Destinatario', 'Note'];
+  const rows = data.map(r => [
+    formatDate(r.data),
+    r.tipo || '',
+    r.operatore || '',
+    r.tipo_oggetto || '',
+    r.descrizione_oggetto || '',
+    r.misura || '',
+    r.sigla_oggetto || '',
+    r.quantita || 0,
+    r.mittente_nome || '',
+    r.destinatario_nome || '',
+    r.note || ''
+  ]);
+  const csv = [headers.join(','), ...rows.map(row => row.map(cell => typeof cell === 'string' && (cell.includes(',') || cell.includes('"')) ? '"' + cell.replace(/"/g, '""') + '"' : cell).join(','))].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'storico_movimenti.csv';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+// ============================================================
+// ATTACH SORT LISTENERS
+// ============================================================
+function attachSortListeners() {
+  document.querySelectorAll('#tabellaMovimenti th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => handleSort(th.getAttribute('data-sort')));
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.onload = async function() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    document.body.innerHTML = '<div class="container"><h2>⛔ Accesso negato</h2><a href="Login.html">Login</a></div>';
+    return;
+  }
+  try {
+    currentUser = JSON.parse(localStorage.getItem('user'));
+    if (!currentUser.riferimento_id && currentUser.RiferimentoID) {
+      currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
+    }
+  } catch(e) { logout(); return; }
+
+  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
+  attachSortListeners();
+
+  // Carica valori per autocomplete e poi i movimenti
+  await caricaValoriFiltri();
+  await caricaMovimenti();
+};
+</script>
+</body>
+</html>

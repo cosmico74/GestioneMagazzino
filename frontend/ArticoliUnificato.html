@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📦 Gestione Articoli</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .compact-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      border-radius: 0 0 12px 12px;
+      padding: 4px 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .btn-secondary { background: #6c757d; border: none; padding: 2px 8px; font-size: 0.7rem; border-radius: 4px; cursor: pointer; color: white; }
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+      padding: 2px 20px 20px 20px;
+      height: calc(100vh - 50px);
+      overflow: hidden;
+    }
+    h2 { margin: 5px 0 8px 0; font-size: 1.3rem; border-left: 5px solid #1a73e8; padding-left: 12px; color: #1e2a3a; display: inline-block; }
+    .form-row-5col, .form-row-3col, .form-row-4col-slim, .form-row-2col { display: grid; gap: 8px; margin-bottom: 6px; }
+    .form-row-5col { grid-template-columns: repeat(5, 1fr); }
+    .form-row-3col { grid-template-columns: 2fr 1fr 1fr; }
+    .form-row-4col-slim { grid-template-columns: 1fr 1fr auto auto; }
+    .form-row-2col { grid-template-columns: 2fr 1fr 1fr; }
+    .form-group { margin-bottom: 0; }
+    label { font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; display: block; color: #2c3e50; }
+    input, select, textarea { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: #f9fafb; }
+    .btn { background: linear-gradient(135deg, #1a73e8, #0f5bb5); color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; transition: 0.1s; }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .btn-danger { background: linear-gradient(135deg, #dc3545, #b02a37); }
+    .btn-warning { background: #f39c12; color: white; }
+    .btn-success { background: #27ae60; }
+    .btn-secondary { background: linear-gradient(135deg, #6c757d, #565e64); }
+    .table-wrapper { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; margin-top: 10px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; }
+    table { width: 100%; min-width: 1500px; border-collapse: collapse; font-size: 0.7rem; }
+    th, td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; }
+    tr:hover td { background: #f8fafc; }
+    .action-buttons { display: flex; gap: 4px; justify-content: center; }
+    .message { padding: 6px 10px; margin-bottom: 8px; border-radius: 8px; font-size: 0.75rem; }
+    .success { background: #d1fae5; color: #065f46; border-left: 4px solid #10b981; }
+    .error { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
+    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #e2e8f0; border-top-color: #1a73e8; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 20px; width: 90%; max-width: 700px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .sigle-table { width: 100%; margin-top: 10px; border-collapse: collapse; }
+    .sigle-table th, .sigle-table td { padding: 5px; border: 1px solid #ddd; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .logo { display: flex; justify-content: center; flex: 1; }
+    .logo img { height: 120px; width: auto; display: block; }
+    .required-error { border: 1px solid #ef4444 !important; background-color: #fee2e2 !important; }
+    #modalSigle .modal-content { max-width: 1200px; width: 95%; }
+    .sigle-table { overflow-x: auto; display: block; }
+    .sigle-table th, .sigle-table td { white-space: nowrap; padding: 8px 12px; }
+    .sigle-table input[type="number"] { width: 80px; }
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      background: #f8f9fa;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.75rem;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pagination-bar select, .pagination-bar input { width: auto; padding: 2px 6px; border: 1px solid #cbd5e0; border-radius: 4px; }
+    .pagination-bar .btn { padding: 2px 8px; font-size: 0.7rem; }
+    .pagination-info { display: flex; align-items: center; gap: 8px; }
+    .text-center { text-align: center; }
+    .checkbox-inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+    .checkbox-inline input { width: auto; margin: 0; }
+    .checkbox-inline label { margin: 0; font-weight: normal; font-size: 0.7rem; }
+  </style>
+</head>
+<body>
+
+<div class="compact-bar">
+  <div style="flex:1;"></div>
+  <div class="logo">
+    <img src="/images/kastle-logo.png" alt="Kastle">
+  </div>
+  <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
+    <button class="btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
+    <button class="btn-secondary" onclick="logout()">🚪 Logout</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="header-bar"><h2>📦 Gestione Articoli</h2></div>
+  <div id="messageArea"></div>
+
+  <form id="articleForm" onsubmit="return false;">
+    <div class="form-row-5col">
+      <div class="form-group"><label>Magazzino *</label><select id="magazzino" required></select></div>
+      <div class="form-group"><label>Settore *</label><select id="settore" required></select></div>
+      <div class="form-group"><label>Categoria *</label><select id="categoria" required></select></div>
+      <div class="form-group"><label>Marca *</label><select id="marca" required></select></div>
+      <div class="form-group"><label>Sigla</label><select id="siglaSelect"><option value="">Nessuna</option></select><button type="button" class="btn btn-sm btn-secondary" onclick="apriModalNuovaSigla()" style="margin-top:2px;">➕ Nuova</button></div>
+    </div>
+    <div class="form-row-3col">
+      <div class="form-group"><label>Descrizione *</label><input type="text" id="descrizione" list="descrizioneList" required autocomplete="off"><datalist id="descrizioneList"></datalist></div>
+      <div class="form-group"><label>Codice Modello</label><input type="text" id="codice_modello" list="codice_modelloList" autocomplete="off"><datalist id="codice_modelloList"></datalist></div>
+      <div class="form-group"><label>Lunghezza (cm)</label><input type="text" id="lunghezza" list="lunghezzaList" autocomplete="off"><datalist id="lunghezzaList"></datalist></div>
+    </div>
+    <div class="form-row-4col-slim">
+      <div class="form-group"><label>Durezza</label><input type="text" id="durezza" list="durezzaList" autocomplete="off"><datalist id="durezzaList"></datalist></div>
+      <div class="form-group"><label>Quantità *</label><input type="number" id="quantita" value="1" min="1" step="1" required></div>
+      <div class="form-group"><label>Versione</label><input type="text" id="versione" value="1.0"></div>
+      <div class="form-group"><label>Note</label><textarea id="note" rows="1"></textarea></div>
+    </div>
+    <div class="form-row-2col">
+      <div class="form-group">
+        <div class="checkbox-inline">
+          <input type="checkbox" id="inventarioAustria" checked>
+          <label for="inventarioAustria">🇦🇹 Inventario Austria</label>
+        </div>
+      </div>
+      <div class="form-group" style="display:flex; gap:6px; align-items:flex-end;">
+        <button type="button" class="btn" id="saveBtn" onclick="salvaArticolo()">💾 Salva</button>
+        <button type="button" class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="table-wrapper">
+    <table id="tabellaArticoli">
+      <thead>
+        <th data-sort="codice_modello">Codice <span class="sort-arrow"></span></th>
+        <th data-sort="id">ID</th>
+        <th data-sort="descrizione">Descrizione</th>
+        <th data-sort="descrizione_completa">Descrizione Completa</th>
+        <th data-sort="magazzino_nome">Magazzino</th>
+        <th data-sort="categoria_nome">Categoria</th>
+        <th data-sort="marca_nome">Marca</th>
+        <th data-sort="lunghezza">Lunghezza</th>
+        <th data-sort="durezza">Durezza</th>
+        <th data-sort="quantita_totale">Qtà Tot</th>
+        <th data-sort="giacenza">Giacenza</th>
+        <th data-sort="quantita_obsoleta">Qtà Obs</th>
+        <th data-sort="stato">Stato</th>
+        <th data-sort="inventario_austria">🇦🇹 Austria</th>
+        <th>Sigle</th>
+        <th>Azioni</th>
+      </thead>
+      <tbody id="tabellaBody"></tbody>
+    </table>
+    <!-- PAGINAZIONE -->
+    <div class="pagination-bar" id="paginationBar">
+      <div class="pagination-info">
+        <span>Righe per pagina:</span>
+        <select id="rowsPerPage" onchange="cambiaRighePerPagina()">
+          <option value="10">10</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+      <div class="pagination-info">
+        <span id="paginationStats">Mostrando 0-0 di 0</span>
+        <button class="btn btn-secondary" id="btnPrevPage" onclick="paginaPrecedente()">◀ Precedente</button>
+        <span id="paginationCurrentPage">1</span>
+        <button class="btn btn-secondary" id="btnNextPage" onclick="paginaSuccessiva()">Successiva ▶</button>
+        <span style="font-size:0.6rem;">Vai a pagina <input type="number" id="gotoPageInput" min="1" style="width:50px;" onchange="vaiAPagina(this.value)"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT -->
+<div id="modalEdit" class="modal">
+  <div class="modal-content">
+    <h3>✏️ Modifica Articolo</h3>
+    <form id="editForm" onsubmit="return false;">
+      <input type="hidden" id="editId">
+      <div class="form-row">
+        <div class="form-group"><label>Magazzino *</label><select id="editMagazzino" required></select></div>
+        <div class="form-group"><label>Settore *</label><select id="editSettore" required></select></div>
+        <div class="form-group"><label>Categoria *</label><select id="editCategoria" required></select></div>
+        <div class="form-group"><label>Marca *</label><select id="editMarca" required></select></div>
+      </div>
+      <div class="form-group"><label>Descrizione *</label><input type="text" id="editDescrizione" list="editDescrizioneList" required><datalist id="editDescrizioneList"></datalist></div>
+      <div class="form-row">
+        <div class="form-group"><label>Codice Modello</label><input type="text" id="editCodiceModello" list="editModelloList"><datalist id="editModelloList"></datalist></div>
+        <div class="form-group"><label>Lunghezza (cm)</label><input type="text" id="editLunghezza" list="editLunghezzaList"><datalist id="editLunghezzaList"></datalist></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Durezza</label><input type="text" id="editDurezza" list="editDurezzaList"><datalist id="editDurezzaList"></datalist></div>
+        <div class="form-group"><label>Quantità Totale *</label><input type="number" id="editQuantita" required min="0"></div>
+      </div>
+      <div class="form-group"><label>Note</label><textarea id="editNote" rows="2"></textarea></div>
+      <div class="form-group">
+        <div class="checkbox-inline">
+          <input type="checkbox" id="editInventarioAustria" checked>
+          <label for="editInventarioAustria">🇦🇹 Inventario Austria</label>
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" class="btn" onclick="salvaModifica()">💾 Salva</button>
+        <button type="button" class="btn btn-danger" onclick="chiudiModale()">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL SIGLE -->
+<div id="modalSigle" class="modal">
+  <div class="modal-content">
+    <h3>🔖 Gestione Sigle</h3>
+    <p><strong>Articolo:</strong> <span id="sigleArticoloDesc"></span></p>
+    <table class="sigle-table" id="sigleTableBodyContainer">
+      <thead>
+        <tr>
+          <th>Sigla</th>
+          <th>Durezza</th>
+          <th>Codice Modello</th>
+          <th>Note</th>
+          <th>Quantità</th>
+          <th>Qtà Austria</th>
+          <th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="sigleTableBody"></tbody>
+    </table>
+    <div style="margin-top:20px; border-top:1px solid #ddd; padding-top:15px;">
+      <h4 style="font-size:0.9rem;">➕ Aggiungi nuova sigla</h4>
+      <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr 1fr 0.5fr 0.5fr;">
+        <div class="form-group"><label>Sigla *</label><input type="text" id="nuovaSigla" placeholder="Sigla"></div>
+        <div class="form-group"><label>Durezza</label><input type="text" id="nuovaSiglaDurezza"></div>
+        <div class="form-group"><label>Codice Modello</label><input type="text" id="nuovaSiglaModello" list="modelliList"><datalist id="modelliList"></datalist></div>
+        <div class="form-group"><label>Note</label><input type="text" id="nuovaSiglaNote"></div>
+        <div class="form-group"><label>Quantità</label><input type="number" id="nuovaSiglaQuantita" value="0" min="0"></div>
+        <div class="form-group"><label>Qtà Austria</label><input type="number" id="nuovaSiglaQuantitaAustria" value="0" min="0"></div>
+      </div>
+      <button class="btn" onclick="aggiungiSigla()">➕ Aggiungi</button>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn btn-secondary" onclick="chiudiModalSigle()">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE MODIFICA SIGLA -->
+<div id="modalModificaSigla" class="modal">
+  <div class="modal-content" style="max-width:500px;">
+    <h3>✏️ Modifica Sigla</h3>
+    <div class="form-group">
+      <label>Sigla *</label>
+      <input type="text" id="modSiglaInput" class="form-control">
+    </div>
+    <div class="form-group">
+      <label>Nota</label>
+      <input type="text" id="modNotaInput" class="form-control" placeholder="Nota (opzionale)">
+    </div>
+    <div class="form-group">
+      <label>Quantità Austria</label>
+      <input type="number" id="modQuantitaAustriaInput" class="form-control" min="0" placeholder="0">
+    </div>
+    <div class="modal-buttons">
+      <button class="btn btn-secondary" onclick="chiudiModificaSigla()">Annulla</button>
+      <button class="btn btn-success" onclick="salvaModificaSigla()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OBSOLESCENZA -->
+<div id="modalObsoleto" class="modal">
+  <div class="modal-content" style="max-width:400px;">
+    <h3>📦 Rendi Obsoleto</h3>
+    <p>Articolo: <span id="obsArticoloDesc"></span></p>
+    <div class="form-group"><label>Quantità da rendere obsoleta *</label><input type="number" id="obsQuantita" min="1"><small>Disponibile: <span id="obsDisponibile"></span></small></div>
+    <div class="form-group"><label>Note</label><input type="text" id="obsNote"></div>
+    <div class="modal-buttons">
+      <button class="btn btn-warning" onclick="confermaObsolescenza()">Conferma</button>
+      <button class="btn btn-secondary" onclick="chiudiModalObsoleto()">Annulla</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VENDITA -->
+<div id="modalVendita" class="modal">
+  <div class="modal-content" style="max-width:500px;">
+    <h3>💰 Registra Vendita</h3>
+    <p>Oggetto: <span id="venditaOggettoDesc"></span></p>
+    <div class="form-group"><label>Tipo Soggetto *</label><select id="venditaTipoSoggetto" onchange="caricaSoggettiPerTipoVendita(this.value)"><option value="">Seleziona tipo...</option><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
+    <div class="form-group"><label>Soggetto *</label><select id="venditaSoggettoId" disabled><option value="">Seleziona prima il tipo</option></select><button type="button" class="btn btn-secondary btn-sm" onclick="apriNuovoSoggetto()" style="margin-top:5px;">➕ Nuovo Soggetto</button></div>
+    <div class="form-group" id="venditaSiglaGroup" style="display:none;"><label>Sigla *</label><select id="venditaSiglaId"><option value="">Qualsiasi sigla</option></select></div>
+    <div class="form-group"><label>Quantità da vendere *</label><input type="number" id="venditaQuantita" min="1"><small>Disponibile: <span id="venditaDisponibile"></span></small></div>
+    <div class="form-group"><label>Importo (€)</label><input type="number" id="venditaImporto" step="0.01"></div>
+    <div class="form-group"><label>Note</label><input type="text" id="venditaNote"></div>
+    <div class="modal-buttons">
+      <button class="btn btn-success" onclick="confermaVendita()">Vendi</button>
+      <button class="btn btn-secondary" onclick="chiudiModalVendita()">Annulla</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// UTILITY
+// ============================================================
+function getAuthHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+function showMessage(msg, type) {
+  const div = document.getElementById('messageArea');
+  div.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
+  setTimeout(() => div.innerHTML = '', 5000);
+}
+async function apiFetch(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
+  const res = await fetch('/api' + endpoint, { ...options, headers });
+  if (!res.ok) {
+    let err = 'Errore ' + res.status;
+    try { const data = await res.json(); err = data.message || err; } catch(e) {}
+    throw new Error(err);
+  }
+  return res.json();
+}
+function restoreSession() { return !!localStorage.getItem('token'); }
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = 'Login.html';
+}
+
+// ============================================================
+// VARIABILI GLOBALI
+// ============================================================
+let magazzini = [], settori = [], categorie = [], marche = [];
+let articoliCorrente = [];
+let articoliFiltrati = [];
+let sortColumn = 'codice_modello', sortAsc = true;
+let paginaCorrente = 1, righePerPagina = 25;
+let currentObsId = null, currentVenditaId = null, currentVenditaTipo = null, currentVenditaSigle = [];
+let currentSigleArticoloId = null;
+let currentModificaSiglaId = null;
+
+const magazzinoSelect = document.getElementById('magazzino');
+const settoreSelect = document.getElementById('settore');
+const categoriaSelect = document.getElementById('categoria');
+const marcaSelect = document.getElementById('marca');
+const descrizioneInput = document.getElementById('descrizione');
+const codiceModelloInput = document.getElementById('codice_modello');
+const lunghezzaInput = document.getElementById('lunghezza');
+const durezzaInput = document.getElementById('durezza');
+const quantitaInput = document.getElementById('quantita');
+
+// ============================================================
+// VENDITA
+// ============================================================
+async function caricaSoggettiPerTipoVendita(tipo) {
+  const select = document.getElementById('venditaSoggettoId');
+  if (!tipo) { select.innerHTML = '<option value="">Seleziona prima il tipo</option>'; select.disabled = true; return; }
+  select.innerHTML = '<option value="">Caricamento...</option>';
+  select.disabled = true;
+  try {
+    const data = await apiFetch('/soggetti/tipo/' + tipo);
+    select.innerHTML = '<option value="">Seleziona soggetto...</option>';
+    if (Array.isArray(data) && data.length) {
+      data.forEach(item => {
+        let testo = tipo === 'PROMOTER' ? (item.nome + ' ' + (item.cognome || '')).trim() : item.nome;
+        select.appendChild(new Option(testo, item.id));
+      });
+    } else {
+      select.innerHTML = '<option value="">Nessun soggetto trovato</option>';
+    }
+    select.disabled = false;
+  } catch(err) {
+    select.innerHTML = '<option value="">Errore nel caricamento</option>';
+    select.disabled = true;
+  }
+}
+
+async function apriModaleVendita(id, descrizione, tipoOggetto, disponibile) {
+  currentVenditaId = id; currentVenditaTipo = tipoOggetto;
+  document.getElementById('venditaOggettoDesc').innerText = descrizione;
+  document.getElementById('venditaDisponibile').innerText = disponibile;
+  document.getElementById('venditaQuantita').value = 1;
+  document.getElementById('venditaQuantita').max = disponibile;
+  document.getElementById('venditaImporto').value = '';
+  document.getElementById('venditaNote').value = '';
+  const tipoSelect = document.getElementById('venditaTipoSoggetto');
+  const soggettoSelect = document.getElementById('venditaSoggettoId');
+  tipoSelect.value = '';
+  soggettoSelect.innerHTML = '<option value="">Seleziona prima il tipo</option>';
+  soggettoSelect.disabled = true;
+  const siglaGroup = document.getElementById('venditaSiglaGroup');
+  const siglaSelect = document.getElementById('venditaSiglaId');
+  if (tipoOggetto === 'ARTICOLO') {
+    try {
+      const sigle = await apiFetch('/articoli/' + id + '/sigle');
+      currentVenditaSigle = sigle.filter(s => s.quantita > 0);
+      siglaSelect.innerHTML = '<option value="">Qualsiasi sigla</option>';
+      for (const s of currentVenditaSigle) {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.sigla + ' (disp: ' + s.quantita + ')';
+        siglaSelect.appendChild(opt);
+      }
+      siglaGroup.style.display = 'block';
+    } catch(err) { siglaGroup.style.display = 'none'; }
+  } else {
+    siglaGroup.style.display = 'none';
+  }
+  document.getElementById('modalVendita').style.display = 'flex';
+}
+function chiudiModalVendita() {
+  document.getElementById('modalVendita').style.display = 'none';
+  currentVenditaId = null;
+  currentVenditaSigle = [];
+}
+async function confermaVendita() {
+  const clienteId = document.getElementById('venditaSoggettoId').value;
+  const quantita = parseInt(document.getElementById('venditaQuantita').value);
+  const importo = document.getElementById('venditaImporto').value;
+  const note = document.getElementById('venditaNote').value.trim();
+  const siglaId = document.getElementById('venditaSiglaId').value;
+  if (!clienteId) { showMessage('Seleziona un soggetto', 'error'); return; }
+  if (isNaN(quantita) || quantita <= 0) { showMessage('Quantità non valida', 'error'); return; }
+  if (currentVenditaTipo === 'ARTICOLO' && siglaId) {
+    const sigla = currentVenditaSigle.find(s => s.id == siglaId);
+    if (!sigla || sigla.quantita < quantita) {
+      showMessage('La sigla selezionata ha solo ' + (sigla ? sigla.quantita : 0) + ' pezzi', 'error');
+      return;
+    }
+  }
+  const oggetti = [{ tipoOggetto: currentVenditaTipo, oggettoId: currentVenditaId, quantita, siglaId: siglaId || null }];
+  try {
+    const res = await apiFetch('/vendite', { method: 'POST', body: JSON.stringify({ oggetti, clienteId, importo: importo || null, note }) });
+    if (res.success) {
+      showMessage(res.message, 'success');
+      chiudiModalVendita();
+      caricaArticoli();
+    } else showMessage(res.message, 'error');
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+function apriNuovoSoggetto() { window.open('GestioneSoggetti.html', '_blank'); }
+
+// ============================================================
+// ANAGRAFICHE + DEFAULT VALUES
+// ============================================================
+async function caricaAnagrafiche() {
+  try {
+    [magazzini, settori, categorie, marche] = await Promise.all([
+      apiFetch('/anagrafiche/magazzini'),
+      apiFetch('/anagrafiche/settori'),
+      apiFetch('/anagrafiche/categorie'),
+      apiFetch('/anagrafiche/marche')
+    ]);
+    function popola(sel, items, valKey, textKey) {
+      sel.innerHTML = '<option value="">Seleziona</option>';
+      items.forEach(i => sel.appendChild(new Option(i[textKey], i[valKey])));
+    }
+    popola(magazzinoSelect, magazzini, 'id', 'nome');
+    popola(settoreSelect, settori, 'id', 'nome');
+    popola(categoriaSelect, categorie, 'id', 'nome');
+    popola(marcaSelect, marche, 'id', 'nome');
+
+    const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'west');
+    if (defaultMag) magazzinoSelect.value = defaultMag.id;
+
+    const defaultSett = settori.find(s => s.nome.toLowerCase() === 'sci alpino');
+    if (defaultSett) settoreSelect.value = defaultSett.id;
+
+    const defaultCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
+    if (defaultCat) categoriaSelect.value = defaultCat.id;
+
+    const defaultMar = marche.find(m => m.nome.toLowerCase() === 'kästle' || m.nome.toLowerCase() === 'kastle');
+    if (defaultMar) marcaSelect.value = defaultMar.id;
+
+    await refreshAllDatalists();
+    await caricaArticoli();
+
+  } catch(err) { showMessage('Errore caricamento anagrafiche', 'error'); }
+}
+
+// ============================================================
+// DATALIST
+// ============================================================
+const endpointMap = {
+  descrizione: '/articoli/valori/descrizioni',
+  lunghezza: '/articoli/valori/lunghezze',
+  durezza: '/articoli/valori/durezze',
+  codice_modello: '/articoli/valori/modelli'
+};
+function getCurrentFilters() {
+  return {
+    magazzino: magazzinoSelect.value,
+    settore: settoreSelect.value,
+    categoria: categoriaSelect.value,
+    marca: marcaSelect.value,
+    descrizione: descrizioneInput.value,
+    codice_modello: codiceModelloInput.value,
+    lunghezza: lunghezzaInput.value,
+    durezza: durezzaInput.value
+  };
+}
+async function aggiornaDatalist(campo) {
+  const endpoint = endpointMap[campo];
+  if (!endpoint) return;
+  const filters = getCurrentFilters();
+  delete filters[campo];
+  const params = new URLSearchParams();
+  for (let [k,v] of Object.entries(filters)) if (v) params.append(k, v);
+  const url = endpoint + '?' + params.toString();
+  try {
+    const data = await apiFetch(url);
+    const dl = document.getElementById(campo + 'List');
+    if (dl) {
+      dl.innerHTML = '';
+      data.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item[campo];
+        dl.appendChild(opt);
+      });
+    }
+  } catch(e) { console.error(e); }
+}
+async function refreshAllDatalists() {
+  for (let campo of Object.keys(endpointMap)) await aggiornaDatalist(campo);
+}
+
+// ============================================================
+// CRUD ARTICOLI + PAGINAZIONE
+// ============================================================
+async function caricaArticoli() {
+  try {
+    const params = new URLSearchParams();
+    const f = getCurrentFilters();
+    if (f.magazzino) params.append('magazzino', f.magazzino);
+    if (f.settore) params.append('settore', f.settore);
+    if (f.categoria) params.append('categoria', f.categoria);
+    if (f.marca) params.append('marca', f.marca);
+    if (f.descrizione) params.append('descrizione', f.descrizione);
+    if (f.codice_modello) params.append('codice_modello', f.codice_modello);
+    if (f.lunghezza) params.append('lunghezza', f.lunghezza);
+    if (f.durezza) params.append('durezza', f.durezza);
+    const res = await apiFetch('/articoli?' + params.toString());
+    if (res.success) {
+      articoliCorrente = res.data;
+      articoliFiltrati = [...articoliCorrente];
+      paginaCorrente = 1;
+      ordinaArticoli();
+      renderTabellaPaginata();
+    } else showMessage(res.message, 'error');
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+
+function compare(a,b,col) {
+  if (col === 'codice_modello') {
+    const va = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
+    const vb = (b.codice_modello && b.codice_modello.trim() !== '') ? b.codice_modello : (b.codice || '');
+    return va.localeCompare(vb);
+  }
+  let va = a[col], vb = b[col];
+  if (col === 'quantita_totale' || col === 'giacenza' || col === 'quantita_obsoleta') { va = Number(va)||0; vb = Number(vb)||0; }
+  else if (col === 'lunghezza') { va = parseFloat(va)||0; vb = parseFloat(vb)||0; }
+  else if (col === 'inventario_austria') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+  else { va = (va||'').toString().toLowerCase(); vb = (vb||'').toString().toLowerCase(); }
+  if (va < vb) return -1;
+  if (va > vb) return 1;
+  return 0;
+}
+function ordinaArticoli() {
+  articoliFiltrati.sort((a,b) => {
+    let r = compare(a,b,sortColumn);
+    if (!sortAsc) r = -r;
+    if (r===0 && sortColumn!=='codice_modello') r = compare(a,b,'codice_modello');
+    return r;
+  });
+}
+function handleSort(col) {
+  if (sortColumn === col) sortAsc = !sortAsc;
+  else { sortColumn = col; sortAsc = true; }
+  ordinaArticoli();
+  paginaCorrente = 1;
+  renderTabellaPaginata();
+  aggiornaIndicatoriOrdine();
+}
+function aggiornaIndicatoriOrdine() {
+  document.querySelectorAll('#tabellaArticoli th[data-sort]').forEach(th => {
+    const col = th.getAttribute('data-sort');
+    if (col === sortColumn) {
+      th.innerText = th.innerText.replace(/[↑↓]/g, '') + (sortAsc ? ' ↑' : ' ↓');
+    } else {
+      th.innerText = th.innerText.replace(/[↑↓]/g, '');
+    }
+  });
+}
+
+function renderTabellaPaginata() {
+  const tbody = document.getElementById('tabellaBody');
+  tbody.innerHTML = '';
+  const totali = articoliFiltrati.length;
+  if (totali === 0) {
+    tbody.innerHTML = '<tr><td colspan="16" class="text-center">Nessun articolo trovato</td></tr>';
+    document.getElementById('paginationStats').innerText = 'Mostrando 0-0 di 0';
+    document.getElementById('paginationCurrentPage').innerText = '1';
+    document.getElementById('btnPrevPage').disabled = true;
+    document.getElementById('btnNextPage').disabled = true;
+    return;
+  }
+  const totalePagine = Math.ceil(totali / righePerPagina);
+  if (paginaCorrente > totalePagine) paginaCorrente = totalePagine;
+  if (paginaCorrente < 1) paginaCorrente = 1;
+  const start = (paginaCorrente - 1) * righePerPagina;
+  const end = Math.min(start + righePerPagina, totali);
+  const pagina = articoliFiltrati.slice(start, end);
+
+  document.getElementById('paginationStats').innerText = 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali;
+  document.getElementById('paginationCurrentPage').innerText = paginaCorrente;
+  document.getElementById('btnPrevPage').disabled = (paginaCorrente <= 1);
+  document.getElementById('btnNextPage').disabled = (paginaCorrente >= totalePagine);
+  document.getElementById('gotoPageInput').max = totalePagine;
+
+  pagina.forEach(a => {
+    const mag = magazzini.find(m => m.id == a.magazzino)?.nome || a.magazzino;
+    const cat = categorie.find(c => c.id == a.categoria)?.nome || a.categoria;
+    const mar = marche.find(m => m.id == a.marca)?.nome || a.marca;
+    const giac = a.GIACENZA_REALE || 0;
+    const row = tbody.insertRow();
+    const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
+    row.insertCell(0).innerText = codiceMostrato;
+    row.insertCell(1).innerText = a.articolo_id;
+    row.insertCell(2).innerText = a.descrizione;
+    row.insertCell(3).innerText = a.descrizione_completa;
+    row.insertCell(4).innerText = mag;
+    row.insertCell(5).innerText = cat;
+    row.insertCell(6).innerText = mar;
+    row.insertCell(7).innerText = a.lunghezza || '';
+    row.insertCell(8).innerText = a.durezza || '';
+    row.insertCell(9).innerText = a.quantita_totale;
+    row.insertCell(10).innerText = giac;
+    row.insertCell(11).innerText = a.quantita_obsoleta || 0;
+    row.insertCell(12).innerText = a.stato || '';
+    row.insertCell(13).innerText = a.inventario_austria ? '✅' : '❌';
+    const tdSigle = row.insertCell(14);
+    const btnSigle = document.createElement('button');
+    btnSigle.textContent = '🔖';
+    btnSigle.className = 'btn';
+    btnSigle.style.background = '#6c757d';
+    btnSigle.style.padding = '2px 6px';
+    btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione);
+    tdSigle.appendChild(btnSigle);
+    const actions = row.insertCell(15);
+    actions.className = 'action-buttons';
+    actions.innerHTML = `
+      <button class="btn" onclick="modificaArticolo(${a.articolo_id})">✏️</button>
+      <button class="btn btn-warning" onclick="apriModaleObsoleto(${a.articolo_id}, '${a.descrizione.replace(/'/g, "\\'")}', ${giac})">📦</button>
+      <button class="btn btn-success" onclick="apriModaleVendita(${a.articolo_id}, '${a.descrizione.replace(/'/g, "\\'")}', 'ARTICOLO', ${giac})">💰</button>
+      <button class="btn btn-danger" onclick="eliminaArticolo(${a.articolo_id})">🗑️</button>
+    `;
+  });
+  aggiornaIndicatoriOrdine();
+}
+
+function cambiaRighePerPagina() {
+  righePerPagina = parseInt(document.getElementById('rowsPerPage').value);
+  paginaCorrente = 1;
+  renderTabellaPaginata();
+}
+function paginaPrecedente() { if (paginaCorrente > 1) { paginaCorrente--; renderTabellaPaginata(); } }
+function paginaSuccessiva() { const max = Math.ceil(articoliFiltrati.length / righePerPagina); if (paginaCorrente < max) { paginaCorrente++; renderTabellaPaginata(); } }
+function vaiAPagina(val) {
+  const p = parseInt(val);
+  if (p && p > 0) {
+    const max = Math.ceil(articoliFiltrati.length / righePerPagina);
+    if (p <= max) { paginaCorrente = p; renderTabellaPaginata(); }
+  }
+}
+
+function resetFiltri() {
+  magazzinoSelect.value = '';
+  settoreSelect.value = '';
+  categoriaSelect.value = '';
+  marcaSelect.value = '';
+  descrizioneInput.value = '';
+  codiceModelloInput.value = '';
+  lunghezzaInput.value = '';
+  durezzaInput.value = '';
+  caricaArticoli();
+}
+
+function attachSortListeners() {
+  document.querySelectorAll('#tabellaArticoli th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => handleSort(th.getAttribute('data-sort')));
+  });
+}
+
+// ============================================================
+// SALVA ARTICOLO
+// ============================================================
+function resetErrorStyles() {
+  [magazzinoSelect, settoreSelect, categoriaSelect, marcaSelect, descrizioneInput, quantitaInput].forEach(el => el.classList.remove('required-error'));
+}
+async function salvaArticolo() {
+  resetErrorStyles();
+  let missing = [];
+  if (!descrizioneInput.value.trim()) missing.push('Descrizione');
+  if (!magazzinoSelect.value) missing.push('Magazzino');
+  if (!settoreSelect.value) missing.push('Settore');
+  if (!categoriaSelect.value) missing.push('Categoria');
+  if (!marcaSelect.value) missing.push('Marca');
+  if (!quantitaInput.value || quantitaInput.value <= 0) missing.push('Quantità');
+  if (missing.length) {
+    showMessage('Campi mancanti: ' + missing.join(', '), 'error');
+    if (!descrizioneInput.value.trim()) descrizioneInput.classList.add('required-error');
+    if (!magazzinoSelect.value) magazzinoSelect.classList.add('required-error');
+    if (!settoreSelect.value) settoreSelect.classList.add('required-error');
+    if (!categoriaSelect.value) categoriaSelect.classList.add('required-error');
+    if (!marcaSelect.value) marcaSelect.classList.add('required-error');
+    if (!quantitaInput.value || quantitaInput.value <= 0) quantitaInput.classList.add('required-error');
+    return;
+  }
+  const inventarioAustria = document.getElementById('inventarioAustria').checked;
+  const payload = {
+    descrizione: descrizioneInput.value.trim(),
+    magazzino: parseInt(magazzinoSelect.value),
+    settore: parseInt(settoreSelect.value),
+    categoria: parseInt(categoriaSelect.value),
+    marca: parseInt(marcaSelect.value),
+    lunghezza: lunghezzaInput.value.trim(),
+    durezza: durezzaInput.value.trim(),
+    quantita: parseInt(quantitaInput.value),
+    versione: document.getElementById('versione').value.trim(),
+    note: document.getElementById('note').value.trim(),
+    codiceModello: codiceModelloInput.value.trim(),
+    inventario_austria: inventarioAustria
+  };
+  const siglaSelect = document.getElementById('siglaSelect');
+  if (siglaSelect && siglaSelect.value) payload.siglaId = parseInt(siglaSelect.value);
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const res = await apiFetch('/articoli', { method: 'POST', body: JSON.stringify(payload) });
+    if (res.success) {
+      showMessage(res.message, 'success');
+      descrizioneInput.value = '';
+      codiceModelloInput.value = '';
+      lunghezzaInput.value = '';
+      durezzaInput.value = '';
+      quantitaInput.value = 1;
+      document.getElementById('note').value = '';
+      document.getElementById('inventarioAustria').checked = true;
+      refreshAllDatalists();
+      caricaArticoli();
+    } else throw new Error(res.message);
+  } catch(err) { showMessage(err.message, 'error'); }
+  finally { saveBtn.disabled = false; saveBtn.innerHTML = '💾 Salva'; }
+}
+
+// ============================================================
+// MODIFICA / ELIMINA ARTICOLO
+// ============================================================
+async function modificaArticolo(id) {
+  const art = articoliCorrente.find(a => a.articolo_id == id);
+  if (!art) return;
+  document.getElementById('editId').value = art.articolo_id;
+  await caricaSelectsModale();
+  document.getElementById('editMagazzino').value = art.magazzino;
+  document.getElementById('editSettore').value = art.settore;
+  document.getElementById('editCategoria').value = art.categoria;
+  document.getElementById('editMarca').value = art.marca;
+  document.getElementById('editDescrizione').value = art.descrizione;
+  document.getElementById('editLunghezza').value = art.lunghezza || '';
+  document.getElementById('editDurezza').value = art.durezza || '';
+  document.getElementById('editCodiceModello').value = art.codice_modello || '';
+  document.getElementById('editQuantita').value = art.quantita_totale;
+  document.getElementById('editNote').value = art.note || '';
+  document.getElementById('editInventarioAustria').checked = art.inventario_austria == 1;
+  await refreshEditDatalists();
+  document.getElementById('modalEdit').style.display = 'flex';
+}
+async function caricaSelectsModale() {
+  const [mag,set,cat,mar] = await Promise.all([
+    apiFetch('/anagrafiche/magazzini'),
+    apiFetch('/anagrafiche/settori'),
+    apiFetch('/anagrafiche/categorie'),
+    apiFetch('/anagrafiche/marche')
+  ]);
+  function pop(sel, items) { sel.innerHTML = '<option value="">Seleziona</option>'; items.forEach(i => sel.appendChild(new Option(i.nome, i.id))); }
+  pop(document.getElementById('editMagazzino'), mag);
+  pop(document.getElementById('editSettore'), set);
+  pop(document.getElementById('editCategoria'), cat);
+  pop(document.getElementById('editMarca'), mar);
+}
+async function refreshEditDatalists() {
+  const editFields = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
+  for (let f of editFields) {
+    const el = document.getElementById('edit' + f.charAt(0).toUpperCase() + f.slice(1) + 'List');
+    if (!el) continue;
+    const data = await apiFetch('/articoli/valori/' + f);
+    el.innerHTML = '';
+    data.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item[f];
+      el.appendChild(opt);
+    });
+  }
+}
+async function salvaModifica() {
+  const id = document.getElementById('editId').value;
+  const inventarioAustria = document.getElementById('editInventarioAustria').checked;
+  const dati = {
+    descrizione: document.getElementById('editDescrizione').value.trim(),
+    lunghezza: document.getElementById('editLunghezza').value.trim(),
+    durezza: document.getElementById('editDurezza').value.trim(),
+    quantita_totale: parseInt(document.getElementById('editQuantita').value),
+    note: document.getElementById('editNote').value.trim(),
+    codiceModello: document.getElementById('editCodiceModello').value.trim(),
+    magazzino: parseInt(document.getElementById('editMagazzino').value),
+    settore: parseInt(document.getElementById('editSettore').value),
+    categoria: parseInt(document.getElementById('editCategoria').value),
+    marca: parseInt(document.getElementById('editMarca').value),
+    inventario_austria: inventarioAustria
+  };
+  if (!dati.descrizione || isNaN(dati.quantita_totale)) { showMessage('Dati non validi', 'error'); return; }
+  try {
+    const res = await apiFetch('/articoli/' + id, { method: 'PUT', body: JSON.stringify(dati) });
+    if (res.success) { showMessage('Aggiornato', 'success'); chiudiModale(); caricaArticoli(); }
+    else showMessage(res.message, 'error');
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+function chiudiModale() { document.getElementById('modalEdit').style.display = 'none'; }
+
+async function eliminaArticolo(id) {
+  if (!confirm('Eliminare questo articolo? Verrà rimosso anche dai kit.')) return;
+  try {
+    const res = await apiFetch('/articoli/' + id, { method: 'DELETE' });
+    if (res.success) { showMessage('Articolo eliminato', 'success'); caricaArticoli(); }
+    else showMessage(res.message, 'error');
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+
+// ============================================================
+// GESTIONE SIGLE (con quantita_austria)
+// ============================================================
+async function apriGestioneSigle(articoloId, descrizione) {
+  currentSigleArticoloId = articoloId;
+  document.getElementById('sigleArticoloDesc').innerText = descrizione;
+  await caricaSigleArticolo(articoloId);
+  document.getElementById('modalSigle').style.display = 'flex';
+}
+async function caricaSigleArticolo(articoloId) {
+  try {
+    const sigle = await apiFetch('/articoli/' + articoloId + '/sigle');
+    const tbody = document.getElementById('sigleTableBody');
+    tbody.innerHTML = '';
+    if (!Array.isArray(sigle)) { showMessage('Formato dati non valido', 'error'); return; }
+    sigle.forEach(s => {
+      const row = tbody.insertRow();
+      row.insertCell(0).innerText = s.sigla;
+      row.insertCell(1).innerText = s.durezza || '';
+      row.insertCell(2).innerText = s.codice_modello || '';
+      row.insertCell(3).innerText = s.note || '';
+      const qtaCell = row.insertCell(4);
+      const qtaInput = document.createElement('input');
+      qtaInput.type = 'number';
+      qtaInput.min = 0;
+      qtaInput.value = s.quantita || 0;
+      qtaInput.style.width = '80px';
+      qtaInput.dataset.siglaId = s.id;
+      qtaCell.appendChild(qtaInput);
+      const qtaAustriaCell = row.insertCell(5);
+      const qtaAustriaInput = document.createElement('input');
+      qtaAustriaInput.type = 'number';
+      qtaAustriaInput.min = 0;
+      qtaAustriaInput.value = s.quantita_austria || 0;
+      qtaAustriaInput.style.width = '80px';
+      qtaAustriaInput.dataset.siglaId = s.id;
+      qtaAustriaInput.dataset.articoloId = articoloId;
+      qtaAustriaCell.appendChild(qtaAustriaInput);
+      const actionsCell = row.insertCell(6);
+      const btnSave = document.createElement('button');
+      btnSave.textContent = '💾';
+      btnSave.className = 'btn';
+      btnSave.style.padding = '2px 6px';
+      btnSave.onclick = () => aggiornaQuantitaSigla(articoloId, s.id, qtaInput.value);
+      actionsCell.appendChild(btnSave);
+      const btnSaveAustria = document.createElement('button');
+      btnSaveAustria.textContent = '🇦🇹';
+      btnSaveAustria.className = 'btn';
+      btnSaveAustria.style.padding = '2px 6px';
+      btnSaveAustria.style.background = '#f39c12';
+      btnSaveAustria.onclick = () => aggiornaQuantitaAustriaSigla(s.id, qtaAustriaInput.value);
+      actionsCell.appendChild(btnSaveAustria);
+      const btnMod = document.createElement('button');
+      btnMod.textContent = '✏️';
+      btnMod.className = 'btn';
+      btnMod.onclick = () => apriModificaSigla(s.id, articoloId, s.sigla, s.note || '', s.quantita_austria || 0);
+      actionsCell.appendChild(btnMod);
+      const btnDel = document.createElement('button');
+      btnDel.textContent = '🗑️';
+      btnDel.className = 'btn btn-danger';
+      btnDel.onclick = () => eliminaSigla(s.id);
+      actionsCell.appendChild(btnDel);
+    });
+  } catch(err) { showMessage('Errore caricamento sigle', 'error'); console.error(err); }
+}
+async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
+  const qta = parseInt(nuovaQuantita);
+  if (isNaN(qta) || qta < 0) { showMessage('Quantità non valida', 'error'); return; }
+  try {
+    const res = await apiFetch('/articoli/sigle/' + siglaId + '/quantita', { method: 'PUT', body: JSON.stringify({ quantita: qta }) });
+    if (res.success) {
+      showMessage('Quantità aggiornata', 'success');
+      await caricaSigleArticolo(articoloId);
+      caricaArticoli();
+    } else showMessage(res.message, 'error');
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+async function aggiornaQuantitaAustriaSigla(siglaId, nuovaQuantita) {
+  const qta = parseInt(nuovaQuantita);
+  if (isNaN(qta) || qta < 0) { showMessage('Quantità Austria non valida', 'error'); return; }
+  try {
+    const res = await apiFetch('/articoli/sigle/' + siglaId + '/austria', { method: 'PUT', body: JSON.stringify({ quantita_austria: qta }) });
+    if (res.success) {
+      showMessage('Quantità Austria aggiornata', 'success');
+      // Ricarica la tabella sigle per l'articolo corrente
+      if (currentSigleArticoloId) {
+        await caricaSigleArticolo(currentSigleArticoloId);
+        caricaArticoli();
+      }
+    } else showMessage(res.message, 'error');
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+async function aggiungiSigla() {
+  const sigla = document.getElementById('nuovaSigla').value.trim();
+  if (!sigla) { showMessage('Inserisci la sigla', 'error'); return; }
+  const quantita = parseInt(document.getElementById('nuovaSiglaQuantita').value) || 0;
+  const quantitaAustria = parseInt(document.getElementById('nuovaSiglaQuantitaAustria').value) || 0;
+  const payload = {
+    sigla,
+    durezza: document.getElementById('nuovaSiglaDurezza').value.trim(),
+    codice_modello: document.getElementById('nuovaSiglaModello').value.trim(),
+    note: document.getElementById('nuovaSiglaNote').value.trim(),
+    quantita: quantita,
+    quantita_austria: quantitaAustria
+  };
+  try {
+    await apiFetch('/articoli/' + currentSigleArticoloId + '/sigle', { method: 'POST', body: JSON.stringify(payload) });
+    showMessage('Sigla aggiunta', 'success');
+    document.getElementById('nuovaSigla').value = '';
+    document.getElementById('nuovaSiglaDurezza').value = '';
+    document.getElementById('nuovaSiglaModello').value = '';
+    document.getElementById('nuovaSiglaNote').value = '';
+    document.getElementById('nuovaSiglaQuantita').value = 0;
+    document.getElementById('nuovaSiglaQuantitaAustria').value = 0;
+    await caricaSigleArticolo(currentSigleArticoloId);
+    caricaArticoli();
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+function apriModificaSigla(id, articoloId, sigla, nota, quantitaAustria) {
+  currentModificaSiglaId = id;
+  currentSigleArticoloId = articoloId;
+  document.getElementById('modSiglaInput').value = sigla || '';
+  document.getElementById('modNotaInput').value = nota || '';
+  document.getElementById('modQuantitaAustriaInput').value = quantitaAustria || 0;
+  document.getElementById('modalModificaSigla').style.display = 'flex';
+}
+function chiudiModificaSigla() {
+  document.getElementById('modalModificaSigla').style.display = 'none';
+  currentModificaSiglaId = null;
+}
+async function salvaModificaSigla() {
+  if (!currentModificaSiglaId) return;
+  const sigla = document.getElementById('modSiglaInput').value.trim();
+  const nota = document.getElementById('modNotaInput').value.trim();
+  const quantitaAustria = parseInt(document.getElementById('modQuantitaAustriaInput').value) || 0;
+  if (!sigla) {
+    showMessage('La sigla è obbligatoria', 'error');
+    return;
+  }
+  const payload = { sigla };
+  if (nota !== '') payload.note = nota;
+  payload.quantita_austria = quantitaAustria;
+  try {
+    await apiFetch('/articoli/sigle/' + currentModificaSiglaId, { method: 'PUT', body: JSON.stringify(payload) });
+    showMessage('Sigla aggiornata', 'success');
+    chiudiModificaSigla();
+    if (currentSigleArticoloId) {
+      await caricaSigleArticolo(currentSigleArticoloId);
+      caricaArticoli();
+    }
+  } catch(err) {
+    showMessage(err.message, 'error');
+  }
+}
+async function eliminaSigla(id) {
+  if (!confirm('Eliminare sigla?')) return;
+  try {
+    await apiFetch('/articoli/sigle/' + id, { method: 'DELETE' });
+    await caricaSigleArticolo(currentSigleArticoloId);
+    caricaArticoli();
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+function chiudiModalSigle() { document.getElementById('modalSigle').style.display = 'none'; currentSigleArticoloId = null; }
+
+// ============================================================
+// OBSOLESCENZA
+// ============================================================
+function apriModaleObsoleto(id, descrizione, disponibile) {
+  currentObsId = id;
+  document.getElementById('obsArticoloDesc').innerText = descrizione;
+  document.getElementById('obsDisponibile').innerText = disponibile;
+  document.getElementById('obsQuantita').max = disponibile;
+  document.getElementById('obsQuantita').value = 1;
+  document.getElementById('obsNote').value = '';
+  document.getElementById('modalObsoleto').style.display = 'flex';
+}
+function chiudiModalObsoleto() { document.getElementById('modalObsoleto').style.display = 'none'; currentObsId = null; }
+async function confermaObsolescenza() {
+  const quantita = parseInt(document.getElementById('obsQuantita').value);
+  const note = document.getElementById('obsNote').value.trim();
+  if (isNaN(quantita) || quantita <= 0) { showMessage('Quantità non valida', 'error'); return; }
+  try {
+    const res = await apiFetch('/articoli/' + currentObsId + '/obsoleto', { method: 'POST', body: JSON.stringify({ quantita, note }) });
+    if (res.success) { showMessage(res.message, 'success'); chiudiModalObsoleto(); caricaArticoli(); }
+    else showMessage(res.message, 'error');
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+
+// ============================================================
+// MODALE NUOVA SIGLA (per il form principale)
+// ============================================================
+function apriModalNuovaSigla() {
+  showMessage('Crea prima l\'articolo, poi gestisci le sigle dal pulsante 🔖', 'info');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function attachFormEvents() {
+  const selects = [magazzinoSelect, settoreSelect, categoriaSelect, marcaSelect];
+  selects.forEach(s => s.addEventListener('change', () => {
+    refreshAllDatalists();
+    caricaArticoli();
+  }));
+  const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
+  inputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => {
+      refreshAllDatalists();
+      caricaArticoli();
+    });
+  });
+}
+window.onload = async () => {
+  if (!restoreSession()) { window.location.href = 'Login.html'; return; }
+  await caricaAnagrafiche();
+  attachFormEvents();
+  attachSortListeners();
+};
+</script>
+</body>
+</html>
