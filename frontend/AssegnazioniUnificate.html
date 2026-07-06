@@ -7,7 +7,66 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <style>
-    /* ... stili identici al file che hai già ... */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 15px 25px 25px 25px; }
+    h2 { border-left: 4px solid #1a73e8; padding-left: 10px; margin: 15px 0; color: #1e2a3a; }
+    .btn { background: #1a73e8; color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; transition: 0.2s; }
+    .btn:hover { background: #0f5bb5; transform: translateY(-1px); }
+    .btn-success { background: #27ae60; }
+    .btn-danger { background: #dc3545; }
+    .btn-secondary { background: #6c757d; }
+    .btn-warning { background: #f39c12; color: white; }
+    .btn-sm { padding: 2px 8px; font-size: 0.65rem; }
+    .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px; }
+    .compact-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      border-radius: 0 0 12px 12px;
+      padding: 4px 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      margin-bottom: 10px;
+    }
+    .logo { display: flex; justify-content: center; flex: 1; }
+    .logo img { height: 120px; width: auto; display: block; }
+    .filter-bar { background: #f8f9fa; border-radius: 10px; padding: 8px 15px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; border: 1px solid #e2e8f0; }
+    .filter-group { flex: 1; min-width: 120px; }
+    .filter-group label { display: block; font-weight: 600; font-size: 0.6rem; text-transform: uppercase; color: #2c3e50; margin-bottom: 2px; }
+    .filter-group input, .filter-group select { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.7rem; background: white; }
+    .radio-group { display: flex; flex-wrap: wrap; gap: 20px; margin: 5px 0 10px 0; }
+    .radio-group label { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; font-weight: normal; }
+    .table-wrapper { overflow-x: auto; overflow-y: auto; max-height: 70vh; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; }
+    th, td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+    th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; user-select: none; }
+    th:hover { background: #e2e8f0; }
+    .checkbox-col { width: 30px; text-align: center; }
+    .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; background: #f8f9fa; border-top: 1px solid #e2e8f0; font-size: 0.7rem; flex-wrap: wrap; gap: 8px; }
+    .pagination-info { display: flex; align-items: center; gap: 8px; }
+    .pagination-bar input, .pagination-bar select { width: auto; padding: 2px 6px; border: 1px solid #cbd5e0; border-radius: 4px; }
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
+    .modal-header h3 { margin: 0; }
+    .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
+    .close:hover { color: black; }
+    .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; color: #2c3e50; }
+    .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; }
+    .warning-badge { background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 8px; font-size: 0.65rem; margin-top: 4px; }
+    .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
+    .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
+    .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
+    .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
+    .text-center { text-align: center; }
+    .kit-row td { background: #fcf8e8; }
+    @media (max-width: 768px) { .filter-bar { flex-direction: column; align-items: stretch; } .radio-group { flex-direction: column; gap: 5px; } }
+    .btn-massive { background: #8b5cf6; color: white; font-weight: bold; padding: 6px 16px; border-radius: 8px; }
+    .btn-massive:hover { background: #7c3aed; }
+    .btn-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   </style>
 </head>
 <body>
@@ -142,7 +201,132 @@
 </div>
 
 <!-- MODALI -->
-<!-- ... (modal identiche a prima) ... -->
+<div id="assignModal" class="modal">
+  <div class="modal-content">
+    <h3>📤 Assegna oggetto</h3>
+    <div class="form-group">
+      <label>Oggetto</label>
+      <input type="text" id="assignOggetto" class="form-control" readonly>
+    </div>
+    <div class="form-group">
+      <label>Sigla</label>
+      <input type="text" id="assignSiglaDisplay" class="form-control" readonly>
+    </div>
+    <div class="form-group">
+      <label>Giacenza disponibile</label>
+      <input type="number" id="assignGiacenza" class="form-control" readonly>
+    </div>
+    <div class="form-group">
+      <label>Quantità da assegnare</label>
+      <input type="number" id="assignQta" class="form-control" min="1">
+    </div>
+    <div class="form-group">
+      <label>Destinazione tipo</label>
+      <select id="assignDestTipo" class="form-control" onchange="caricaDestinazioniAssegnazione()">
+        <option value="PROMOTER">Promoter</option>
+        <option value="NEGOZIO">Negozio</option>
+        <option value="CLIENTE">Cliente</option>
+        <option value="AGENTE">Agente</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Destinazione</label>
+      <select id="assignDestId" class="form-control"></select>
+    </div>
+    <div class="form-group">
+      <label>Note</label>
+      <input type="text" id="assignNote" class="form-control">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="chiudiAssignModal()">Annulla</button>
+      <button class="btn btn-success" onclick="confermaAssegnazione()">Conferma</button>
+    </div>
+  </div>
+</div>
+
+<div id="editAssignmentModal" class="modal">
+  <div class="modal-content">
+    <h3>✏️ Modifica assegnazione</h3>
+    <div class="form-group">
+      <label>Oggetto</label>
+      <input type="text" id="editOggetto" class="form-control" readonly>
+    </div>
+    <div class="form-group">
+      <label>Sigla</label>
+      <input type="text" id="editSiglaDisplay" class="form-control" readonly>
+    </div>
+    <div class="form-group">
+      <label>Quantità attuale</label>
+      <input type="number" id="editQuantitaAttuale" class="form-control" readonly>
+    </div>
+    <div class="form-group">
+      <label>Nuova quantità</label>
+      <input type="number" id="editQuantitaNuova" class="form-control" min="1">
+    </div>
+    <div class="form-group">
+      <label>Nuova destinazione</label>
+      <select id="editDestTipo" class="form-control" onchange="caricaDestinazioniEdit()">
+        <option value="PROMOTER">Promoter</option>
+        <option value="NEGOZIO">Negozio</option>
+        <option value="CLIENTE">Cliente</option>
+        <option value="AGENTE">Agente</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Destinazione</label>
+      <select id="editDestId" class="form-control"></select>
+    </div>
+    <div class="form-group">
+      <label>Note</label>
+      <input type="text" id="editNote" class="form-control">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="chiudiEditModal()">Annulla</button>
+      <button class="btn btn-success" onclick="confermaModificaSingola()">Conferma</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE TRASFERIMENTO MASSIVO (corretto, un solo select per la destinazione) -->
+<div id="massiveModal" class="modal">
+  <div class="modal-content">
+    <h3>➡️ Trasferimento massivo</h3>
+    <div id="massiveRiepilogo"></div>
+    <div class="form-group">
+      <label>Destinazione tipo</label>
+      <select id="massiveDestTipo" class="form-control" onchange="caricaDestinazioniMassive()">
+        <option value="PROMOTER">Promoter</option>
+        <option value="NEGOZIO">Negozio</option>
+        <option value="CLIENTE">Cliente</option>
+        <option value="AGENTE">Agente</option>
+        <option value="MAGAZZINO">Magazzino (rientro)</option>
+      </select>
+    </div>
+    <div class="form-group" id="massiveDestContainer">
+      <label>Destinazione</label>
+      <select id="massiveDestId" class="form-control"></select>
+    </div>
+    <div class="form-group">
+      <label>Note</label>
+      <input type="text" id="massiveNote" class="form-control">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="chiudiMassiveModal()">Annulla</button>
+      <button class="btn btn-success" onclick="confermaMassive()">Conferma</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmModal" class="modal">
+  <div class="modal-content">
+    <h3>⚠️ Conferma operazione</h3>
+    <p id="confirmMessage"></p>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="chiudiConfirmModal()">Annulla</button>
+      <button class="btn btn-danger" id="confirmActionBtn" onclick="eseguiConferma()">Conferma</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ============================================================
@@ -224,7 +408,7 @@ var filtroDestinatario = document.getElementById('filtroDestinatario');
 var filtroDestContainer = document.getElementById('filtroDestinatarioContainer');
 
 // ============================================================
-// CARICAMENTO MAGAZZINI CON DEFAULT
+// CARICAMENTO ANAGRAFICHE (con filtro magazzini e default)
 // ============================================================
 async function caricaMagazzini() {
   try {
@@ -236,7 +420,7 @@ async function caricaMagazzini() {
     // Imposta default: Race se presente e disponibile, altrimenti primo disponibile
     var dm = magazzini.find(function(m) { return m.nome.toLowerCase() === 'race'; });
     if (dm) {
-      var exists = Array.from(sel.options).some(opt => opt.value == dm.id);
+      var exists = Array.from(sel.options).some(function(opt) { return opt.value == dm.id; });
       if (exists) {
         sel.value = dm.id;
       } else if (sel.options.length > 1) {
@@ -247,7 +431,6 @@ async function caricaMagazzini() {
     }
   } catch(e) { showMessage('Errore magazzini', 'error'); }
 }
-
 async function caricaCategorie() {
   try {
     var r = await apiFetch('/anagrafiche/categorie');
@@ -314,12 +497,12 @@ async function getOggettiInCarico(tipo, id) {
   if (!r.success) throw new Error(r.message);
   var tutti = r.oggetti || [];
 
-  // Mappa per memorizzare lunghezza e sigla dei kit
+  // Mappa per memorizzare lunghezza e sigla dei kit (invece di chiamare getKitDetails per ognuno)
   var kitMap = new Map();
-  if (tutti.some(o => o.tipo === 'KIT')) {
+  if (tutti.some(function(o) { return o.tipo === 'KIT'; })) {
     try {
       var kits = await apiFetch('/kit');
-      kits.forEach(k => {
+      kits.forEach(function(k) {
         kitMap.set(k.id, { lunghezza: k.lunghezza_sci || '', sigla: k.sigla_sci || '' });
       });
     } catch(e) {
@@ -369,7 +552,6 @@ async function getOggettiInCarico(tipo, id) {
   }
   return result;
 }
-
 async function getOggettiAssegnati(tipo, id) {
   var r = await apiFetch('/assegnazioni/inviati?provenienza_tipo=' + tipo + '&provenienza_id=' + id);
   return r.map(function(row) {
@@ -925,14 +1107,11 @@ async function confermaModificaSingola() {
     showMessage('Seleziona una destinazione', 'error');
     return;
   }
-  // Se la quantità o destinazione cambiano, esegui un trasferimento parziale
-  // (per semplicità, qui gestiamo solo il cambio di destinazione con stessa quantità)
   var qta = obj.totale;
   if (nuovaQta !== qta) {
     showMessage('La modifica della quantità richiede un rientro parziale. Funzionalità in sviluppo.', 'info');
     return;
   }
-  // Trasferisci l'oggetto alla nuova destinazione
   var daTipo = obj.destinazioneTipo || 'PROMOTER';
   var daId = obj.destinazioneId || null;
   if (!daId) {
@@ -963,13 +1142,14 @@ async function confermaModificaSingola() {
 }
 
 // ============================================================
-// TRASFERIMENTO MASSIVO
+// TRASFERIMENTO MASSIVO (corretto)
 // ============================================================
 var selectedMassive = [];
+
 function apriModalTrasferimentoMassivo() {
   var idx = [];
   var cbs = document.querySelectorAll('.row-checkbox:checked');
-  for (var i=0; i<cbs.length; i++) {
+  for (var i = 0; i < cbs.length; i++) {
     var id = parseInt(cbs[i].dataset.rowId);
     if (!isNaN(id)) idx.push(id);
   }
@@ -988,6 +1168,7 @@ function apriModalTrasferimentoMassivo() {
   caricaDestinazioniMassive();
   document.getElementById('massiveModal').style.display = 'flex';
 }
+
 function chiudiMassiveModal() {
   document.getElementById('massiveModal').style.display = 'none';
   selectedMassive = [];
@@ -996,18 +1177,7 @@ function chiudiMassiveModal() {
 async function caricaDestinazioniMassive() {
   var tipo = document.getElementById('massiveDestTipo').value;
   var sel = document.getElementById('massiveDestId');
-  if (!sel) {
-    // Se per qualche motivo il select non esiste, crealo (ma non dovrebbe)
-    var container = document.getElementById('massiveDestContainer');
-    if (!container) return;
-    sel = document.createElement('select');
-    sel.id = 'massiveDestId';
-    sel.className = 'form-control';
-    container.appendChild(sel);
-  }
-
-  // Pulisci il select
-  sel.innerHTML = '';
+  if (!sel) return;
 
   if (tipo === 'MAGAZZINO') {
     if (!magazzini || magazzini.length === 0) {
@@ -1042,8 +1212,7 @@ async function caricaDestinazioniMassive() {
 
 async function confermaMassive() {
   var dT = document.getElementById('massiveDestTipo').value;
-  var dIdEl = document.getElementById('massiveDestId');
-  var dId = dIdEl ? dIdEl.value : null;
+  var dId = document.getElementById('massiveDestId').value;
   var note = document.getElementById('massiveNote').value;
   if (!dT || !dId) {
     showMessage('Seleziona una destinazione', 'error');
@@ -1076,7 +1245,7 @@ async function confermaMassive() {
     } else {
       endpoint = '/assegnazioni/trasferimento';
       var magTrans = null;
-      for (var i=0; i<magazzini.length; i++) {
+      for (var i = 0; i < magazzini.length; i++) {
         if (magazzini[i].nome.toLowerCase() === 'race') { magTrans = magazzini[i].id; break; }
       }
       if (!magTrans && magazzini.length > 0) magTrans = magazzini[0].id;
@@ -1106,7 +1275,7 @@ async function confermaMassive() {
 }
 
 // ============================================================
-// ANTEPRIMA PDF – Versione verticale (ritratto) senza "Lunghezza"
+// ANTEPRIMA PDF – Versione verticale (ritratto), senza "Lunghezza"
 // ============================================================
 function anteprimaPDF() {
   var data = oggetti; // dati già filtrati
@@ -1205,7 +1374,7 @@ function anteprimaPDF() {
     columnStyles: {
       index: { cellWidth: 25 },
       codice_sigla: { cellWidth: 70 },
-      descrizione: { cellWidth: 200 }, // Ampia per far stare la descrizione su una riga
+      descrizione: { cellWidth: 200 }, // Ampia per far stare la descrizione
       sigla: { cellWidth: 50 },
       quantita: { cellWidth: 35 },
       stato: { cellWidth: 60 },
