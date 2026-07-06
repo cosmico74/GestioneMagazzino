@@ -1433,14 +1433,21 @@ function setup() {
     });
     radioMagazzino.disabled = false;
   } else {
-    caricoSection.style.display = 'none';
+    // ---- PROMOTER (o altri non-admin) ----
     sourceTipo.value = currentUser.ruolo.toUpperCase();
-    sourceId.value = currentUser.riferimento_id;
-    sourceTipo.disabled = true;
-    sourceId.disabled = true;
-    radioMagazzino.disabled = true;
+    sourceTipo.disabled = true;           // Il tipo è fisso (es. PROMOTER)
+    sourceId.disabled = false;            // Abilitato per selezionare i referenti
+    caricaSorgentiPromoter();             // Popola il dropdown con i referenti visibili
+    sourceId.addEventListener('change', function() {
+      if (radioCarico.checked) caricaOggettiInCarico();
+    });
+    radioMagazzino.disabled = true;       // I promoter non possono usare "Dal magazzino"
     if (radioMagazzino.checked) radioCarico.checked = true;
+    // Assicura che la sezione "In carico" sia visibile
+    caricoSection.style.display = 'flex';
   }
+
+  // Listener per i radio button delle modalità di carico
   modeInCarico.addEventListener('change', function() {
     if (radioCarico.checked) caricaOggettiInCarico();
   });
@@ -1450,8 +1457,12 @@ function setup() {
   modeEntrambi.addEventListener('change', function() {
     if (radioCarico.checked) caricaOggettiInCarico();
   });
+
+  // Toggle sorgente (Carico / Magazzino)
   radioCarico.addEventListener('change', toggleSource);
   radioMagazzino.addEventListener('change', toggleSource);
+
+  // Listener per i filtri del magazzino
   magazzinoSelect.addEventListener('change', function() {
     if (radioMagazzino.checked) caricaOggettiDaMagazzino();
   });
@@ -1467,6 +1478,8 @@ function setup() {
   filtroCategoria.addEventListener('change', function() {
     if (radioMagazzino.checked) caricaOggettiDaMagazzino();
   });
+
+  // Listener per il filtro destinatario
   filtroDestinatario.addEventListener('change', function() {
     if (!radioCarico.checked) return;
     var fv = filtroDestinatario.value;
@@ -1483,10 +1496,41 @@ function setup() {
     sortOggetti();
     popolaTabella();
   });
+
+  // Ordine colonne
   attachSortHandlers();
+
+  // Pulsante trasferimento massivo
   var btnMassivo = document.getElementById('btnTrasferisciMassivo');
   if (btnMassivo) btnMassivo.addEventListener('click', apriModalTrasferimentoMassivo);
+
+  // Avvia la visualizzazione iniziale
   toggleSource();
+}
+// ============================================================
+// CARICAMENTO SOGGETTI PER PROMOTER (non-admin)
+// ============================================================
+async function caricaSorgentiPromoter() {
+  try {
+    var data = await apiFetch('/soggetti/visibili');
+    var sel = sourceId;
+    sel.innerHTML = '<option value="">Seleziona...</option>';
+    data.forEach(function(item) {
+      var testo = item.tipo === 'PROMOTER' ? (item.nome + ' ' + (item.cognome || '')).trim() : item.nome;
+      if (item.livello) testo += ' (liv.' + item.livello + ')';
+      sel.appendChild(new Option(testo, item.id));
+    });
+    // Seleziona automaticamente il soggetto dell'utente se presente
+    if (currentUser.riferimento_id) {
+      var exists = Array.from(sel.options).some(function(opt) { return opt.value == currentUser.riferimento_id; });
+      if (exists) sel.value = currentUser.riferimento_id;
+    } else if (sel.options.length > 1) {
+      sel.selectedIndex = 1;
+    }
+    if (radioCarico.checked) caricaOggettiInCarico();
+  } catch(e) {
+    showMessage('Errore caricamento soggetti: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
