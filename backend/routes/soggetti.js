@@ -144,6 +144,7 @@ router.get('/', verifyToken, async (req, res) => {
 router.post('/', verifyToken, async (req, res) => {
   const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, nuovaPassword, magazziniAssociati } = req.body;
   if (!tipo || !nome) return res.status(400).json({ error: 'Tipo e nome sono obbligatori' });
+
   const connection = await db.getConnection();
   await connection.beginTransaction();
   try {
@@ -152,19 +153,31 @@ router.post('/', verifyToken, async (req, res) => {
       if (Array.isArray(referente)) referenteStr = referente.join(',');
       else if (typeof referente === 'string') referenteStr = referente;
     }
-    // Inserisce il soggetto
+
+    // Se l'utente non è admin, forza l'aggiunta del suo ID come referente
+    if (req.userRole !== 'admin') {
+      const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
+      if (user.length && user[0].riferimento_id) {
+        const promoterId = user[0].riferimento_id;
+        let refIds = referenteStr ? referenteStr.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : [];
+        if (!refIds.includes(promoterId)) {
+          refIds.push(promoterId);
+        }
+        referenteStr = refIds.join(',');
+      }
+    }
+
     const [result] = await connection.query(
       `INSERT INTO soggetti (tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [tipo, nome, cognome || null, email || null, telefono || null, indirizzo || null, citta || null, cap || null, regione || null, referenteStr, note || null, attivo !== undefined ? attivo : 1, livello || null]
     );
     const soggettoId = result.insertId;
-    // Sincronizza referenti
+
     await syncSoggettiReferenti(connection, soggettoId, referenteStr);
-    // Sincronizza magazzini associati
     await syncSoggettiMagazzini(connection, soggettoId, magazziniAssociati || []);
+
     let utenteCreato = null;
-    // Gestione utente associato
     if (utenteAssociato) {
       const [userExists] = await connection.query('SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)', [utenteAssociato, soggettoId]);
       if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
@@ -181,12 +194,13 @@ router.post('/', verifyToken, async (req, res) => {
       );
       utenteCreato = { username, password, id: userResult.insertId };
     }
+
     await connection.commit();
     res.json({ success: true, id: soggettoId, utenteCreato });
   } catch (err) {
     await connection.rollback();
-    console.error('❌ Errore POST /soggetti:', err); // Log nel terminale
-    res.status(500).json({ error: err.message, stack: err.stack }); // Restituisce dettaglio al frontend
+    console.error('❌ Errore POST /soggetti:', err);
+    res.status(500).json({ error: err.message, stack: err.stack });
   } finally {
     connection.release();
   }
@@ -196,13 +210,31 @@ router.post('/', verifyToken, async (req, res) => {
 router.put('/:id', verifyToken, async (req, res) => {
   const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, magazziniAssociati } = req.body;
   const connection = await db.getConnection();
-  await connection.beginTransaction();
   try {
+    await connection.beginTransaction();
+
+    // Controllo permessi per non-admin
+    if (req.userRole !== 'admin') {
+      const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
+      if (!user.length || !user[0].riferimento_id) {
+        return res.status(403).json({ error: 'Non autorizzato' });
+      }
+      const promoterId = user[0].riferimento_id;
+      const [ref] = await connection.query(
+        'SELECT 1 FROM soggetti_referenti WHERE soggetto_id = ? AND referente_id = ?',
+        [req.params.id, promoterId]
+      );
+      if (!ref.length) {
+        return res.status(403).json({ error: 'Non sei referente di questo soggetto' });
+      }
+    }
+
     let referenteStr = null;
     if (referente) {
       if (Array.isArray(referente)) referenteStr = referente.join(',');
       else if (typeof referente === 'string') referenteStr = referente;
     }
+
     await connection.query(
       `UPDATE soggetti SET
         tipo = ?, nome = ?, cognome = ?, email = ?, telefono = ?, indirizzo = ?, citta = ?, cap = ?, regione = ?,
@@ -213,6 +245,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     );
     await syncSoggettiReferenti(connection, req.params.id, referenteStr);
     await syncSoggettiMagazzini(connection, req.params.id, magazziniAssociati || []);
+
     // Rimuovi associazione utente precedente
     await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [req.params.id]);
     if (utenteAssociato) {
@@ -220,6 +253,7 @@ router.put('/:id', verifyToken, async (req, res) => {
       if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
       await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [req.params.id, utenteAssociato]);
     }
+
     await connection.commit();
     res.json({ success: true });
   } catch (err) {
@@ -234,13 +268,30 @@ router.put('/:id', verifyToken, async (req, res) => {
 // DELETE /api/soggetti/:id
 router.delete('/:id', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
-  await connection.beginTransaction();
   try {
+    await connection.beginTransaction();
+
+    if (req.userRole !== 'admin') {
+      const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
+      if (!user.length || !user[0].riferimento_id) {
+        return res.status(403).json({ error: 'Non autorizzato' });
+      }
+      const promoterId = user[0].riferimento_id;
+      const [ref] = await connection.query(
+        'SELECT 1 FROM soggetti_referenti WHERE soggetto_id = ? AND referente_id = ?',
+        [req.params.id, promoterId]
+      );
+      if (!ref.length) {
+        return res.status(403).json({ error: 'Non sei referente di questo soggetto' });
+      }
+    }
+
     await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [req.params.id]);
     await connection.query('DELETE FROM soggetti_referenti WHERE soggetto_id = ? OR referente_id = ?', [req.params.id, req.params.id]);
     await connection.query('DELETE FROM soggetti_magazzini WHERE soggetto_id = ?', [req.params.id]);
     const [result] = await connection.query('DELETE FROM soggetti WHERE id = ?', [req.params.id]);
     if (result.affectedRows === 0) throw new Error('Soggetto non trovato');
+
     await connection.commit();
     res.json({ success: true });
   } catch (err) {

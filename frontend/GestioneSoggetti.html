@@ -183,6 +183,8 @@ let currentUser = null;
 let soggetti = [];
 let magazzini = [];
 let utentiLiberi = [];
+let currentSoggettoId = null;
+let isAdmin = false;
 
 const filtroTipo = document.getElementById('filtroTipo');
 const filtroTesto = document.getElementById('filtroTesto');
@@ -235,9 +237,20 @@ function renderTabella(lista) {
     row.insertCell(7).innerText = refNomi;
     row.insertCell(8).innerText = magNomi;
     row.insertCell(9).innerText = s.utenteAssociato ? s.utenteAssociato.username : '-';
+
     const actions = row.insertCell(10);
     actions.className = 'actions';
-    actions.innerHTML = '<button class="btn btn-sm" onclick="modificaSoggetto('+s.id+')">✏️</button><button class="btn btn-sm btn-danger" onclick="eliminaSoggetto('+s.id+')">🗑️</button>';
+    let actionsHtml = '';
+
+    // Permessi: admin può fare tutto; promoter può modificare solo se referente
+    const canEdit = isAdmin || (s.referenti && s.referenti.includes(currentSoggettoId));
+    if (canEdit) {
+      actionsHtml += `<button class="btn btn-sm" onclick="modificaSoggetto(${s.id})">✏️</button>`;
+    }
+    if (isAdmin) {
+      actionsHtml += `<button class="btn btn-sm btn-danger" onclick="eliminaSoggetto(${s.id})">🗑️</button>`;
+    }
+    actions.innerHTML = actionsHtml || '-';
   });
 }
 
@@ -269,9 +282,28 @@ async function apriModaleNuovo() {
   await caricaUtentiLiberi();
   document.getElementById('utenteAssociato').value = '';
   togglePasswordField();
+
+  // Se non admin, limita i tipi selezionabili
+  if (!isAdmin) {
+    const tipoSelect = document.getElementById('tipo');
+    const options = tipoSelect.options;
+    for (let i = options.length - 1; i >= 0; i--) {
+      const val = options[i].value;
+      if (val !== 'PROMOTER' && val !== 'NEGOZIO') {
+        tipoSelect.remove(i);
+      }
+    }
+    // Imposta default a PROMOTER
+    tipoSelect.value = 'PROMOTER';
+  } else {
+    // Admin vede tutti i tipi
+    // (già così di default)
+  }
+
   popolaCheckboxes([]);
   document.getElementById('soggettoModal').style.display = 'flex';
 }
+
 async function modificaSoggetto(id) {
   try {
     const s = await apiFetch('/soggetti/' + id);
@@ -303,23 +335,62 @@ async function modificaSoggetto(id) {
     document.getElementById('soggettoModal').style.display = 'flex';
   } catch(e) { showMessage('Errore caricamento soggetto: '+e.message, 'error'); }
 }
+
 function popolaCheckboxes(sog) {
   const currentRefs = sog.referenti || [];
   const currentMags = sog.magazziniAssociati || [];
   const containerRef = document.getElementById('referentiCheckbox');
   containerRef.innerHTML = '';
   const currentId = document.getElementById('soggettoId').value;
-  soggetti.forEach(s => {
-    if (currentId && s.id == currentId) return;
-    const label = document.createElement('label');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.value = s.id;
-    cb.checked = currentRefs.includes(s.id);
-    label.appendChild(cb);
-    label.appendChild(document.createTextNode(' ' + s.tipo + ' - ' + (s.nome||'') + ' ' + (s.cognome||'') + (s.livello ? ' (liv.'+s.livello+')' : '')));
-    containerRef.appendChild(label);
-  });
+
+  // Se non admin e in modifica, mostra solo i referenti attuali (non permette di modificarli)
+  // Se in creazione, mostra solo il promoter stesso (e disabilita)
+  if (!isAdmin) {
+    // In creazione, precompila con il promoter stesso
+    if (!currentId) {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = currentSoggettoId;
+      cb.checked = true;
+      cb.disabled = true;
+      label.appendChild(cb);
+      const soggetto = soggetti.find(s => s.id == currentSoggettoId);
+      const nome = soggetto ? (soggetto.nome||'') + ' ' + (soggetto.cognome||'') : 'Me stesso';
+      label.appendChild(document.createTextNode(' ' + nome + ' (tu)'));
+      containerRef.appendChild(label);
+    } else {
+      // In modifica, mostra solo i referenti esistenti (non permette di modificarli)
+      soggetti.forEach(s => {
+        if (s.id == currentId) return;
+        if (!currentRefs.includes(s.id)) return;
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = s.id;
+        cb.checked = true;
+        cb.disabled = true;
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(' ' + s.tipo + ' - ' + (s.nome||'') + ' ' + (s.cognome||'') + (s.livello ? ' (liv.'+s.livello+')' : '')));
+        containerRef.appendChild(label);
+      });
+    }
+  } else {
+    // Admin: mostra tutti i soggetti
+    soggetti.forEach(s => {
+      if (currentId && s.id == currentId) return;
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = s.id;
+      cb.checked = currentRefs.includes(s.id);
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + s.tipo + ' - ' + (s.nome||'') + ' ' + (s.cognome||'') + (s.livello ? ' (liv.'+s.livello+')' : '')));
+      containerRef.appendChild(label);
+    });
+  }
+
+  // Magazzini associati: solo admin può modificarli
   const containerMag = document.getElementById('magazziniCheckbox');
   containerMag.innerHTML = '';
   magazzini.forEach(m => {
@@ -328,11 +399,13 @@ function popolaCheckboxes(sog) {
     cb.type = 'checkbox';
     cb.value = m.id;
     cb.checked = currentMags.includes(m.id);
+    if (!isAdmin) cb.disabled = true;
     label.appendChild(cb);
     label.appendChild(document.createTextNode(' ' + m.nome));
     containerMag.appendChild(label);
   });
 }
+
 function chiudiModal() { document.getElementById('soggettoModal').style.display = 'none'; }
 
 // ============================================================
@@ -390,15 +463,32 @@ window.onload = async () => {
   const token = localStorage.getItem('token');
   if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
   try { currentUser = JSON.parse(localStorage.getItem('user')); } catch(e) { logout(); return; }
-  if (currentUser.ruolo !== 'admin') { document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin.</div>'; return; }
-  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato||currentUser.username) + ' (' + currentUser.ruolo + ')';
+  isAdmin = (currentUser.ruolo === 'admin');
+
+  // Solo admin o promoter di livello 1 possono accedere
+  if (!isAdmin && (currentUser.ruolo !== 'promoter' || currentUser.livello !== 1)) {
+    document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin o promoter di livello 1.</div>';
+    return;
+  }
+
+  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
+
+  // Ottieni l'ID del soggetto dell'utente (se esiste)
+  if (currentUser.riferimento_id) {
+    currentSoggettoId = parseInt(currentUser.riferimento_id);
+  }
+
   await caricaMagazzini();
   await caricaSoggetti();
   filtroTipo.addEventListener('change', applicaFiltri);
   filtroTesto.addEventListener('input', applicaFiltri);
   document.getElementById('utenteAssociato').addEventListener('change', togglePasswordField);
   document.getElementById('tipo').addEventListener('change', togglePasswordField);
+
+  // Se non admin, nascondi il pulsante "➕ Nuovo" per i promoter? (per ora lo lasciamo)
+  // Ma possiamo limitare le opzioni nella creazione.
 };
+
 </script>
 </body>
 </html>
