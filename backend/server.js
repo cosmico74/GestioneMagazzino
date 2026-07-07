@@ -14,6 +14,11 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 console.log('📦 Caricamento routes...');
 
+// ---- ROTTA PER LA ROOT ----
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend', 'Login.html'));
+});
+
 try {
     app.use('/api/auth', require('./routes/auth'));
     app.use('/api/articoli', require('./routes/articoli'));
