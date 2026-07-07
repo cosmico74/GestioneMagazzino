@@ -502,14 +502,25 @@ async function caricaSoggettiPerTipo() {
     allSoggetti = data || [];
     sel.innerHTML = '<option value="">Seleziona...</option>';
     
-    // Il backend ha già filtrato i soggetti in base al livello e ai referenti.
-    // Non applicare ulteriori filtri lato client.
-    data.forEach(function(item) {
+    // Determina se l'utente è admin
+    var isAdmin = (currentUser.ruolo === 'admin');
+    var currentSoggettoId = currentUser.riferimento_id ? parseInt(currentUser.riferimento_id) : null;
+    
+    // Se non è admin, esclude sé stesso dal dropdown
+    var filtered = data;
+    if (!isAdmin && currentSoggettoId) {
+      filtered = data.filter(function(item) {
+        return item.id != currentSoggettoId;
+      });
+    }
+    
+    filtered.forEach(function(item) {
       var testo = tipo === 'PROMOTER' ? (item.nome + ' ' + (item.cognome || '')).trim() : item.nome;
       if (item.livello) testo += ' (liv.' + item.livello + ')';
       sel.appendChild(new Option(testo, item.id));
     });
     
+    // Se c'è almeno un'opzione, seleziona la prima (se non già selezionata)
     if (sel.options.length > 1 && !sel.value) {
       sel.selectedIndex = 1;
     }
