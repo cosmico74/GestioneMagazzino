@@ -47,7 +47,7 @@ router.get('/tipo/:tipo', verifyToken, async (req, res) => {
       );
       return res.json(rows);
     }
-    // Se non admin (promoter), restituisce solo i soggetti visibili
+    // Se non admin (promoter)
     const [user] = await db.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
     if (!user.length || !user[0].riferimento_id) {
       return res.json([]);
@@ -64,12 +64,12 @@ router.get('/tipo/:tipo', verifyToken, async (req, res) => {
         EXISTS (SELECT 1 FROM soggetti_referenti WHERE referente_id = ? AND soggetto_id = s.id)
     `;
     const params = [tipo, promoterId, promoterId];
+
     if (livello === 1) {
-      // Promoter livello 1 vede tutti i promoter di livello 2 e 3 e i negozi associati
-      sql += ' OR s.livello IN (2, 3)';
-      // Per i negozi (tipo = 'NEGOZIO'), li vede tutti se è livello 1
-      if (tipo === 'NEGOZIO') {
-        // Aggiunge anche i negozi associati ai referenti
+      // Vede tutti i promoter di livello 1
+      sql += ' OR s.livello = 1';
+      // Per i tipi non promoter, vede anche quelli referenziati da un promoter di livello 1
+      if (tipo !== 'PROMOTER') {
         sql += ` OR EXISTS (
           SELECT 1 FROM soggetti_referenti sr
           WHERE sr.soggetto_id = s.id
