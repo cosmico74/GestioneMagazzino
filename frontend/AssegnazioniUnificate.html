@@ -502,26 +502,9 @@ async function caricaSoggettiPerTipo() {
     allSoggetti = data || [];
     sel.innerHTML = '<option value="">Seleziona...</option>';
     
-    var isAdmin = (currentUser.ruolo === 'admin');
-    var filtered = data;
-    
-    if (!isAdmin && currentUser.ruolo === 'promoter' && currentUser.riferimento_id) {
-      var promoterId = parseInt(currentUser.riferimento_id);
-      // Filtra: esclude se stesso, e include solo i soggetti di cui è referente
-      filtered = data.filter(function(item) {
-        if (item.id == promoterId) return false;
-        // Verifica se il promoter è referente di questo soggetto
-        var isReferente = false;
-        if (item.referenti && Array.isArray(item.referenti)) {
-          isReferente = item.referenti.includes(promoterId);
-        }
-        // Per i promoter, può vedere solo quelli di cui è referente
-        // (i negozi/cliente/agente devono essere associati via referenti)
-        return isReferente;
-      });
-    }
-    
-    filtered.forEach(function(item) {
+    // Il backend ha già filtrato i soggetti in base al livello e ai referenti.
+    // Non applicare ulteriori filtri lato client.
+    data.forEach(function(item) {
       var testo = tipo === 'PROMOTER' ? (item.nome + ' ' + (item.cognome || '')).trim() : item.nome;
       if (item.livello) testo += ' (liv.' + item.livello + ')';
       sel.appendChild(new Option(testo, item.id));
