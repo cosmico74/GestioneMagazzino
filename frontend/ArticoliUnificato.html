@@ -61,6 +61,7 @@
     .message { padding: 6px 10px; margin-bottom: 8px; border-radius: 8px; font-size: 0.75rem; }
     .success { background: #d1fae5; color: #065f46; border-left: 4px solid #10b981; }
     .error { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
+    .info { background: #dbeafe; color: #1e40af; border-left: 4px solid #3b82f6; }
     .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #e2e8f0; border-top-color: #1a73e8; border-radius: 50%; animation: spin 0.6s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
@@ -95,6 +96,28 @@
     .checkbox-inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
     .checkbox-inline input { width: auto; margin: 0; }
     .checkbox-inline label { margin: 0; font-weight: normal; font-size: 0.7rem; }
+
+    /* ===== NUOVI STILI PER LE FRECCE DI ORDINAMENTO ===== */
+    .sort-arrow {
+      cursor: pointer;
+      font-size: 0.6rem;
+      margin-left: 3px;
+      color: #aaa;
+      user-select: none;
+      display: inline-block;
+      padding: 0 2px;
+    }
+    .sort-arrow.active {
+      color: #1a73e8;
+      font-weight: bold;
+      font-size: 0.8rem;
+    }
+    th {
+      cursor: default;
+    }
+    th .sort-arrow {
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -150,22 +173,80 @@
   <div class="table-wrapper">
     <table id="tabellaArticoli">
       <thead>
-        <th data-sort="codice_modello">Codice <span class="sort-arrow"></span></th>
-        <th data-sort="id">ID</th>
-        <th data-sort="descrizione">Descrizione</th>
-        <th data-sort="descrizione_completa">Descrizione Completa</th>
-        <th data-sort="magazzino_nome">Magazzino</th>
-        <th data-sort="categoria_nome">Categoria</th>
-        <th data-sort="marca_nome">Marca</th>
-        <th data-sort="lunghezza">Lunghezza</th>
-        <th data-sort="durezza">Durezza</th>
-        <th data-sort="quantita_totale">Qtà Tot</th>
-        <th data-sort="giacenza">Giacenza</th>
-        <th data-sort="quantita_obsoleta">Qtà Obs</th>
-        <th data-sort="stato">Stato</th>
-        <th data-sort="inventario_austria">🇦🇹 Austria</th>
-        <th>Sigle</th>
-        <th>Azioni</th>
+        <tr>
+          <th data-sort="codice_modello">
+            Codice
+            <span class="sort-arrow sort-asc" data-col="codice_modello">▲</span>
+            <span class="sort-arrow sort-desc" data-col="codice_modello">▼</span>
+          </th>
+          <th data-sort="articolo_id">
+            ID
+            <span class="sort-arrow sort-asc" data-col="articolo_id">▲</span>
+            <span class="sort-arrow sort-desc" data-col="articolo_id">▼</span>
+          </th>
+          <th data-sort="descrizione">
+            Descrizione
+            <span class="sort-arrow sort-asc" data-col="descrizione">▲</span>
+            <span class="sort-arrow sort-desc" data-col="descrizione">▼</span>
+          </th>
+          <th data-sort="descrizione_completa">
+            Descrizione Completa
+            <span class="sort-arrow sort-asc" data-col="descrizione_completa">▲</span>
+            <span class="sort-arrow sort-desc" data-col="descrizione_completa">▼</span>
+          </th>
+          <th data-sort="magazzino_nome">
+            Magazzino
+            <span class="sort-arrow sort-asc" data-col="magazzino_nome">▲</span>
+            <span class="sort-arrow sort-desc" data-col="magazzino_nome">▼</span>
+          </th>
+          <th data-sort="categoria_nome">
+            Categoria
+            <span class="sort-arrow sort-asc" data-col="categoria_nome">▲</span>
+            <span class="sort-arrow sort-desc" data-col="categoria_nome">▼</span>
+          </th>
+          <th data-sort="marca_nome">
+            Marca
+            <span class="sort-arrow sort-asc" data-col="marca_nome">▲</span>
+            <span class="sort-arrow sort-desc" data-col="marca_nome">▼</span>
+          </th>
+          <th data-sort="lunghezza">
+            Lunghezza
+            <span class="sort-arrow sort-asc" data-col="lunghezza">▲</span>
+            <span class="sort-arrow sort-desc" data-col="lunghezza">▼</span>
+          </th>
+          <th data-sort="durezza">
+            Durezza
+            <span class="sort-arrow sort-asc" data-col="durezza">▲</span>
+            <span class="sort-arrow sort-desc" data-col="durezza">▼</span>
+          </th>
+          <th data-sort="quantita_totale">
+            Qtà Tot
+            <span class="sort-arrow sort-asc" data-col="quantita_totale">▲</span>
+            <span class="sort-arrow sort-desc" data-col="quantita_totale">▼</span>
+          </th>
+          <th data-sort="giacenza">
+            Giacenza
+            <span class="sort-arrow sort-asc" data-col="giacenza">▲</span>
+            <span class="sort-arrow sort-desc" data-col="giacenza">▼</span>
+          </th>
+          <th data-sort="quantita_obsoleta">
+            Qtà Obs
+            <span class="sort-arrow sort-asc" data-col="quantita_obsoleta">▲</span>
+            <span class="sort-arrow sort-desc" data-col="quantita_obsoleta">▼</span>
+          </th>
+          <th data-sort="stato">
+            Stato
+            <span class="sort-arrow sort-asc" data-col="stato">▲</span>
+            <span class="sort-arrow sort-desc" data-col="stato">▼</span>
+          </th>
+          <th data-sort="inventario_austria">
+            🇦🇹 Austria
+            <span class="sort-arrow sort-asc" data-col="inventario_austria">▲</span>
+            <span class="sort-arrow sort-desc" data-col="inventario_austria">▼</span>
+          </th>
+          <th>Sigle</th>
+          <th>Azioni</th>
+        </tr>
       </thead>
       <tbody id="tabellaBody"></tbody>
     </table>
@@ -355,7 +436,8 @@ function logout() {
 let magazzini = [], settori = [], categorie = [], marche = [];
 let articoliCorrente = [];
 let articoliFiltrati = [];
-let sortColumn = 'codice_modello', sortAsc = true;
+let sortColumn = 'codice_modello';
+let sortAsc = true;
 let paginaCorrente = 1, righePerPagina = 25;
 let currentObsId = null, currentVenditaId = null, currentVenditaTipo = null, currentVenditaSigle = [];
 let currentSigleArticoloId = null;
@@ -556,8 +638,6 @@ async function refreshAllDatalists() {
   for (let campo of Object.keys(endpointMap)) await aggiornaDatalist(campo);
 }
 
-
-
 // ============================================================
 // CRUD ARTICOLI + PAGINAZIONE
 // ============================================================
@@ -607,23 +687,40 @@ function ordinaArticoli() {
     return r;
   });
 }
-function handleSort(col) {
-  if (sortColumn === col) sortAsc = !sortAsc;
-  else { sortColumn = col; sortAsc = true; }
+
+// ===== NUOVA GESTIONE ORDINAMENTO =====
+function handleSort(col, direction) {
+  if (direction === 'asc') {
+    sortAsc = true;
+  } else if (direction === 'desc') {
+    sortAsc = false;
+  } else {
+    // Alterna (click sul testo)
+    if (sortColumn === col) sortAsc = !sortAsc;
+    else { sortColumn = col; sortAsc = true; }
+  }
+  sortColumn = col;
   ordinaArticoli();
   paginaCorrente = 1;
   renderTabellaPaginata();
   aggiornaIndicatoriOrdine();
 }
+
 function aggiornaIndicatoriOrdine() {
-  document.querySelectorAll('#tabellaArticoli th[data-sort]').forEach(th => {
-    const col = th.getAttribute('data-sort');
-    if (col === sortColumn) {
-      th.innerText = th.innerText.replace(/[↑↓]/g, '') + (sortAsc ? ' ↑' : ' ↓');
-    } else {
-      th.innerText = th.innerText.replace(/[↑↓]/g, '');
-    }
-  });
+  // Rimuovi active da tutte le frecce
+  document.querySelectorAll('.sort-arrow').forEach(el => el.classList.remove('active'));
+
+  const colonnaCorrente = sortColumn;
+  const selettoreAsc = `.sort-arrow.sort-asc[data-col="${colonnaCorrente}"]`;
+  const selettoreDesc = `.sort-arrow.sort-desc[data-col="${colonnaCorrente}"]`;
+  const frecciaAsc = document.querySelector(selettoreAsc);
+  const frecciaDesc = document.querySelector(selettoreDesc);
+
+  if (sortAsc) {
+    if (frecciaAsc) frecciaAsc.classList.add('active');
+  } else {
+    if (frecciaDesc) frecciaDesc.classList.add('active');
+  }
 }
 
 function renderTabellaPaginata() {
@@ -719,9 +816,25 @@ function resetFiltri() {
   caricaArticoli();
 }
 
+// ===== ATTACH SORT LISTENERS (aggiornato) =====
 function attachSortListeners() {
+  // Click sul testo della colonna (o sulla th) per alternare
   document.querySelectorAll('#tabellaArticoli th[data-sort]').forEach(th => {
-    th.addEventListener('click', () => handleSort(th.getAttribute('data-sort')));
+    th.addEventListener('click', (e) => {
+      if (e.target.classList.contains('sort-arrow')) return;
+      const col = th.getAttribute('data-sort');
+      handleSort(col);
+    });
+  });
+
+  // Click sulle frecce singole
+  document.querySelectorAll('.sort-arrow').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const col = el.getAttribute('data-col');
+      const direction = el.classList.contains('sort-asc') ? 'asc' : 'desc';
+      handleSort(col, direction);
+    });
   });
 }
 
@@ -955,7 +1068,6 @@ async function aggiornaQuantitaAustriaSigla(siglaId, nuovaQuantita) {
     const res = await apiFetch('/articoli/sigle/' + siglaId + '/austria', { method: 'PUT', body: JSON.stringify({ quantita_austria: qta }) });
     if (res.success) {
       showMessage('Quantità Austria aggiornata', 'success');
-      // Ricarica la tabella sigle per l'articolo corrente
       if (currentSigleArticoloId) {
         await caricaSigleArticolo(currentSigleArticoloId);
         caricaArticoli();
