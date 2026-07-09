@@ -251,35 +251,18 @@ router.post('/', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const [existing] = await connection.query(`
-      SELECT articolo_id FROM articoli
-      WHERE magazzino = ? AND settore = ? AND categoria = ? AND marca = ?
-        AND descrizione = ? AND COALESCE(lunghezza,'') = COALESCE(?,'') AND COALESCE(durezza,'') = COALESCE(?,'')
-    `, [magazzino, settore, categoria, marca, descrizione, lunghezza, durezza]);
-    if (existing.length) {
-      const artId = existing[0].articolo_id;
-      const [na] = await connection.query(
-        'SELECT id FROM sigle_articoli WHERE articolo_id = ? AND sigla = \'NA\' AND attivo = 1',
-        [artId]
-      );
-      if (na.length) {
-        await connection.query('UPDATE sigle_articoli SET quantita = quantita + ?, quantita_austria = quantita_austria + ? WHERE id = ?', [quantita, quantita, na[0].id]);
-      } else {
-        await connection.query('INSERT INTO sigle_articoli (articolo_id, sigla, quantita, quantita_austria) VALUES (?, \'NA\', ?, ?)', [artId, quantita, quantita]);
-      }
-      await ricalcolaQuantitaTotale(connection, artId);
-      if (inventario_austria !== undefined) {
-        await connection.query('UPDATE articoli SET inventario_austria = ? WHERE articolo_id = ?', [inventario_austria ? 1 : 0, artId]);
-      }
-      await connection.commit();
-      return res.json({ success: true, message: 'Quantità aggiunta all\'articolo esistente', id: artId });
-    }
+    
+    // ===== GENERA NUOVO ID =====
     const [[{ maxId }]] = await connection.query('SELECT MAX(articolo_id) as maxId FROM articoli');
     const newId = (maxId || 0) + 1;
+    
+    // ===== GENERA CODICE UNIVOCO =====
     const codice = generateArticleCode({ categoriaNome: '', marcaNome: '', lunghezza, durezza }, newId);
     const descrizioneCompleta = buildDescrizioneCompleta(descrizione, lunghezza, durezza);
     const now = db.now();
     const invAustria = (inventario_austria !== undefined) ? (inventario_austria ? 1 : 0) : 1;
+    
+    // ===== INSERISCI NUOVO ARTICOLO =====
     await connection.query(`
       INSERT INTO articoli (articolo_id, codice, descrizione, descrizione_completa, magazzino, settore, categoria, marca,
         lunghezza, durezza, quantita_totale, quantita_in_kit, quantita_obsoleta, versione, stato, data_inserimento, data_modifica, note, codice_modello, inventario_austria)
@@ -288,7 +271,7 @@ router.post('/', verifyToken, async (req, res) => {
       newId, codice, descrizione, descrizioneCompleta,
       magazzino, settore, categoria, marca,
       lunghezza || '', durezza || '',
-      quantita,
+      quantita || 0,
       versione || '1.0',
       'Disponibile',
       now, now,
@@ -296,10 +279,24 @@ router.post('/', verifyToken, async (req, res) => {
       codiceModello || null,
       invAustria
     ]);
-    await connection.query('INSERT INTO sigle_articoli (articolo_id, sigla, quantita, quantita_austria) VALUES (?, \'NA\', ?, ?)', [newId, quantita, quantita]);
+    
+    // ===== INSERISCI SIGLA 'NA' =====
+    await connection.query(
+      'INSERT INTO sigle_articoli (articolo_id, sigla, quantita, quantita_austria) VALUES (?, \'NA\', ?, ?)',
+      [newId, quantita || 0, quantita || 0]
+    );
+    
+    // ===== RICALCOLA QUANTITÀ TOTALE =====
     await ricalcolaQuantitaTotale(connection, newId);
+    
     await connection.commit();
-    res.json({ success: true, message: 'Articolo creato', id: newId, codice });
+    res.json({ 
+      success: true, 
+      message: 'Articolo creato con successo', 
+      id: newId, 
+      codice 
+    });
+    
   } catch (err) {
     await connection.rollback();
     console.error('Errore POST /articoli:', err);
