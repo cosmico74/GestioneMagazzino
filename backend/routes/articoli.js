@@ -55,7 +55,7 @@ router.get('/', verifyToken, async (req, res) => {
   try {
     let sql = `
       SELECT a.*,
-        (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE,
+        (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE,
         m.nome AS magazzino_nome,
         s.nome AS settore_nome,
         c.nome AS categoria_nome,
@@ -77,7 +77,7 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.query.durezza) { sql += ' AND a.durezza = ?'; params.push(req.query.durezza); }
     if (req.query.codice_modello) { sql += ' AND a.codice_modello = ?'; params.push(req.query.codice_modello); }
     if (req.query.min_giacenza) {
-      sql += ' AND (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = \'ARTICOLO\' AND oggetto_id = a.articolo_id), 0)) >= ?';
+      sql += ' AND (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = \'ARTICOLO\' AND oggetto_id = a.articolo_id), 0)) >= ?';
       params.push(req.query.min_giacenza);
     }
     const [rows] = await db.query(sql, params);
@@ -95,7 +95,7 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT a.*,
-        (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta) AS GIACENZA_REALE
+        (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE
       FROM articoli a
       WHERE a.articolo_id = ?
     `, [req.params.id]);
