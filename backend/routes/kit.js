@@ -5,8 +5,19 @@ const { verifyToken } = require('../auth');
 const { canUserUseMagazzino } = require('./articoli');
 
 // ============================================================
-// HELPER: aggiungi/rimuovi in kit (aggiorna quantita_in_kit)
+// HELPER: aggiorna quantita_in_kit per un articolo
 // ============================================================
+async function ricalcolaQuantitaInKit(connection, articoloId) {
+  const [sum] = await connection.query(
+    'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE articolo_id = ?',
+    [articoloId]
+  );
+  await connection.query(
+    'UPDATE articoli SET quantita_in_kit = ? WHERE articolo_id = ?',
+    [sum[0].totale, articoloId]
+  );
+}
+
 async function aggiungiInKit(connection, articoloId, quantita) {
   await connection.query(
     'UPDATE articoli SET quantita_in_kit = quantita_in_kit + ? WHERE articolo_id = ?',
@@ -42,7 +53,7 @@ async function generaDescrizioneKit(connection, sci, righe) {
 }
 
 // ============================================================
-// GET /api/kit
+// GET /api/kit (elenco kit)
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -72,19 +83,21 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/:id
+// GET /api/kit/:id (dettaglio kit)
 // ============================================================
 router.get('/:id', verifyToken, async (req, res) => {
   try {
     const [kit] = await db.query('SELECT * FROM kit WHERE id = ?', [req.params.id]);
     if (!kit.length) return res.status(404).json({ error: 'Kit non trovato' });
+    
     const [dettagli] = await db.query(`
-      SELECT d.*, a.descrizione AS articolo_descrizione, s.sigla
+      SELECT d.*, a.descrizione AS articolo_descrizione, a.codice AS articolo_codice, s.sigla
       FROM kit_dettaglio d
       LEFT JOIN articoli a ON d.articolo_id = a.articolo_id
       LEFT JOIN sigle_articoli s ON d.sigla_id = s.id
       WHERE d.kit_id = ?
     `, [req.params.id]);
+    
     res.json({ ...kit[0], dettagli });
   } catch (err) {
     console.error('Errore GET /kit/:id:', err);
@@ -93,12 +106,73 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
+// GET /api/kit/articoli
+// Restituisce l'elenco degli articoli disponibili (univoci)
+// ============================================================
+router.get('/articoli', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT DISTINCT
+        a.articolo_id,
+        a.descrizione,
+        a.codice,
+        a.quantita_totale,
+        a.magazzino,
+        a.settore,
+        a.categoria,
+        a.marca,
+        a.codice_modello
+      FROM articoli a
+      WHERE a.quantita_totale > 0
+        AND a.stato = 'Disponibile'
+      ORDER BY a.descrizione
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /kit/articoli:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/kit/articoli/:id/sigle
+// Restituisce le sigle disponibili per un articolo
+// ============================================================
+router.get('/articoli/:id/sigle', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        s.id,
+        s.sigla,
+        s.quantita,
+        (COALESCE(s.quantita, 0) - COALESCE((SELECT SUM(quantita) FROM kit_dettaglio WHERE sigla_id = s.id), 0) - 
+         COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE sigla_id = s.id AND tipo_oggetto = 'ARTICOLO'), 0)) AS giacenza
+      FROM sigle_articoli s
+      WHERE s.articolo_id = ?
+        AND s.attivo = 1
+      ORDER BY s.sigla
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /kit/articoli/:id/sigle:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/kit/sigle-usate
+// Restituisce le sigle già utilizzate in qualsiasi kit
 // ============================================================
 router.get('/sigle-usate', verifyToken, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT DISTINCT sigla_id FROM kit_dettaglio WHERE tipo_articolo = "SCI" AND sigla_id IS NOT NULL');
-    res.json(rows.map(r => r.sigla_id));
+    const [rows] = await db.query(`
+      SELECT DISTINCT kd.sigla_id AS id, s.sigla
+      FROM kit_dettaglio kd
+      INNER JOIN sigle_articoli s ON kd.sigla_id = s.id
+      WHERE s.attivo = 1
+      ORDER BY s.sigla
+    `);
+    res.json(rows);
   } catch (err) {
     console.error('Errore GET /kit/sigle-usate:', err);
     res.status(500).json({ error: err.message });
@@ -106,7 +180,7 @@ router.get('/sigle-usate', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/kit
+// POST /api/kit (crea un nuovo kit)
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   const { magazzino, sci_id, note, righe } = req.body;
@@ -114,21 +188,20 @@ router.post('/', verifyToken, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
   }
 
-  // Verifica permesso sul magazzino
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
   }
 
   const connection = await db.getConnection();
-  await connection.beginTransaction();
   try {
+    await connection.beginTransaction();
+
     const [sci] = await connection.query('SELECT descrizione, lunghezza, durezza FROM articoli WHERE articolo_id = ?', [sci_id]);
     if (!sci.length) throw new Error('Sci non trovato');
 
     const [maxIdRow] = await connection.query('SELECT MAX(id) AS maxId FROM kit');
     const nextSeq = (maxIdRow[0].maxId || 0) + 1;
     const codiceKit = `KIT-${magazzino}-${String(nextSeq).padStart(4, '0')}`;
-
     const descKit = await generaDescrizioneKit(connection, sci[0], righe);
 
     const now = db.now();
@@ -186,14 +259,14 @@ router.put('/:id', verifyToken, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
   }
 
-  // Verifica permesso sul magazzino
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
   }
 
   const connection = await db.getConnection();
-  await connection.beginTransaction();
   try {
+    await connection.beginTransaction();
+
     const [oldDetails] = await connection.query('SELECT * FROM kit_dettaglio WHERE kit_id = ?', [id]);
     for (const det of oldDetails) {
       await rimuoviDaKit(connection, det.articolo_id, det.quantita);
@@ -269,14 +342,16 @@ router.patch('/:id/note', verifyToken, async (req, res) => {
 // ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
-  await connection.beginTransaction();
   try {
+    await connection.beginTransaction();
+
     const [dettagli] = await connection.query('SELECT * FROM kit_dettaglio WHERE kit_id = ?', [req.params.id]);
     for (const det of dettagli) {
       await rimuoviDaKit(connection, det.articolo_id, det.quantita);
     }
     await connection.query('DELETE FROM kit_dettaglio WHERE kit_id = ?', [req.params.id]);
     await connection.query('DELETE FROM kit WHERE id = ?', [req.params.id]);
+
     await connection.commit();
     res.json({ success: true, message: 'Kit eliminato con successo' });
   } catch (err) {
