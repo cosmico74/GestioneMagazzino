@@ -261,6 +261,7 @@ function getLabelSkistopper(skistopper) {
 // ============================================================
 async function caricaAnagrafiche() {
   try {
+    // 1. Carica magazzini
     magazzini = await apiFetch('/anagrafiche/magazzini');
     kitMagazzinoSelect.innerHTML = '<option value="">Seleziona magazzino</option>';
     magazzini.forEach(m => kitMagazzinoSelect.appendChild(new Option(m.nome, m.id)));
@@ -277,46 +278,65 @@ async function caricaAnagrafiche() {
       kitMagazzinoSelect.selectedIndex = 1;
     }
 
+    // 2. Carica categorie
     const categorie = await apiFetch('/anagrafiche/categorie');
     const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
     const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
     const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-    // Carica sci (raggruppati)
+    // 3. Carica SOLO gli sci (con filtro categoria)
     let params = new URLSearchParams({ min_giacenza: '1' });
     if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
     if (sciCat) params.append('categoria', sciCat.id);
-    const sciRes = await apiFetch('/kit/articoli?' + params.toString());
-    articoliSci = Array.isArray(sciRes) ? sciRes : [];
+    
+    const sciRes = await apiFetch('/articoli?' + params.toString());
+    const articoliSciRaw = sciRes.success ? sciRes.data : [];
 
+    // 4. Raggruppa gli sci per descrizione+lunghezza (manualmente)
+    const sciGroupMap = {};
+    articoliSciRaw.forEach(a => {
+      const key = `${a.descrizione}|${a.lunghezza || ''}`;
+      if (!sciGroupMap[key]) {
+        sciGroupMap[key] = {
+          articolo_id: a.articolo_id,
+          descrizione: a.descrizione,
+          lunghezza: a.lunghezza || '',
+          quantita_totale: 0,
+          articoli_ids: []
+        };
+      }
+      sciGroupMap[key].quantita_totale += a.quantita_totale;
+      sciGroupMap[key].articoli_ids.push(a.articolo_id);
+    });
+
+    articoliSci = Object.values(sciGroupMap);
+    
     // Popola mappa articoliSciGroup
     articoliSciGroup = {};
     articoliSci.forEach(a => {
-      if (a.articoli_ids && a.articoli_ids.length > 0) {
-        articoliSciGroup[a.articolo_id] = a.articoli_ids;
-      } else {
-        articoliSciGroup[a.articolo_id] = [a.articolo_id];
-      }
+      articoliSciGroup[a.articolo_id] = a.articoli_ids;
     });
 
+    // 5. Popola dropdown sci
     kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
     articoliSci.forEach(a => {
       const label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
       kitSciSelect.appendChild(new Option(label, a.articolo_id));
     });
 
-    // Carica attacchi e skistoppers
+    // 6. Carica attacchi e skistoppers
     await caricaArticoliPerCategoria();
 
-    // Carica sigle usate
+    // 7. Carica sigle usate
     await caricaSigleUsate();
 
-    // Imposta primo sci
+    // 8. Imposta primo sci
     if (articoliSci.length > 0) {
       kitSciSelect.value = articoliSci[0].articolo_id;
       await caricaSiglePerSci(kitSciSelect.value);
     }
 
+    // 9. Eventi
     kitSciSelect.addEventListener('change', async () => {
       if (formResetting) return;
       const sciId = kitSciSelect.value;
@@ -329,6 +349,8 @@ async function caricaAnagrafiche() {
     kitMagazzinoSelect.addEventListener('change', () => {
       caricaArticoliPerCategoria();
       caricaKit();
+      // Ricarica anche gli sci quando cambia magazzino
+      caricaAnagrafiche();
     });
 
     await caricaKit();
@@ -366,7 +388,7 @@ async function caricaArticoliPerCategoria() {
 }
 
 // ============================================================
-// CARICA SIGLE USATE E SIGLE PER SCI
+// CARICA SIGLE USATE E SIGLE PER SCI (usando /articoli/:id/sigle)
 // ============================================================
 async function caricaSigleUsate() {
   try {
@@ -384,9 +406,21 @@ async function caricaSiglePerSci(sciId) {
   }
   try {
     const articoliIds = articoliSciGroup[sciId] || [sciId];
-    const idsParam = articoliIds.join(',');
-    const sigle = await apiFetch('/kit/articoli/sigle?ids=' + idsParam);
-    currentSigleDisponibili = sigle.filter(s => s.giacenza > 0 && !sigleUsateInKit.includes(s.id));
+    let allSigle = [];
+    for (const id of articoliIds) {
+      try {
+        const sigle = await apiFetch('/articoli/' + id + '/sigle');
+        allSigle = allSigle.concat(sigle);
+      } catch(e) { console.warn('Errore per articolo', id, e); }
+    }
+    // Deduplica per id
+    const seen = new Set();
+    const sigleUniche = allSigle.filter(s => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+    currentSigleDisponibili = sigleUniche.filter(s => s.giacenza > 0 && !sigleUsateInKit.includes(s.id));
   } catch(e) {
     currentSigleDisponibili = [];
     console.error('Errore carica sigle:', e);
