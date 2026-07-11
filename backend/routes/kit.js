@@ -110,7 +110,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/articoli', verifyToken, async (req, res) => {
   try {
-    const [rows] = await db.query(`
+    let sql = `
       SELECT 
         MIN(a.articolo_id) AS articolo_id,
         a.descrizione,
@@ -125,10 +125,26 @@ router.get('/articoli', verifyToken, async (req, res) => {
       FROM articoli a
       WHERE a.quantita_totale > 0
         AND a.stato = 'Disponibile'
-      GROUP BY a.descrizione, a.lunghezza, a.magazzino, a.settore, a.categoria, a.marca, a.codice_modello
-      ORDER BY a.descrizione
-    `);
-    // Converti articoli_ids in array
+    `;
+    const params = [];
+    
+    if (req.query.magazzino) {
+      sql += ' AND a.magazzino = ?';
+      params.push(req.query.magazzino);
+    }
+    if (req.query.categoria) {
+      sql += ' AND a.categoria = ?';
+      params.push(req.query.categoria);
+    }
+    // min_giacenza: filtra per giacenza >= valore
+    if (req.query.min_giacenza) {
+      sql += ` AND (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta) >= ?`;
+      params.push(req.query.min_giacenza);
+    }
+
+    sql += ` GROUP BY a.descrizione, a.lunghezza, a.magazzino, a.settore, a.categoria, a.marca, a.codice_modello ORDER BY a.descrizione`;
+    
+    const [rows] = await db.query(sql, params);
     const result = rows.map(row => ({
       ...row,
       articoli_ids: row.articoli_ids ? row.articoli_ids.split(',').map(Number) : []
