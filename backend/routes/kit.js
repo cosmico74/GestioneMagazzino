@@ -129,7 +129,7 @@ router.get('/articoli', verifyToken, async (req, res) => {
       GROUP BY a.descrizione, a.lunghezza, a.magazzino, a.settore, a.categoria, a.marca, a.codice_modello
       ORDER BY a.descrizione
     `);
-    // Converti articoli_ids in array (utile per eventuali usi futuri)
+    // Converti articoli_ids in array
     const result = rows.map(row => ({
       ...row,
       articoli_ids: row.articoli_ids ? row.articoli_ids.split(',').map(Number) : []
@@ -142,9 +142,37 @@ router.get('/articoli', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/articoli/:id/sigle
-// Restituisce le sigle disponibili per TUTTI gli articoli che condividono
-// la stessa descrizione e lunghezza dell'articolo con id specificato.
+// GET /api/kit/articoli/sigle?ids=1,2,3
+// Restituisce le sigle di TUTTI gli articoli specificati
+// ============================================================
+router.get('/articoli/sigle', verifyToken, async (req, res) => {
+  const { ids } = req.query;
+  if (!ids) return res.json([]);
+  const idArray = ids.split(',').map(Number).filter(id => !isNaN(id));
+  if (!idArray.length) return res.json([]);
+  const placeholders = idArray.map(() => '?').join(',');
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        s.id,
+        s.sigla,
+        s.quantita,
+        (COALESCE(s.quantita, 0) - COALESCE((SELECT SUM(quantita) FROM kit_dettaglio WHERE sigla_id = s.id), 0) - 
+         COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE sigla_id = s.id AND tipo_oggetto = 'ARTICOLO'), 0)) AS giacenza
+      FROM sigle_articoli s
+      WHERE s.articolo_id IN (${placeholders})
+        AND s.attivo = 1
+      ORDER BY s.sigla
+    `, idArray);
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /kit/articoli/sigle:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/kit/articoli/:id/sigle (deprecata ma mantenuta per compatibilità)
 // ============================================================
 router.get('/articoli/:id/sigle', verifyToken, async (req, res) => {
   try {
@@ -156,7 +184,7 @@ router.get('/articoli/:id/sigle', verifyToken, async (req, res) => {
     if (!art.length) return res.status(404).json({ error: 'Articolo non trovato' });
     const { descrizione, lunghezza } = art[0];
 
-    // 2. Trova tutti gli articoli con quella descrizione e lunghezza (e con quantità > 0)
+    // 2. Trova tutti gli articoli con quella descrizione e lunghezza
     const [articoli] = await db.query(
       `SELECT articolo_id FROM articoli 
        WHERE descrizione = ? AND lunghezza = ? 
@@ -166,7 +194,7 @@ router.get('/articoli/:id/sigle', verifyToken, async (req, res) => {
     const ids = articoli.map(a => a.articolo_id);
     if (!ids.length) return res.json([]);
 
-    // 3. Ottieni le sigle di tutti questi articoli (unendo)
+    // 3. Ottieni le sigle di tutti questi articoli
     const placeholders = ids.map(() => '?').join(',');
     const [rows] = await db.query(`
       SELECT 

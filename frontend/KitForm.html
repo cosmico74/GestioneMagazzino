@@ -220,12 +220,14 @@ function logout() {
 let currentUser = null;
 let magazzini = [];
 let articoliSci = [];
+let articoliSciGroup = {}; // mappa: articolo_id -> { descrizione, lunghezza, articoli_ids: [...] }
 let articoliAttacchi = [];
 let articoliSkistopper = [];
 let allKits = [];
 let sigleUsateInKit = [];
 let currentSigleDisponibili = [];
 let currentKitId = null;
+let formResetting = false;
 
 const kitMagazzinoSelect = document.getElementById('kitMagazzino');
 const kitSciSelect = document.getElementById('kitSci');
@@ -263,7 +265,7 @@ async function caricaAnagrafiche() {
     kitMagazzinoSelect.innerHTML = '<option value="">Seleziona magazzino</option>';
     magazzini.forEach(m => kitMagazzinoSelect.appendChild(new Option(m.nome, m.id)));
 
-    // Imposta default: Race se presente e disponibile, altrimenti primo disponibile
+    // Imposta default: Race se presente e disponibile
     const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
     if (defaultMag) {
       const exists = Array.from(kitMagazzinoSelect.options).some(opt => opt.value == defaultMag.id);
@@ -281,12 +283,23 @@ async function caricaAnagrafiche() {
     const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
     const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-    // Carica sci
+    // Carica sci (raggruppati per descrizione+lunghezza)
     let params = new URLSearchParams({ min_giacenza: '1' });
     if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
     if (sciCat) params.append('categoria', sciCat.id);
     const sciRes = await apiFetch('/articoli?' + params.toString());
     articoliSci = sciRes.success ? sciRes.data : [];
+
+    // Crea una mappa per memorizzare gli articoli_ids per ogni gruppo
+    articoliSciGroup = {};
+    articoliSci.forEach(a => {
+      // Se l'articolo ha articoli_ids (array di tutti gli id del gruppo)
+      if (a.articoli_ids && a.articoli_ids.length > 0) {
+        articoliSciGroup[a.articolo_id] = a.articoli_ids;
+      } else {
+        articoliSciGroup[a.articolo_id] = [a.articolo_id];
+      }
+    });
 
     kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
     articoliSci.forEach(a => {
@@ -300,13 +313,17 @@ async function caricaAnagrafiche() {
     // Carica sigle usate nei kit
     await caricaSigleUsate();
 
+    // Imposta il primo sci se disponibile
     if (articoliSci.length > 0) {
-      kitSciSelect.selectedIndex = 1;
+      kitSciSelect.value = articoliSci[0].articolo_id;
       await caricaSiglePerSci(kitSciSelect.value);
-      aggiornaTutteLeRighe();
+      // non chiamare aggiornaTutteLeRighe qui, lo farà resetForm
     }
 
     kitSciSelect.addEventListener('change', async () => {
+      // Se sto già resettando il form, ignora l'evento
+      if (formResetting) return;
+      
       const sciId = kitSciSelect.value;
       if (sciId) {
         await caricaSiglePerSci(sciId);
@@ -327,170 +344,178 @@ async function caricaAnagrafiche() {
   }
 }
 
+// ============================================================
+// CARICA ARTICOLI PER CATEGORIA (attacchi e skistoppers)
+// ============================================================
+async function caricaArticoliPerCategoria() {
+  const magId = kitMagazzinoSelect.value;
+  if (!magId) return;
 
+  try {
+    const categorie = await apiFetch('/anagrafiche/categorie');
+    const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
+    const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-  // ============================================================
-  // CARICA ARTICOLI PER CATEGORIA (attacchi e skistoppers) con GIACENZA_REALE
-  // ============================================================
-  async function caricaArticoliPerCategoria() {
-    const magId = kitMagazzinoSelect.value;
-    if (!magId) return;
+    let params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
+    if (attCat) params.append('categoria', attCat.id);
+    const attRes = await apiFetch('/articoli?' + params.toString());
+    articoliAttacchi = attRes.success ? attRes.data : [];
 
-    try {
-      const categorie = await apiFetch('/anagrafiche/categorie');
-      const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
-      const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
+    params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
+    if (skCat) params.append('categoria', skCat.id);
+    const skRes = await apiFetch('/articoli?' + params.toString());
+    articoliSkistopper = skRes.success ? skRes.data : [];
 
-      let params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
-      if (attCat) params.append('categoria', attCat.id);
-      const attRes = await apiFetch('/articoli?' + params.toString());
-      articoliAttacchi = attRes.success ? attRes.data : [];
+    aggiornaTutteLeRighe();
+  } catch(e) { console.error(e); }
+}
 
-      params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
-      if (skCat) params.append('categoria', skCat.id);
-      const skRes = await apiFetch('/articoli?' + params.toString());
-      articoliSkistopper = skRes.success ? skRes.data : [];
-
-      aggiornaTutteLeRighe();
-    } catch(e) { console.error(e); }
+// ============================================================
+// CARICA SIGLE USATE E SIGLE PER SCI (con log di debug)
+// ============================================================
+async function caricaSigleUsate() {
+  try {
+    const data = await apiFetch('/kit/sigle-usate');
+    sigleUsateInKit = Array.isArray(data) ? data.map(s => s.id) : [];
+  } catch(e) {
+    sigleUsateInKit = [];
   }
+}
 
-  // ============================================================
-  // CARICA SIGLE USATE E SIGLE PER SCI (con log di debug)
-  // ============================================================
-  async function caricaSigleUsate() {
-    try {
-      const data = await apiFetch('/kit/sigle-usate');
-      sigleUsateInKit = Array.isArray(data) ? data : [];
-    } catch(e) {
-      sigleUsateInKit = [];
-    }
+async function caricaSiglePerSci(sciId) {
+  if (!sciId) {
+    currentSigleDisponibili = [];
+    return;
   }
-
-  async function caricaSiglePerSci(sciId) {
-    if (!sciId) {
-      currentSigleDisponibili = [];
-      return;
-    }
-    try {
-      const sigle = await apiFetch('/articoli/' + sciId + '/sigle');
-      console.log('🔍 Sigle ricevute per sci', sciId, ':', sigle);
-      console.log('🔍 Sigle usate in kit:', sigleUsateInKit);
-      currentSigleDisponibili = sigle.filter(s => {
-        const disponibile = s.giacenza > 0 && !sigleUsateInKit.includes(s.id);
-        console.log(`  Sigla ${s.sigla} (id ${s.id}): giacenza=${s.giacenza}, usata in kit=${sigleUsateInKit.includes(s.id)} -> ${disponibile ? '✅' : '❌'}`);
-        return disponibile;
-      });
-      console.log('✅ Sigle disponibili finali:', currentSigleDisponibili);
-    } catch(e) {
-      currentSigleDisponibili = [];
-      console.error('Errore carica sigle:', e);
-    }
+  try {
+    // Ottieni gli ID di tutti gli articoli del gruppo
+    const articoliIds = articoliSciGroup[sciId] || [sciId];
+    
+    // Costruisci la query con gli ID
+    const idsParam = articoliIds.join(',');
+    const sigle = await apiFetch('/kit/articoli/sigle?ids=' + idsParam);
+    console.log('🔍 Sigle ricevute per gruppo sci', sciId, ':', sigle);
+    console.log('🔍 Sigle usate in kit:', sigleUsateInKit);
+    currentSigleDisponibili = sigle.filter(s => {
+      const disponibile = s.giacenza > 0 && !sigleUsateInKit.includes(s.id);
+      console.log(`  Sigla ${s.sigla} (id ${s.id}): giacenza=${s.giacenza}, usata in kit=${sigleUsateInKit.includes(s.id)} -> ${disponibile ? '✅' : '❌'}`);
+      return disponibile;
+    });
+    console.log('✅ Sigle disponibili finali:', currentSigleDisponibili);
+  } catch(e) {
+    currentSigleDisponibili = [];
+    console.error('Errore carica sigle:', e);
   }
+}
 
-  // ============================================================
-  // GESTIONE RIGHE SIGLE
-  // ============================================================
-  function aggiungiRigaSigla() {
-    const tbody = document.getElementById('sigleTbody');
-    const row = tbody.insertRow();
+// ============================================================
+// GESTIONE RIGHE SIGLE
+// ============================================================
+function aggiungiRigaSigla() {
+  const tbody = document.getElementById('sigleTbody');
+  const row = tbody.insertRow();
 
-    const tdSigla = row.insertCell(0);
-    const siglaSelect = document.createElement('select');
-    siglaSelect.className = 'sigla-select';
-    siglaSelect.innerHTML = '<option value="">Seleziona sigla</option>';
-    tdSigla.appendChild(siglaSelect);
+  const tdSigla = row.insertCell(0);
+  const siglaSelect = document.createElement('select');
+  siglaSelect.className = 'sigla-select';
+  siglaSelect.innerHTML = '<option value="">Seleziona sigla</option>';
+  tdSigla.appendChild(siglaSelect);
 
-    const tdAtt = row.insertCell(1);
-    const attSelect = document.createElement('select');
-    attSelect.className = 'attacco-select';
+  const tdAtt = row.insertCell(1);
+  const attSelect = document.createElement('select');
+  attSelect.className = 'attacco-select';
+  attSelect.innerHTML = '<option value="">Seleziona attacco</option>';
+  articoliAttacchi.forEach(a => {
+    const opt = new Option(getLabelAttacco(a), a.articolo_id);
+    attSelect.appendChild(opt);
+  });
+  tdAtt.appendChild(attSelect);
+
+  const tdSk = row.insertCell(2);
+  const skSelect = document.createElement('select');
+  skSelect.className = 'skistopper-select';
+  skSelect.innerHTML = '<option value="">Nessuno</option>';
+  articoliSkistopper.forEach(s => {
+    const opt = new Option(getLabelSkistopper(s), s.articolo_id);
+    skSelect.appendChild(opt);
+  });
+  tdSk.appendChild(skSelect);
+
+  const tdQta = row.insertCell(3);
+  const qtyInput = document.createElement('input');
+  qtyInput.type = 'number';
+  qtyInput.value = 1;
+  qtyInput.min = 1;
+  qtyInput.style.width = '70px';
+  tdQta.appendChild(qtyInput);
+
+  const tdAz = row.insertCell(4);
+  const delBtn = document.createElement('button');
+  delBtn.textContent = '🗑️';
+  delBtn.className = 'btn btn-danger';
+  delBtn.onclick = () => row.remove();
+  tdAz.appendChild(delBtn);
+
+  const sciId = kitSciSelect.value;
+  if (sciId && currentSigleDisponibili.length > 0) {
+    popolaSelectSigle(siglaSelect);
+  }
+}
+
+function popolaSelectSigle(select, selectedId = null) {
+  select.innerHTML = '<option value="">Seleziona sigla</option>';
+  currentSigleDisponibili.forEach(s => {
+    const label = s.sigla + (s.durezza ? ' - ' + s.durezza : '') + ' (disp: ' + s.giacenza + ')';
+    const opt = new Option(label, s.id);
+    if (selectedId && selectedId == s.id) opt.selected = true;
+    select.appendChild(opt);
+  });
+  if (currentSigleDisponibili.length === 1) {
+    select.value = currentSigleDisponibili[0].id;
+  }
+}
+
+function aggiornaTutteLeRighe() {
+  document.querySelectorAll('#sigleTbody tr').forEach(row => {
+    const siglaSelect = row.cells[0].querySelector('select');
+    const attSelect = row.cells[1].querySelector('select');
+    const skSelect = row.cells[2].querySelector('select');
+
+    const curAtt = attSelect.value;
     attSelect.innerHTML = '<option value="">Seleziona attacco</option>';
     articoliAttacchi.forEach(a => {
       const opt = new Option(getLabelAttacco(a), a.articolo_id);
+      if (curAtt == a.articolo_id) opt.selected = true;
       attSelect.appendChild(opt);
     });
-    tdAtt.appendChild(attSelect);
 
-    const tdSk = row.insertCell(2);
-    const skSelect = document.createElement('select');
-    skSelect.className = 'skistopper-select';
+    const curSk = skSelect.value;
     skSelect.innerHTML = '<option value="">Nessuno</option>';
     articoliSkistopper.forEach(s => {
       const opt = new Option(getLabelSkistopper(s), s.articolo_id);
+      if (curSk == s.articolo_id) opt.selected = true;
       skSelect.appendChild(opt);
     });
-    tdSk.appendChild(skSelect);
-
-    const tdQta = row.insertCell(3);
-    const qtyInput = document.createElement('input');
-    qtyInput.type = 'number';
-    qtyInput.value = 1;
-    qtyInput.min = 1;
-    qtyInput.style.width = '70px';
-    tdQta.appendChild(qtyInput);
-
-    const tdAz = row.insertCell(4);
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '🗑️';
-    delBtn.className = 'btn btn-danger';
-    delBtn.onclick = () => row.remove();
-    tdAz.appendChild(delBtn);
 
     const sciId = kitSciSelect.value;
     if (sciId && currentSigleDisponibili.length > 0) {
-      popolaSelectSigle(siglaSelect);
+      const curSigla = siglaSelect.value;
+      popolaSelectSigle(siglaSelect, curSigla);
+    } else {
+      siglaSelect.innerHTML = '<option value="">Seleziona sigla</option>';
     }
-  }
+  });
+}
 
-  function popolaSelectSigle(select, selectedId = null) {
-    select.innerHTML = '<option value="">Seleziona sigla</option>';
-    currentSigleDisponibili.forEach(s => {
-      const label = s.sigla + (s.durezza ? ' - ' + s.durezza : '') + ' (disp: ' + s.giacenza + ')';
-      const opt = new Option(label, s.id);
-      if (selectedId && selectedId == s.id) opt.selected = true;
-      select.appendChild(opt);
-    });
-    if (currentSigleDisponibili.length === 1) {
-      select.value = currentSigleDisponibili[0].id;
-    }
-  }
-
-  function aggiornaTutteLeRighe() {
-    document.querySelectorAll('#sigleTbody tr').forEach(row => {
-      const siglaSelect = row.cells[0].querySelector('select');
-      const attSelect = row.cells[1].querySelector('select');
-      const skSelect = row.cells[2].querySelector('select');
-
-      const curAtt = attSelect.value;
-      attSelect.innerHTML = '<option value="">Seleziona attacco</option>';
-      articoliAttacchi.forEach(a => {
-        const opt = new Option(getLabelAttacco(a), a.articolo_id);
-        if (curAtt == a.articolo_id) opt.selected = true;
-        attSelect.appendChild(opt);
-      });
-
-      const curSk = skSelect.value;
-      skSelect.innerHTML = '<option value="">Nessuno</option>';
-      articoliSkistopper.forEach(s => {
-        const opt = new Option(getLabelSkistopper(s), s.articolo_id);
-        if (curSk == s.articolo_id) opt.selected = true;
-        skSelect.appendChild(opt);
-      });
-
-      const sciId = kitSciSelect.value;
-      if (sciId && currentSigleDisponibili.length > 0) {
-        const curSigla = siglaSelect.value;
-        popolaSelectSigle(siglaSelect, curSigla);
-      } else {
-        siglaSelect.innerHTML = '<option value="">Seleziona sigla</option>';
-      }
-    });
-  }
-
-  // ============================================================
-  // RESET FORM
-  // ============================================================
-  function resetForm() {
+// ============================================================
+// RESET FORM
+// ============================================================
+function resetForm() {
+  // Evita chiamate multiple
+  if (formResetting) return;
+  formResetting = true;
+  
+  try {
     const tbody = document.getElementById('sigleTbody');
     tbody.innerHTML = '';
     aggiungiRigaSigla();
@@ -504,214 +529,217 @@ async function caricaAnagrafiche() {
         aggiornaTutteLeRighe();
       });
     }
+  } finally {
+    formResetting = false;
   }
+}
 
-  // ============================================================
-  // SALVA KIT
-  // ============================================================
-  async function salvaKit() {
-    const magazzino = kitMagazzinoSelect.value;
-    const sciId = kitSciSelect.value;
-    const note = document.getElementById('kitNote').value.trim();
+// ============================================================
+// SALVA KIT
+// ============================================================
+async function salvaKit() {
+  const magazzino = kitMagazzinoSelect.value;
+  const sciId = kitSciSelect.value;
+  const note = document.getElementById('kitNote').value.trim();
 
-    if (!magazzino) { showMessage('Seleziona un magazzino', 'error'); return; }
-    if (!sciId) { showMessage('Seleziona uno sci', 'error'); return; }
+  if (!magazzino) { showMessage('Seleziona un magazzino', 'error'); return; }
+  if (!sciId) { showMessage('Seleziona uno sci', 'error'); return; }
 
-    const righe = [];
-    let hasErrors = false;
+  const righe = [];
+  let hasErrors = false;
 
-    document.querySelectorAll('#sigleTbody tr').forEach(row => {
-      const siglaSelect = row.cells[0].querySelector('select');
-      const attSelect = row.cells[1].querySelector('select');
-      const skSelect = row.cells[2].querySelector('select');
-      const qtyInput = row.cells[3].querySelector('input');
+  document.querySelectorAll('#sigleTbody tr').forEach(row => {
+    const siglaSelect = row.cells[0].querySelector('select');
+    const attSelect = row.cells[1].querySelector('select');
+    const skSelect = row.cells[2].querySelector('select');
+    const qtyInput = row.cells[3].querySelector('input');
 
-      const siglaId = siglaSelect.value;
-      const attId = attSelect.value;
-      const skId = skSelect.value;
-      const quantita = parseInt(qtyInput.value);
+    const siglaId = siglaSelect.value;
+    const attId = attSelect.value;
+    const skId = skSelect.value;
+    const quantita = parseInt(qtyInput.value);
 
-      if (!siglaId) { hasErrors = true; return; }
-      if (!attId) { hasErrors = true; return; }
-      if (isNaN(quantita) || quantita < 1) { hasErrors = true; return; }
+    if (!siglaId) { hasErrors = true; return; }
+    if (!attId) { hasErrors = true; return; }
+    if (isNaN(quantita) || quantita < 1) { hasErrors = true; return; }
 
-      const attacco = articoliAttacchi.find(a => a.articolo_id == attId);
-      if (attacco) {
-        const giacenzaAtt = getGiacenzaArticolo(attacco);
-        if (quantita > giacenzaAtt) {
-          hasErrors = true;
-          showMessage('Quantità richiesta per l\'attacco "' + attacco.descrizione + '" supera la disponibilità (' + giacenzaAtt + ')', 'error');
-          return;
-        }
+    const attacco = articoliAttacchi.find(a => a.articolo_id == attId);
+    if (attacco) {
+      const giacenzaAtt = getGiacenzaArticolo(attacco);
+      if (quantita > giacenzaAtt) {
+        hasErrors = true;
+        showMessage('Quantità richiesta per l\'attacco "' + attacco.descrizione + '" supera la disponibilità (' + giacenzaAtt + ')', 'error');
+        return;
       }
+    }
 
-      righe.push({
-        sigla_id: parseInt(siglaId),
-        attacco_id: parseInt(attId),
-        skistopper_id: skId ? parseInt(skId) : null,
-        quantita: quantita
-      });
+    righe.push({
+      sigla_id: parseInt(siglaId),
+      attacco_id: parseInt(attId),
+      skistopper_id: skId ? parseInt(skId) : null,
+      quantita: quantita
     });
+  });
 
-    if (hasErrors) return;
-    if (!righe.length) {
-      showMessage('Aggiungi almeno una configurazione', 'error');
-      return;
-    }
-
-    const payload = {
-      magazzino: parseInt(magazzino),
-      sci_id: parseInt(sciId),
-      note: note || null,
-      righe: righe
-    };
-
-    const btn = document.getElementById('saveKitBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Salvataggio...';
-
-    try {
-      const res = await apiFetch('/kit', { method: 'POST', body: JSON.stringify(payload) });
-      if (res.success) {
-        showMessage('Kit creato con successo!', 'success');
-
-        await caricaSigleUsate();
-        await caricaArticoliPerCategoria();
-        const sciIdCorrente = kitSciSelect.value;
-        if (sciIdCorrente) {
-          await caricaSiglePerSci(sciIdCorrente);
-        }
-        aggiornaTutteLeRighe();
-
-        await caricaKit();
-        resetForm();
-      } else {
-        showMessage(res.message, 'error');
-      }
-    } catch (err) {
-      showMessage(err.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '💾 Salva Kit';
-    }
+  if (hasErrors) return;
+  if (!righe.length) {
+    showMessage('Aggiungi almeno una configurazione', 'error');
+    return;
   }
 
-  // ============================================================
-  // CARICA KIT
-  // ============================================================
-  async function caricaKit() {
-    try {
-      const res = await apiFetch('/kit');
-      allKits = Array.isArray(res) ? res : [];
-      popolaTabellaKit();
-    } catch (err) {
-      showMessage('Errore caricamento kit: ' + err.message, 'error');
-    }
-  }
-
-  function popolaTabellaKit() {
-    const tbody = document.querySelector('#tabellaKit tbody');
-    tbody.innerHTML = '';
-    if (!allKits.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center">Nessun kit trovato</td></tr>';
-      return;
-    }
-    allKits.forEach(k => {
-      const mag = magazzini.find(m => m.id == k.magazzino)?.nome || k.magazzino;
-      const row = tbody.insertRow();
-      row.insertCell(0).innerText = k.id;
-      row.insertCell(1).innerText = k.codice_kit;
-      row.insertCell(2).innerText = k.descrizione || '-';
-      row.insertCell(3).innerText = k.sigla_sci || 'NA';   // <-- Nuova colonna
-      row.insertCell(4).innerText = mag;
-      row.insertCell(5).innerText = k.quantita || 0;
-      row.insertCell(6).innerText = k.note || '';
-      const actions = row.insertCell(7);
-      actions.className = 'action-buttons';
-      actions.innerHTML = `
-        <button class="btn" onclick="apriModificaKit(${k.id}, '${k.codice_kit.replace(/'/g, "\\'")}', '${(k.note || '').replace(/'/g, "\\'")}')">✏️</button>
-        <button class="btn btn-danger" onclick="eliminaKit(${k.id})">🗑️</button>
-      `;
-    });
-  }
-
-  // ============================================================
-  // MODIFICA NOTA KIT
-  // ============================================================
-  function apriModificaKit(id, codice, nota) {
-    currentKitId = id;
-    document.getElementById('modKitCodice').innerText = codice;
-    document.getElementById('modKitNota').value = nota || '';
-    document.getElementById('modalModificaKit').style.display = 'flex';
-  }
-
-  function chiudiModificaKit() {
-    document.getElementById('modalModificaKit').style.display = 'none';
-    currentKitId = null;
-  }
-
-  async function salvaNotaKit() {
-    if (!currentKitId) return;
-    const nota = document.getElementById('modKitNota').value.trim();
-    try {
-      const res = await apiFetch('/kit/' + currentKitId + '/note', { method: 'PATCH', body: JSON.stringify({ note: nota }) });
-      if (res.success) {
-        showMessage('Nota kit aggiornata', 'success');
-        chiudiModificaKit();
-        caricaKit();
-      } else {
-        showMessage(res.message, 'error');
-      }
-    } catch(err) {
-      showMessage(err.message, 'error');
-    }
-  }
-
-  // ============================================================
-  // ELIMINA KIT
-  // ============================================================
-  async function eliminaKit(id) {
-    if (!confirm('Eliminare questo kit? Tutte le quantità verranno rilasciate.')) return;
-    try {
-      const res = await apiFetch('/kit/' + id, { method: 'DELETE' });
-      if (res.success) {
-        showMessage('Kit eliminato', 'success');
-
-        await caricaSigleUsate();
-        await caricaArticoliPerCategoria();
-        const sciIdCorrente = kitSciSelect.value;
-        if (sciIdCorrente) {
-          await caricaSiglePerSci(sciIdCorrente);
-        }
-        aggiornaTutteLeRighe();
-
-        await caricaKit();
-        resetForm();
-      } else {
-        showMessage(res.message, 'error');
-      }
-    } catch (err) {
-      showMessage(err.message, 'error');
-    }
-  }
-
-  // ============================================================
-  // INIT
-  // ============================================================
-  window.onload = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>';
-      return;
-    }
-    try {
-      currentUser = JSON.parse(localStorage.getItem('user'));
-    } catch(e) { logout(); return; }
-
-    document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
-
-    await caricaAnagrafiche();
+  const payload = {
+    magazzino: parseInt(magazzino),
+    sci_id: parseInt(sciId),
+    note: note || null,
+    righe: righe
   };
+
+  const btn = document.getElementById('saveKitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Salvataggio...';
+
+  try {
+    const res = await apiFetch('/kit', { method: 'POST', body: JSON.stringify(payload) });
+    if (res.success) {
+      showMessage('Kit creato con successo!', 'success');
+
+      await caricaSigleUsate();
+      await caricaArticoliPerCategoria();
+      const sciIdCorrente = kitSciSelect.value;
+      if (sciIdCorrente) {
+        await caricaSiglePerSci(sciIdCorrente);
+      }
+      aggiornaTutteLeRighe();
+
+      await caricaKit();
+      resetForm();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch (err) {
+    showMessage(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '💾 Salva Kit';
+  }
+}
+
+// ============================================================
+// CARICA KIT
+// ============================================================
+async function caricaKit() {
+  try {
+    const res = await apiFetch('/kit');
+    allKits = Array.isArray(res) ? res : [];
+    popolaTabellaKit();
+  } catch (err) {
+    showMessage('Errore caricamento kit: ' + err.message, 'error');
+  }
+}
+
+function popolaTabellaKit() {
+  const tbody = document.querySelector('#tabellaKit tbody');
+  tbody.innerHTML = '';
+  if (!allKits.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Nessun kit trovato</td></tr>';
+    return;
+  }
+  allKits.forEach(k => {
+    const mag = magazzini.find(m => m.id == k.magazzino)?.nome || k.magazzino;
+    const row = tbody.insertRow();
+    row.insertCell(0).innerText = k.id;
+    row.insertCell(1).innerText = k.codice_kit;
+    row.insertCell(2).innerText = k.descrizione || '-';
+    row.insertCell(3).innerText = k.sigla_sci || 'NA';
+    row.insertCell(4).innerText = mag;
+    row.insertCell(5).innerText = k.quantita || 0;
+    row.insertCell(6).innerText = k.note || '';
+    const actions = row.insertCell(7);
+    actions.className = 'action-buttons';
+    actions.innerHTML = `
+      <button class="btn" onclick="apriModificaKit(${k.id}, '${k.codice_kit.replace(/'/g, "\\'")}', '${(k.note || '').replace(/'/g, "\\'")}')">✏️</button>
+      <button class="btn btn-danger" onclick="eliminaKit(${k.id})">🗑️</button>
+    `;
+  });
+}
+
+// ============================================================
+// MODIFICA NOTA KIT
+// ============================================================
+function apriModificaKit(id, codice, nota) {
+  currentKitId = id;
+  document.getElementById('modKitCodice').innerText = codice;
+  document.getElementById('modKitNota').value = nota || '';
+  document.getElementById('modalModificaKit').style.display = 'flex';
+}
+
+function chiudiModificaKit() {
+  document.getElementById('modalModificaKit').style.display = 'none';
+  currentKitId = null;
+}
+
+async function salvaNotaKit() {
+  if (!currentKitId) return;
+  const nota = document.getElementById('modKitNota').value.trim();
+  try {
+    const res = await apiFetch('/kit/' + currentKitId + '/note', { method: 'PATCH', body: JSON.stringify({ note: nota }) });
+    if (res.success) {
+      showMessage('Nota kit aggiornata', 'success');
+      chiudiModificaKit();
+      caricaKit();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch(err) {
+    showMessage(err.message, 'error');
+  }
+}
+
+// ============================================================
+// ELIMINA KIT
+// ============================================================
+async function eliminaKit(id) {
+  if (!confirm('Eliminare questo kit? Tutte le quantità verranno rilasciate.')) return;
+  try {
+    const res = await apiFetch('/kit/' + id, { method: 'DELETE' });
+    if (res.success) {
+      showMessage('Kit eliminato', 'success');
+
+      await caricaSigleUsate();
+      await caricaArticoliPerCategoria();
+      const sciIdCorrente = kitSciSelect.value;
+      if (sciIdCorrente) {
+        await caricaSiglePerSci(sciIdCorrente);
+      }
+      aggiornaTutteLeRighe();
+
+      await caricaKit();
+      resetForm();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch (err) {
+    showMessage(err.message, 'error');
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.onload = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>';
+    return;
+  }
+  try {
+    currentUser = JSON.parse(localStorage.getItem('user'));
+  } catch(e) { logout(); return; }
+
+  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
+
+  await caricaAnagrafiche();
+};
 </script>
 </body>
 </html>
