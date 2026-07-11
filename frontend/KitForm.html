@@ -220,7 +220,7 @@ function logout() {
 let currentUser = null;
 let magazzini = [];
 let articoliSci = [];
-let articoliSciGroup = {}; // mappa: articolo_id -> { descrizione, lunghezza, articoli_ids: [...] }
+let articoliSciGroup = {};
 let articoliAttacchi = [];
 let articoliSkistopper = [];
 let allKits = [];
@@ -257,7 +257,7 @@ function getLabelSkistopper(skistopper) {
 }
 
 // ============================================================
-// CARICAMENTO ANAGRAFICHE (con filtro magazzini)
+// CARICAMENTO ANAGRAFICHE
 // ============================================================
 async function caricaAnagrafiche() {
   try {
@@ -265,7 +265,6 @@ async function caricaAnagrafiche() {
     kitMagazzinoSelect.innerHTML = '<option value="">Seleziona magazzino</option>';
     magazzini.forEach(m => kitMagazzinoSelect.appendChild(new Option(m.nome, m.id)));
 
-    // Imposta default: Race se presente e disponibile
     const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
     if (defaultMag) {
       const exists = Array.from(kitMagazzinoSelect.options).some(opt => opt.value == defaultMag.id);
@@ -283,17 +282,16 @@ async function caricaAnagrafiche() {
     const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
     const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-    // Carica sci (raggruppati per descrizione+lunghezza)
+    // Carica sci (raggruppati)
     let params = new URLSearchParams({ min_giacenza: '1' });
     if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
     if (sciCat) params.append('categoria', sciCat.id);
-    const sciRes = await apiFetch('/articoli?' + params.toString());
-    articoliSci = sciRes.success ? sciRes.data : [];
+    const sciRes = await apiFetch('/kit/articoli?' + params.toString());
+    articoliSci = Array.isArray(sciRes) ? sciRes : [];
 
-    // Crea una mappa per memorizzare gli articoli_ids per ogni gruppo
+    // Popola mappa articoliSciGroup
     articoliSciGroup = {};
     articoliSci.forEach(a => {
-      // Se l'articolo ha articoli_ids (array di tutti gli id del gruppo)
       if (a.articoli_ids && a.articoli_ids.length > 0) {
         articoliSciGroup[a.articolo_id] = a.articoli_ids;
       } else {
@@ -310,20 +308,17 @@ async function caricaAnagrafiche() {
     // Carica attacchi e skistoppers
     await caricaArticoliPerCategoria();
 
-    // Carica sigle usate nei kit
+    // Carica sigle usate
     await caricaSigleUsate();
 
-    // Imposta il primo sci se disponibile
+    // Imposta primo sci
     if (articoliSci.length > 0) {
       kitSciSelect.value = articoliSci[0].articolo_id;
       await caricaSiglePerSci(kitSciSelect.value);
-      // non chiamare aggiornaTutteLeRighe qui, lo farà resetForm
     }
 
     kitSciSelect.addEventListener('change', async () => {
-      // Se sto già resettando il form, ignora l'evento
       if (formResetting) return;
-      
       const sciId = kitSciSelect.value;
       if (sciId) {
         await caricaSiglePerSci(sciId);
@@ -371,7 +366,7 @@ async function caricaArticoliPerCategoria() {
 }
 
 // ============================================================
-// CARICA SIGLE USATE E SIGLE PER SCI (con log di debug)
+// CARICA SIGLE USATE E SIGLE PER SCI
 // ============================================================
 async function caricaSigleUsate() {
   try {
@@ -388,20 +383,10 @@ async function caricaSiglePerSci(sciId) {
     return;
   }
   try {
-    // Ottieni gli ID di tutti gli articoli del gruppo
     const articoliIds = articoliSciGroup[sciId] || [sciId];
-    
-    // Costruisci la query con gli ID
     const idsParam = articoliIds.join(',');
     const sigle = await apiFetch('/kit/articoli/sigle?ids=' + idsParam);
-    console.log('🔍 Sigle ricevute per gruppo sci', sciId, ':', sigle);
-    console.log('🔍 Sigle usate in kit:', sigleUsateInKit);
-    currentSigleDisponibili = sigle.filter(s => {
-      const disponibile = s.giacenza > 0 && !sigleUsateInKit.includes(s.id);
-      console.log(`  Sigla ${s.sigla} (id ${s.id}): giacenza=${s.giacenza}, usata in kit=${sigleUsateInKit.includes(s.id)} -> ${disponibile ? '✅' : '❌'}`);
-      return disponibile;
-    });
-    console.log('✅ Sigle disponibili finali:', currentSigleDisponibili);
+    currentSigleDisponibili = sigle.filter(s => s.giacenza > 0 && !sigleUsateInKit.includes(s.id));
   } catch(e) {
     currentSigleDisponibili = [];
     console.error('Errore carica sigle:', e);
@@ -511,23 +496,17 @@ function aggiornaTutteLeRighe() {
 // RESET FORM
 // ============================================================
 function resetForm() {
-  // Evita chiamate multiple
   if (formResetting) return;
   formResetting = true;
-  
   try {
     const tbody = document.getElementById('sigleTbody');
     tbody.innerHTML = '';
     aggiungiRigaSigla();
-
     document.getElementById('kitNote').value = '';
     const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
     if (defaultMag) kitMagazzinoSelect.value = defaultMag.id;
-
     if (kitSciSelect.value) {
-      caricaSiglePerSci(kitSciSelect.value).then(() => {
-        aggiornaTutteLeRighe();
-      });
+      caricaSiglePerSci(kitSciSelect.value).then(() => aggiornaTutteLeRighe());
     }
   } finally {
     formResetting = false;
@@ -602,7 +581,6 @@ async function salvaKit() {
     const res = await apiFetch('/kit', { method: 'POST', body: JSON.stringify(payload) });
     if (res.success) {
       showMessage('Kit creato con successo!', 'success');
-
       await caricaSigleUsate();
       await caricaArticoliPerCategoria();
       const sciIdCorrente = kitSciSelect.value;
@@ -610,7 +588,6 @@ async function salvaKit() {
         await caricaSiglePerSci(sciIdCorrente);
       }
       aggiornaTutteLeRighe();
-
       await caricaKit();
       resetForm();
     } else {
@@ -704,7 +681,6 @@ async function eliminaKit(id) {
     const res = await apiFetch('/kit/' + id, { method: 'DELETE' });
     if (res.success) {
       showMessage('Kit eliminato', 'success');
-
       await caricaSigleUsate();
       await caricaArticoliPerCategoria();
       const sciIdCorrente = kitSciSelect.value;
@@ -712,7 +688,6 @@ async function eliminaKit(id) {
         await caricaSiglePerSci(sciIdCorrente);
       }
       aggiornaTutteLeRighe();
-
       await caricaKit();
       resetForm();
     } else {

@@ -5,8 +5,19 @@ const { verifyToken } = require('../auth');
 const { canUserUseMagazzino } = require('./articoli');
 
 // ============================================================
-// HELPER: ricalcola quantita_in_kit per un articolo
+// HELPER: aggiorna quantita_in_kit per un articolo
 // ============================================================
+async function ricalcolaQuantitaInKit(connection, articoloId) {
+  const [sum] = await connection.query(
+    'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE articolo_id = ?',
+    [articoloId]
+  );
+  await connection.query(
+    'UPDATE articoli SET quantita_in_kit = ? WHERE articolo_id = ?',
+    [sum[0].totale, articoloId]
+  );
+}
+
 async function aggiungiInKit(connection, articoloId, quantita) {
   await connection.query(
     'UPDATE articoli SET quantita_in_kit = quantita_in_kit + ? WHERE articolo_id = ?',
@@ -95,27 +106,34 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/articoli
+// GET /api/kit/articoli - Raggruppati per descrizione+lunghezza
 // ============================================================
 router.get('/articoli', verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT DISTINCT
-        a.articolo_id,
+      SELECT 
+        MIN(a.articolo_id) AS articolo_id,
         a.descrizione,
-        a.codice,
-        a.quantita_totale,
+        a.lunghezza,
         a.magazzino,
         a.settore,
         a.categoria,
         a.marca,
-        a.codice_modello
+        a.codice_modello,
+        SUM(a.quantita_totale) AS quantita_totale,
+        GROUP_CONCAT(a.articolo_id) AS articoli_ids
       FROM articoli a
       WHERE a.quantita_totale > 0
         AND a.stato = 'Disponibile'
+      GROUP BY a.descrizione, a.lunghezza, a.magazzino, a.settore, a.categoria, a.marca, a.codice_modello
       ORDER BY a.descrizione
     `);
-    res.json(rows);
+    // Converti articoli_ids in array
+    const result = rows.map(row => ({
+      ...row,
+      articoli_ids: row.articoli_ids ? row.articoli_ids.split(',').map(Number) : []
+    }));
+    res.json(result);
   } catch (err) {
     console.error('Errore GET /kit/articoli:', err);
     res.status(500).json({ error: err.message });
@@ -123,38 +141,49 @@ router.get('/articoli', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/sigle-usate
+// GET /api/kit/articoli/sigle - Ottiene sigle di più articoli
 // ============================================================
-router.get('/sigle-usate', verifyToken, async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT DISTINCT sigla_id FROM kit_dettaglio');
-    res.json(rows.map(r => r.sigla_id));
-  } catch (err) {
-    console.error('Errore GET /kit/sigle-usate:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ============================================================
-// GET /api/kit/articoli/:id/sigle
-// ============================================================
-router.get('/articoli/:id/sigle', verifyToken, async (req, res) => {
+router.get('/articoli/sigle', verifyToken, async (req, res) => {
+  const { ids } = req.query;
+  if (!ids) return res.json([]);
+  const idArray = ids.split(',').map(Number).filter(id => !isNaN(id));
+  if (!idArray.length) return res.json([]);
+  const placeholders = idArray.map(() => '?').join(',');
   try {
     const [rows] = await db.query(`
       SELECT 
         s.id,
         s.sigla,
         s.quantita,
-        (s.quantita - COALESCE((SELECT SUM(quantita) FROM kit_dettaglio WHERE sigla_id = s.id), 0) - 
+        (COALESCE(s.quantita, 0) - COALESCE((SELECT SUM(quantita) FROM kit_dettaglio WHERE sigla_id = s.id), 0) - 
          COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE sigla_id = s.id AND tipo_oggetto = 'ARTICOLO'), 0)) AS giacenza
       FROM sigle_articoli s
-      WHERE s.articolo_id = ?
+      WHERE s.articolo_id IN (${placeholders})
         AND s.attivo = 1
       ORDER BY s.sigla
-    `, [req.params.id]);
+    `, idArray);
     res.json(rows);
   } catch (err) {
-    console.error('Errore GET /kit/articoli/:id/sigle:', err);
+    console.error('Errore GET /kit/articoli/sigle:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/kit/sigle-usate (formato oggetti con id e sigla)
+// ============================================================
+router.get('/sigle-usate', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT DISTINCT kd.sigla_id AS id, s.sigla
+      FROM kit_dettaglio kd
+      INNER JOIN sigle_articoli s ON kd.sigla_id = s.id
+      WHERE s.attivo = 1
+      ORDER BY s.sigla
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /kit/sigle-usate:', err);
     res.status(500).json({ error: err.message });
   }
 });
