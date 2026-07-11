@@ -4,10 +4,10 @@ const db = require('../db');
 const { verifyToken } = require('../auth');
 const { canUserUseMagazzino } = require('./articoli');
 
-console.log('📦 Caricamento modulo routes/kit.js...');
+console.log('✅ FILE KIT.JS CARICATO CORRETTAMENTE');
 
 // ============================================================
-// HELPER: ricalcola quantita_in_kit per un articolo
+// HELPER: aggiorna quantita_in_kit per un articolo
 // ============================================================
 async function ricalcolaQuantitaInKit(connection, articoloId) {
   const [sum] = await connection.query(
@@ -55,12 +55,11 @@ async function generaDescrizioneKit(connection, sci, righe) {
 }
 
 // ============================================================
-// ROTTE
-// ============================================================
-
 // GET /api/kit - Elenco kit
+// ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
+    console.log('📋 GET /api/kit');
     const [kits] = await db.query(`
       SELECT k.*,
         (SELECT a.lunghezza FROM kit_dettaglio kd
@@ -81,14 +80,17 @@ router.get('/', verifyToken, async (req, res) => {
     }));
     res.json(risultato);
   } catch (err) {
-    console.error('Errore GET /kit:', err);
+    console.error('❌ Errore GET /kit:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
+// ============================================================
 // GET /api/kit/:id - Dettaglio kit
+// ============================================================
 router.get('/:id', verifyToken, async (req, res) => {
   try {
+    console.log(`📋 GET /api/kit/${req.params.id}`);
     const [kit] = await db.query('SELECT * FROM kit WHERE id = ?', [req.params.id]);
     if (!kit.length) return res.status(404).json({ error: 'Kit non trovato' });
     
@@ -102,14 +104,17 @@ router.get('/:id', verifyToken, async (req, res) => {
     
     res.json({ ...kit[0], dettagli });
   } catch (err) {
-    console.error('Errore GET /kit/:id:', err);
+    console.error('❌ Errore GET /kit/:id:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/kit/sigle-usate - Sigle già utilizzate in kit
+// ============================================================
+// GET /api/kit/sigle-usate - Sigle già utilizzate in kit (ROTTA FONDAMENTALE)
+// ============================================================
 router.get('/sigle-usate', verifyToken, async (req, res) => {
   try {
+    console.log('🔍 GET /api/kit/sigle-usate');
     const [rows] = await db.query(`
       SELECT DISTINCT kd.sigla_id AS id, s.sigla
       FROM kit_dettaglio kd
@@ -117,15 +122,19 @@ router.get('/sigle-usate', verifyToken, async (req, res) => {
       WHERE s.attivo = 1
       ORDER BY s.sigla
     `);
+    console.log(`✅ Trovate ${rows.length} sigle usate`);
     res.json(rows);
   } catch (err) {
-    console.error('Errore GET /kit/sigle-usate:', err);
+    console.error('❌ Errore GET /kit/sigle-usate:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
+// ============================================================
 // POST /api/kit - Crea un nuovo kit
+// ============================================================
 router.post('/', verifyToken, async (req, res) => {
+  console.log('📝 POST /api/kit');
   const { magazzino, sci_id, note, righe } = req.body;
   if (!magazzino || !sci_id || !righe || !righe.length) {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
@@ -182,18 +191,22 @@ router.post('/', verifyToken, async (req, res) => {
 
     await connection.query('UPDATE kit SET quantita = ? WHERE id = ?', [quantitaTotaleKit, kitId]);
     await connection.commit();
+    console.log(`✅ Kit creato con ID ${kitId}`);
     res.json({ success: true, message: 'Kit creato con successo', kitId });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore creazione kit:', err);
+    console.error('❌ Errore creazione kit:', err);
     res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
   }
 });
 
+// ============================================================
 // PUT /api/kit/:id - Modifica completa del kit
+// ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
+  console.log(`📝 PUT /api/kit/${req.params.id}`);
   const { id } = req.params;
   const { magazzino, sci_id, note, righe } = req.body;
   if (!magazzino || !sci_id || !righe || !righe.length) {
@@ -248,18 +261,22 @@ router.put('/:id', verifyToken, async (req, res) => {
       [magazzino, note || null, quantitaTotaleKit, descKit, now, id]
     );
     await connection.commit();
+    console.log(`✅ Kit ${id} aggiornato`);
     res.json({ success: true, message: 'Kit aggiornato' });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore PUT /kit:', err);
+    console.error('❌ Errore PUT /kit:', err);
     res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
   }
 });
 
+// ============================================================
 // PATCH /api/kit/:id/note - Aggiorna solo la nota del kit
+// ============================================================
 router.patch('/:id/note', verifyToken, async (req, res) => {
+  console.log(`📝 PATCH /api/kit/${req.params.id}/note`);
   const { note } = req.body;
   if (note === undefined) {
     return res.status(400).json({ error: 'Campo note mancante' });
@@ -271,13 +288,16 @@ router.patch('/:id/note', verifyToken, async (req, res) => {
     res.json({ success: true, message: 'Nota kit aggiornata' });
   } catch(err) {
     connection.release();
-    console.error('Errore PATCH /kit/:id/note:', err);
+    console.error('❌ Errore PATCH /kit/:id/note:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
+// ============================================================
 // DELETE /api/kit/:id - Elimina kit
+// ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
+  console.log(`🗑️ DELETE /api/kit/${req.params.id}`);
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -290,15 +310,24 @@ router.delete('/:id', verifyToken, async (req, res) => {
     await connection.query('DELETE FROM kit WHERE id = ?', [req.params.id]);
 
     await connection.commit();
+    console.log(`✅ Kit ${req.params.id} eliminato`);
     res.json({ success: true, message: 'Kit eliminato con successo' });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore DELETE /kit:', err);
+    console.error('❌ Errore DELETE /kit:', err);
     res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
   }
 });
 
-console.log('✅ Modulo routes/kit.js caricato correttamente.');
+console.log('✅ ROTTE KIT REGISTRATE:');
+console.log('   GET    /api/kit');
+console.log('   GET    /api/kit/:id');
+console.log('   GET    /api/kit/sigle-usate  <-- FONDAMENTALE');
+console.log('   POST   /api/kit');
+console.log('   PUT    /api/kit/:id');
+console.log('   PATCH  /api/kit/:id/note');
+console.log('   DELETE /api/kit/:id');
+
 module.exports = router;
