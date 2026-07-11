@@ -53,7 +53,7 @@ async function generaDescrizioneKit(connection, sci, righe) {
 }
 
 // ============================================================
-// GET /api/kit (elenco kit)
+// GET /api/kit - Elenco kit
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -83,7 +83,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/:id (dettaglio kit)
+// GET /api/kit/:id - Dettaglio kit
 // ============================================================
 router.get('/:id', verifyToken, async (req, res) => {
   try {
@@ -106,7 +106,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/articoli - Raggruppati per descrizione+lunghezza
+// GET /api/kit/articoli - Articoli disponibili per kit (con filtri)
 // ============================================================
 router.get('/articoli', verifyToken, async (req, res) => {
   try {
@@ -128,15 +128,27 @@ router.get('/articoli', verifyToken, async (req, res) => {
     `;
     const params = [];
     
+    // Filtro per magazzino
     if (req.query.magazzino) {
       sql += ' AND a.magazzino = ?';
       params.push(req.query.magazzino);
     }
+    // Filtro per categoria
     if (req.query.categoria) {
       sql += ' AND a.categoria = ?';
       params.push(req.query.categoria);
     }
-    // min_giacenza: filtra per giacenza >= valore
+    // Filtro per settore
+    if (req.query.settore) {
+      sql += ' AND a.settore = ?';
+      params.push(req.query.settore);
+    }
+    // Filtro per marca
+    if (req.query.marca) {
+      sql += ' AND a.marca = ?';
+      params.push(req.query.marca);
+    }
+    // Filtro per giacenza minima (calcolata)
     if (req.query.min_giacenza) {
       sql += ` AND (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta) >= ?`;
       params.push(req.query.min_giacenza);
@@ -157,7 +169,26 @@ router.get('/articoli', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/articoli/sigle - Ottiene sigle di più articoli
+// GET /api/kit/sigle-usate - Sigle già utilizzate in kit
+// ============================================================
+router.get('/sigle-usate', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT DISTINCT kd.sigla_id AS id, s.sigla
+      FROM kit_dettaglio kd
+      INNER JOIN sigle_articoli s ON kd.sigla_id = s.id
+      WHERE s.attivo = 1
+      ORDER BY s.sigla
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /kit/sigle-usate:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/kit/articoli/sigle - Sigle di più articoli (con parametro ids)
 // ============================================================
 router.get('/articoli/sigle', verifyToken, async (req, res) => {
   const { ids } = req.query;
@@ -186,26 +217,48 @@ router.get('/articoli/sigle', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/sigle-usate (formato oggetti con id e sigla)
+// GET /api/kit/articoli/:id/sigle (deprecata, mantenuta per compatibilità)
 // ============================================================
-router.get('/sigle-usate', verifyToken, async (req, res) => {
+router.get('/articoli/:id/sigle', verifyToken, async (req, res) => {
   try {
+    const [art] = await db.query(
+      'SELECT descrizione, lunghezza FROM articoli WHERE articolo_id = ?',
+      [req.params.id]
+    );
+    if (!art.length) return res.status(404).json({ error: 'Articolo non trovato' });
+    const { descrizione, lunghezza } = art[0];
+
+    const [articoli] = await db.query(
+      `SELECT articolo_id FROM articoli 
+       WHERE descrizione = ? AND lunghezza = ? 
+         AND quantita_totale > 0 AND stato = 'Disponibile'`,
+      [descrizione, lunghezza]
+    );
+    const ids = articoli.map(a => a.articolo_id);
+    if (!ids.length) return res.json([]);
+
+    const placeholders = ids.map(() => '?').join(',');
     const [rows] = await db.query(`
-      SELECT DISTINCT kd.sigla_id AS id, s.sigla
-      FROM kit_dettaglio kd
-      INNER JOIN sigle_articoli s ON kd.sigla_id = s.id
-      WHERE s.attivo = 1
+      SELECT 
+        s.id,
+        s.sigla,
+        s.quantita,
+        (COALESCE(s.quantita, 0) - COALESCE((SELECT SUM(quantita) FROM kit_dettaglio WHERE sigla_id = s.id), 0) - 
+         COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE sigla_id = s.id AND tipo_oggetto = 'ARTICOLO'), 0)) AS giacenza
+      FROM sigle_articoli s
+      WHERE s.articolo_id IN (${placeholders})
+        AND s.attivo = 1
       ORDER BY s.sigla
-    `);
+    `, ids);
     res.json(rows);
   } catch (err) {
-    console.error('Errore GET /kit/sigle-usate:', err);
+    console.error('Errore GET /kit/articoli/:id/sigle:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================================================
-// POST /api/kit (crea un nuovo kit)
+// POST /api/kit - Crea un nuovo kit
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   const { magazzino, sci_id, note, righe } = req.body;
@@ -275,7 +328,7 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /api/kit/:id (modifica completa)
+// PUT /api/kit/:id - Modifica completa del kit
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
@@ -343,7 +396,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/kit/:id/note
+// PATCH /api/kit/:id/note - Aggiorna solo la nota del kit
 // ============================================================
 router.patch('/:id/note', verifyToken, async (req, res) => {
   const { note } = req.body;
@@ -363,7 +416,7 @@ router.patch('/:id/note', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// DELETE /api/kit/:id
+// DELETE /api/kit/:id - Elimina kit
 // ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
