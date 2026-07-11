@@ -107,27 +107,34 @@ router.get('/:id', verifyToken, async (req, res) => {
 
 // ============================================================
 // GET /api/kit/articoli
-// Restituisce l'elenco degli articoli disponibili (univoci)
+// Restituisce l'elenco degli articoli disponibili (univoci per descrizione+lunghezza)
 // ============================================================
 router.get('/articoli', verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT DISTINCT
-        a.articolo_id,
+      SELECT 
+        MIN(a.articolo_id) AS articolo_id,
         a.descrizione,
-        a.codice,
-        a.quantita_totale,
+        a.lunghezza,
         a.magazzino,
         a.settore,
         a.categoria,
         a.marca,
-        a.codice_modello
+        a.codice_modello,
+        SUM(a.quantita_totale) AS quantita_totale,
+        GROUP_CONCAT(a.articolo_id) AS articoli_ids
       FROM articoli a
       WHERE a.quantita_totale > 0
         AND a.stato = 'Disponibile'
+      GROUP BY a.descrizione, a.lunghezza, a.magazzino, a.settore, a.categoria, a.marca, a.codice_modello
       ORDER BY a.descrizione
     `);
-    res.json(rows);
+    // Converti articoli_ids in array (utile per eventuali usi futuri)
+    const result = rows.map(row => ({
+      ...row,
+      articoli_ids: row.articoli_ids ? row.articoli_ids.split(',').map(Number) : []
+    }));
+    res.json(result);
   } catch (err) {
     console.error('Errore GET /kit/articoli:', err);
     res.status(500).json({ error: err.message });
@@ -136,10 +143,31 @@ router.get('/articoli', verifyToken, async (req, res) => {
 
 // ============================================================
 // GET /api/kit/articoli/:id/sigle
-// Restituisce le sigle disponibili per un articolo
+// Restituisce le sigle disponibili per TUTTI gli articoli che condividono
+// la stessa descrizione e lunghezza dell'articolo con id specificato.
 // ============================================================
 router.get('/articoli/:id/sigle', verifyToken, async (req, res) => {
   try {
+    // 1. Trova la descrizione e lunghezza dell'articolo dato
+    const [art] = await db.query(
+      'SELECT descrizione, lunghezza FROM articoli WHERE articolo_id = ?',
+      [req.params.id]
+    );
+    if (!art.length) return res.status(404).json({ error: 'Articolo non trovato' });
+    const { descrizione, lunghezza } = art[0];
+
+    // 2. Trova tutti gli articoli con quella descrizione e lunghezza (e con quantità > 0)
+    const [articoli] = await db.query(
+      `SELECT articolo_id FROM articoli 
+       WHERE descrizione = ? AND lunghezza = ? 
+         AND quantita_totale > 0 AND stato = 'Disponibile'`,
+      [descrizione, lunghezza]
+    );
+    const ids = articoli.map(a => a.articolo_id);
+    if (!ids.length) return res.json([]);
+
+    // 3. Ottieni le sigle di tutti questi articoli (unendo)
+    const placeholders = ids.map(() => '?').join(',');
     const [rows] = await db.query(`
       SELECT 
         s.id,
@@ -148,10 +176,10 @@ router.get('/articoli/:id/sigle', verifyToken, async (req, res) => {
         (COALESCE(s.quantita, 0) - COALESCE((SELECT SUM(quantita) FROM kit_dettaglio WHERE sigla_id = s.id), 0) - 
          COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE sigla_id = s.id AND tipo_oggetto = 'ARTICOLO'), 0)) AS giacenza
       FROM sigle_articoli s
-      WHERE s.articolo_id = ?
+      WHERE s.articolo_id IN (${placeholders})
         AND s.attivo = 1
       ORDER BY s.sigla
-    `, [req.params.id]);
+    `, ids);
     res.json(rows);
   } catch (err) {
     console.error('Errore GET /kit/articoli/:id/sigle:', err);
