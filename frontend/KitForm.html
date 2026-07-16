@@ -386,27 +386,117 @@ async function caricaAnagrafiche() {
 // ============================================================
 // CARICA ARTICOLI PER CATEGORIA (attacchi e skistoppers)
 // ============================================================
-async function caricaArticoliPerCategoria() {
-  const magId = kitMagazzinoSelect.value;
-  if (!magId) return;
-
+async function caricaAnagrafiche() {
+  if (isLoadingSci) return;
+  isLoadingSci = true;
   try {
+    // Carica magazzini
+    magazzini = await apiFetch('/anagrafiche/magazzini');
+    kitMagazzinoSelect.innerHTML = '<option value="">Seleziona magazzino</option>';
+    magazzini.forEach(m => kitMagazzinoSelect.appendChild(new Option(m.nome, m.id)));
+
+    const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
+    if (defaultMag) {
+      const exists = Array.from(kitMagazzinoSelect.options).some(opt => opt.value == defaultMag.id);
+      if (exists) {
+        kitMagazzinoSelect.value = defaultMag.id;
+      } else if (kitMagazzinoSelect.options.length > 1) {
+        kitMagazzinoSelect.selectedIndex = 1;
+      }
+    } else if (kitMagazzinoSelect.options.length > 1) {
+      kitMagazzinoSelect.selectedIndex = 1;
+    }
+
+    // Carica categorie
     const categorie = await apiFetch('/anagrafiche/categorie');
+    const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
     const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
     const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-    let params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
-    if (attCat) params.append('categoria', attCat.id);
-    const attRes = await apiFetch('/articoli?' + params.toString());
-    articoliAttacchi = attRes.success ? attRes.data : [];
+    // Carica SOLO gli sci (con filtro categoria e giacenza > 0)
+    let params = new URLSearchParams({ min_giacenza: '1' });
+    if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
+    if (sciCat) params.append('categoria', sciCat.id);
+    
+    const sciRes = await apiFetch('/articoli?' + params.toString());
+    const articoliSciRaw = sciRes.success ? sciRes.data : [];
 
-    params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
-    if (skCat) params.append('categoria', skCat.id);
-    const skRes = await apiFetch('/articoli?' + params.toString());
-    articoliSkistopper = skRes.success ? skRes.data : [];
+    // Raggruppa per CODICE_MODELLO + LUNGHEZZA (se codice_modello esiste e non è vuoto)
+    // altrimenti usa una versione normalizzata della descrizione (prime 3 parole)
+    const sciGroupMap = {};
+    articoliSciRaw.forEach(a => {
+      let base = a.codice_modello ? a.codice_modello.trim() : '';
+      if (!base) {
+        // Se non c'è codice_modello, usa le prime 3 parole della descrizione
+        const words = a.descrizione ? a.descrizione.trim().split(/\s+/) : [];
+        base = words.slice(0, 3).join(' ');
+      }
+      const lunghezza = a.lunghezza || '';
+      const key = `${base.toLowerCase()}|${lunghezza}`;
+      
+      if (!sciGroupMap[key]) {
+        sciGroupMap[key] = {
+          articolo_id: a.articolo_id,
+          descrizione: a.descrizione ? a.descrizione.trim() : '',
+          lunghezza: lunghezza,
+          quantita_totale: 0,
+          articoli_ids: []
+        };
+      }
+      sciGroupMap[key].quantita_totale += a.quantita_totale;
+      sciGroupMap[key].articoli_ids.push(a.articolo_id);
+    });
 
-    aggiornaTutteLeRighe();
-  } catch(e) { console.error(e); }
+    articoliSci = Object.values(sciGroupMap);
+    
+    // Popola mappa articoliSciGroup
+    articoliSciGroup = {};
+    articoliSci.forEach(a => {
+      articoliSciGroup[a.articolo_id] = a.articoli_ids;
+    });
+
+    // Popola dropdown sci
+    kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
+    const seenLabels = new Set();
+    
+    articoliSci.forEach(a => {
+      let label = a.descrizione;
+      if (a.lunghezza) label += ` ${a.lunghezza}cm`;
+      label = label.replace(/\s+/g, ' ').trim();
+      
+      if (!seenLabels.has(label)) {
+        seenLabels.add(label);
+        kitSciSelect.appendChild(new Option(label, a.articolo_id));
+      }
+    });
+
+    // Carica attacchi e skistoppers
+    await caricaArticoliPerCategoria();
+
+    // Carica sigle usate
+    await caricaSigleUsate();
+
+    // Imposta primo sci
+    if (articoliSci.length > 0) {
+      kitSciSelect.value = articoliSci[0].articolo_id;
+      await caricaSiglePerSci(kitSciSelect.value);
+    }
+
+    // Eventi
+    kitSciSelect.removeEventListener('change', sciChangeHandler);
+    kitSciSelect.addEventListener('change', sciChangeHandler);
+
+    kitMagazzinoSelect.removeEventListener('change', magazzinoChangeHandler);
+    kitMagazzinoSelect.addEventListener('change', magazzinoChangeHandler);
+
+    await caricaKit();
+    resetForm();
+
+  } catch (err) {
+    showMessage('Errore caricamento dati: ' + err.message, 'error');
+  } finally {
+    isLoadingSci = false;
+  }
 }
 
 // ============================================================
