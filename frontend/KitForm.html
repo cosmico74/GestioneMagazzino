@@ -189,6 +189,23 @@
 // ============================================================
 // UTILITY
 // ============================================================
+// Handler per il cambio sci
+const sciChangeHandler = async function() {
+  if (formResetting) return;
+  const sciId = kitSciSelect.value;
+  if (sciId) {
+    await caricaSiglePerSci(sciId);
+    aggiornaTutteLeRighe();
+  }
+};
+
+// Handler per il cambio magazzino
+const magazzinoChangeHandler = function() {
+  caricaArticoliPerCategoria();
+  caricaKit();
+  caricaAnagrafiche(); // Ricarica tutto (sci, attacchi, skistoppers)
+};
+
 function getAuthHeader() {
   const token = localStorage.getItem('token');
   return token ? { 'Authorization': 'Bearer ' + token } : {};
@@ -259,7 +276,11 @@ function getLabelSkistopper(skistopper) {
 // ============================================================
 // CARICAMENTO ANAGRAFICHE
 // ============================================================
+let isLoadingSci = false; // Aggiungi questa variabile globale all'inizio del file
+
 async function caricaAnagrafiche() {
+  if (isLoadingSci) return; // Evita chiamate concorrenti
+  isLoadingSci = true;
   try {
     // 1. Carica magazzini
     magazzini = await apiFetch('/anagrafiche/magazzini');
@@ -292,15 +313,21 @@ async function caricaAnagrafiche() {
     const sciRes = await apiFetch('/articoli?' + params.toString());
     const articoliSciRaw = sciRes.success ? sciRes.data : [];
 
-    // 4. Raggruppa gli sci per descrizione+lunghezza (manualmente)
+    // 4. Raggruppa gli sci per codice_modello + lunghezza (se codice_modello esiste, altrimenti descrizione)
     const sciGroupMap = {};
     articoliSciRaw.forEach(a => {
-      const key = `${a.descrizione}|${a.lunghezza || ''}`;
+      // Normalizza spazi e usa codice_modello se disponibile
+      const base = (a.codice_modello && a.codice_modello.trim() !== '') 
+        ? a.codice_modello.trim() 
+        : a.descrizione.trim();
+      const key = `${base}|${a.lunghezza || ''}`;
       if (!sciGroupMap[key]) {
         sciGroupMap[key] = {
           articolo_id: a.articolo_id,
-          descrizione: a.descrizione,
+          descrizione: a.descrizione.trim(),
           lunghezza: a.lunghezza || '',
+          codice_modello: a.codice_modello || '',
+          durezza: a.durezza || '',
           quantita_totale: 0,
           articoli_ids: []
         };
@@ -317,47 +344,58 @@ async function caricaAnagrafiche() {
       articoliSciGroup[a.articolo_id] = a.articoli_ids;
     });
 
-    // 5. Popola dropdown sci
+    // 5. Popola dropdown sci (svuotandolo prima)
     kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
     articoliSci.forEach(a => {
-      const label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
+      // Costruisci label chiara: descrizione + lunghezza + (durezza se presente)
+      let label = a.descrizione;
+      if (a.lunghezza) label += ` ${a.lunghezza}cm`;
+      if (a.durezza) label += ` - ${a.durezza}`;
+      // Aggiungi il codice modello se diverso dalla descrizione
+      if (a.codice_modello && a.codice_modello !== a.descrizione) {
+        label += ` (${a.codice_modello})`;
+      }
       kitSciSelect.appendChild(new Option(label, a.articolo_id));
     });
 
-    // 6. Carica attacchi e skistoppers
+    // 6. Deduplica visiva (rimuove opzioni con testo identico)
+    const seenLabels = new Set();
+    const options = kitSciSelect.querySelectorAll('option');
+    options.forEach(opt => {
+      const text = opt.textContent.trim();
+      if (seenLabels.has(text) && opt.value !== '') {
+        opt.remove();
+      } else {
+        seenLabels.add(text);
+      }
+    });
+
+    // 7. Carica attacchi e skistoppers
     await caricaArticoliPerCategoria();
 
-    // 7. Carica sigle usate
+    // 8. Carica sigle usate
     await caricaSigleUsate();
 
-    // 8. Imposta primo sci
+    // 9. Imposta primo sci (se presente)
     if (articoliSci.length > 0) {
       kitSciSelect.value = articoliSci[0].articolo_id;
       await caricaSiglePerSci(kitSciSelect.value);
     }
 
-    // 9. Eventi
-    kitSciSelect.addEventListener('change', async () => {
-      if (formResetting) return;
-      const sciId = kitSciSelect.value;
-      if (sciId) {
-        await caricaSiglePerSci(sciId);
-        aggiornaTutteLeRighe();
-      }
-    });
+    // 10. Eventi (rimuovi eventuali listener duplicati prima di aggiungerli)
+    kitSciSelect.removeEventListener('change', sciChangeHandler);
+    kitSciSelect.addEventListener('change', sciChangeHandler);
 
-    kitMagazzinoSelect.addEventListener('change', () => {
-      caricaArticoliPerCategoria();
-      caricaKit();
-      // Ricarica anche gli sci quando cambia magazzino
-      caricaAnagrafiche();
-    });
+    kitMagazzinoSelect.removeEventListener('change', magazzinoChangeHandler);
+    kitMagazzinoSelect.addEventListener('change', magazzinoChangeHandler);
 
     await caricaKit();
     resetForm();
 
   } catch (err) {
     showMessage('Errore caricamento dati: ' + err.message, 'error');
+  } finally {
+    isLoadingSci = false;
   }
 }
 
