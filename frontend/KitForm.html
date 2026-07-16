@@ -305,7 +305,6 @@ async function caricaSiglePerSci(sciId) {
         allSigle = allSigle.concat(sigle);
       } catch(e) { console.warn('Errore per articolo', id, e); }
     }
-    // Deduplica per id
     const seen = new Set();
     const sigleUniche = allSigle.filter(s => {
       if (seen.has(s.id)) return false;
@@ -440,7 +439,7 @@ function resetForm() {
 }
 
 // ============================================================
-// CARICAMENTO ANAGRAFICHE (con raggruppamento e deduplica)
+// CARICAMENTO ANAGRAFICHE (con raggruppamento + deduplica finale)
 // ============================================================
 async function caricaAnagrafiche() {
   if (isLoadingSci) return;
@@ -454,11 +453,8 @@ async function caricaAnagrafiche() {
     const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
     if (defaultMag) {
       const exists = Array.from(kitMagazzinoSelect.options).some(opt => opt.value == defaultMag.id);
-      if (exists) {
-        kitMagazzinoSelect.value = defaultMag.id;
-      } else if (kitMagazzinoSelect.options.length > 1) {
-        kitMagazzinoSelect.selectedIndex = 1;
-      }
+      if (exists) kitMagazzinoSelect.value = defaultMag.id;
+      else if (kitMagazzinoSelect.options.length > 1) kitMagazzinoSelect.selectedIndex = 1;
     } else if (kitMagazzinoSelect.options.length > 1) {
       kitMagazzinoSelect.selectedIndex = 1;
     }
@@ -480,10 +476,9 @@ async function caricaAnagrafiche() {
     // 4. Raggruppa per DESCRIZIONE + LUNGHEZZA (normalizzati)
     const sciGroupMap = {};
     articoliSciRaw.forEach(a => {
-      // Normalizza descrizione: trim, spazi multipli -> singolo
+      // Normalizza descrizione
       const descrizioneNorm = a.descrizione ? a.descrizione.trim().replace(/\s+/g, ' ') : '';
       const lunghezza = a.lunghezza || '';
-      // Chiave univoca: descrizione (minuscolo) + lunghezza
       const key = `${descrizioneNorm.toLowerCase()}|${lunghezza}`;
       
       if (!sciGroupMap[key]) {
@@ -508,7 +503,6 @@ async function caricaAnagrafiche() {
     });
 
     // 5. Popola dropdown sci (solo descrizione + lunghezza cm)
-    // Pulisce il select e usa un Set per evitare duplicati visivi
     kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
     const seenLabels = new Set();
     
@@ -517,26 +511,38 @@ async function caricaAnagrafiche() {
       if (a.lunghezza) label += ` ${a.lunghezza}cm`;
       label = label.replace(/\s+/g, ' ').trim();
       
-      // Controllo duplicati: se la label è già stata aggiunta, salta
       if (!seenLabels.has(label)) {
         seenLabels.add(label);
         kitSciSelect.appendChild(new Option(label, a.articolo_id));
       }
     });
 
-    // 6. Carica attacchi e skistoppers
+    // 6. DEDUPLICA FINALE (rimuove eventuali duplicati visivi residui)
+    const finalSeen = new Set();
+    const options = kitSciSelect.querySelectorAll('option');
+    options.forEach(opt => {
+      if (opt.value === '') return; // salta l'opzione vuota
+      const text = opt.textContent.trim().replace(/\s+/g, ' ');
+      if (finalSeen.has(text)) {
+        opt.remove();
+      } else {
+        finalSeen.add(text);
+      }
+    });
+
+    // 7. Carica attacchi e skistoppers
     await caricaArticoliPerCategoria();
 
-    // 7. Carica sigle usate
+    // 8. Carica sigle usate
     await caricaSigleUsate();
 
-    // 8. Imposta primo sci (se presente)
+    // 9. Imposta primo sci (se presente)
     if (articoliSci.length > 0) {
       kitSciSelect.value = articoliSci[0].articolo_id;
       await caricaSiglePerSci(kitSciSelect.value);
     }
 
-    // 9. Eventi (rimuovi listener duplicati prima di aggiungerli)
+    // 10. Eventi
     kitSciSelect.removeEventListener('change', sciChangeHandler);
     kitSciSelect.addEventListener('change', sciChangeHandler);
 
@@ -554,7 +560,7 @@ async function caricaAnagrafiche() {
 }
 
 // ============================================================
-// HANDLER PER EVENTI (definiti dopo le funzioni)
+// HANDLER PER EVENTI
 // ============================================================
 const sciChangeHandler = async function() {
   if (formResetting) return;
