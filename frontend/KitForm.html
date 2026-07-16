@@ -87,7 +87,7 @@
 </head>
 <body>
 
-<!-- COMPACT BAR con LOGO CENTRATO -->
+<!-- COMPACT BAR -->
 <div class="compact-bar">
   <div style="flex: 1;"></div>
   <div class="logo">
@@ -104,7 +104,6 @@
   <h2>📦 Composizione Kit</h2>
   <div id="messageArea"></div>
 
-  <!-- FORM NUOVO KIT -->
   <h3>➕ Nuovo Kit</h3>
   <form id="kitForm" onsubmit="return false;">
     <div class="form-row">
@@ -144,7 +143,6 @@
     </div>
   </form>
 
-  <!-- LISTA KIT ESISTENTI -->
   <div class="table-wrapper">
     <table id="tabellaKit">
       <thead>
@@ -189,23 +187,6 @@
 // ============================================================
 // UTILITY
 // ============================================================
-// Handler per il cambio sci
-const sciChangeHandler = async function() {
-  if (formResetting) return;
-  const sciId = kitSciSelect.value;
-  if (sciId) {
-    await caricaSiglePerSci(sciId);
-    aggiornaTutteLeRighe();
-  }
-};
-
-// Handler per il cambio magazzino
-const magazzinoChangeHandler = function() {
-  caricaArticoliPerCategoria();
-  caricaKit();
-  caricaAnagrafiche(); // Ricarica tutto (sci, attacchi, skistoppers)
-};
-
 function getAuthHeader() {
   const token = localStorage.getItem('token');
   return token ? { 'Authorization': 'Bearer ' + token } : {};
@@ -245,9 +226,27 @@ let sigleUsateInKit = [];
 let currentSigleDisponibili = [];
 let currentKitId = null;
 let formResetting = false;
+let isLoadingSci = false;
 
 const kitMagazzinoSelect = document.getElementById('kitMagazzino');
 const kitSciSelect = document.getElementById('kitSci');
+
+// Handler per il cambio sci
+const sciChangeHandler = async function() {
+  if (formResetting) return;
+  const sciId = kitSciSelect.value;
+  if (sciId) {
+    await caricaSiglePerSci(sciId);
+    aggiornaTutteLeRighe();
+  }
+};
+
+// Handler per il cambio magazzino
+const magazzinoChangeHandler = function() {
+  caricaArticoliPerCategoria();
+  caricaKit();
+  caricaAnagrafiche();
+};
 
 // ============================================================
 // HELPER: calcola giacenza reale
@@ -274,12 +273,10 @@ function getLabelSkistopper(skistopper) {
 }
 
 // ============================================================
-// CARICAMENTO ANAGRAFICHE
+// CARICAMENTO ANAGRAFICHE (con raggruppamento e deduplica)
 // ============================================================
-let isLoadingSci = false; // Aggiungi questa variabile globale all'inizio del file
-
 async function caricaAnagrafiche() {
-  if (isLoadingSci) return; // Evita chiamate concorrenti
+  if (isLoadingSci) return;
   isLoadingSci = true;
   try {
     // 1. Carica magazzini
@@ -305,7 +302,7 @@ async function caricaAnagrafiche() {
     const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
     const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-    // 3. Carica SOLO gli sci (con filtro categoria)
+    // 3. Carica SOLO gli sci (con filtro categoria e giacenza > 0)
     let params = new URLSearchParams({ min_giacenza: '1' });
     if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
     if (sciCat) params.append('categoria', sciCat.id);
@@ -313,21 +310,19 @@ async function caricaAnagrafiche() {
     const sciRes = await apiFetch('/articoli?' + params.toString());
     const articoliSciRaw = sciRes.success ? sciRes.data : [];
 
-    // 4. Raggruppa gli sci per codice_modello + lunghezza (se codice_modello esiste, altrimenti descrizione)
+    // 4. Raggruppa per DESCRIZIONE NORMALIZZATA + LUNGHEZZA (ignora codice_modello e durezza)
     const sciGroupMap = {};
     articoliSciRaw.forEach(a => {
-      // Normalizza spazi e usa codice_modello se disponibile
-      const base = (a.codice_modello && a.codice_modello.trim() !== '') 
-        ? a.codice_modello.trim() 
-        : a.descrizione.trim();
-      const key = `${base}|${a.lunghezza || ''}`;
+      // Normalizza la descrizione: trim, spazi multipli -> singolo
+      const descrizioneNorm = a.descrizione ? a.descrizione.trim().replace(/\s+/g, ' ') : '';
+      const lunghezza = a.lunghezza || '';
+      const key = `${descrizioneNorm.toLowerCase()}|${lunghezza}`;
+      
       if (!sciGroupMap[key]) {
         sciGroupMap[key] = {
           articolo_id: a.articolo_id,
-          descrizione: a.descrizione.trim(),
-          lunghezza: a.lunghezza || '',
-          codice_modello: a.codice_modello || '',
-          durezza: a.durezza || '',
+          descrizione: descrizioneNorm,
+          lunghezza: lunghezza,
           quantita_totale: 0,
           articoli_ids: []
         };
@@ -344,45 +339,34 @@ async function caricaAnagrafiche() {
       articoliSciGroup[a.articolo_id] = a.articoli_ids;
     });
 
-    // 5. Popola dropdown sci (svuotandolo prima)
+    // 5. Popola dropdown sci (solo descrizione + lunghezza cm)
     kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
+    const seenLabels = new Set();
+    
     articoliSci.forEach(a => {
-      // Costruisci label chiara: descrizione + lunghezza + (durezza se presente)
       let label = a.descrizione;
       if (a.lunghezza) label += ` ${a.lunghezza}cm`;
-      if (a.durezza) label += ` - ${a.durezza}`;
-      // Aggiungi il codice modello se diverso dalla descrizione
-      if (a.codice_modello && a.codice_modello !== a.descrizione) {
-        label += ` (${a.codice_modello})`;
-      }
-      kitSciSelect.appendChild(new Option(label, a.articolo_id));
-    });
-
-    // 6. Deduplica visiva (rimuove opzioni con testo identico)
-    const seenLabels = new Set();
-    const options = kitSciSelect.querySelectorAll('option');
-    options.forEach(opt => {
-      const text = opt.textContent.trim();
-      if (seenLabels.has(text) && opt.value !== '') {
-        opt.remove();
-      } else {
-        seenLabels.add(text);
+      label = label.replace(/\s+/g, ' ').trim();
+      
+      if (!seenLabels.has(label)) {
+        seenLabels.add(label);
+        kitSciSelect.appendChild(new Option(label, a.articolo_id));
       }
     });
 
-    // 7. Carica attacchi e skistoppers
+    // 6. Carica attacchi e skistoppers
     await caricaArticoliPerCategoria();
 
-    // 8. Carica sigle usate
+    // 7. Carica sigle usate
     await caricaSigleUsate();
 
-    // 9. Imposta primo sci (se presente)
+    // 8. Imposta primo sci (se presente)
     if (articoliSci.length > 0) {
       kitSciSelect.value = articoliSci[0].articolo_id;
       await caricaSiglePerSci(kitSciSelect.value);
     }
 
-    // 10. Eventi (rimuovi eventuali listener duplicati prima di aggiungerli)
+    // 9. Eventi (rimuovi listener duplicati)
     kitSciSelect.removeEventListener('change', sciChangeHandler);
     kitSciSelect.addEventListener('change', sciChangeHandler);
 
@@ -426,7 +410,7 @@ async function caricaArticoliPerCategoria() {
 }
 
 // ============================================================
-// CARICA SIGLE USATE E SIGLE PER SCI (usando /articoli/:id/sigle)
+// CARICA SIGLE USATE E SIGLE PER SCI
 // ============================================================
 async function caricaSigleUsate() {
   try {
@@ -434,6 +418,7 @@ async function caricaSigleUsate() {
     sigleUsateInKit = Array.isArray(data) ? data.map(s => s.id) : [];
   } catch(e) {
     sigleUsateInKit = [];
+    console.warn('Errore caricamento sigle-usate:', e);
   }
 }
 
