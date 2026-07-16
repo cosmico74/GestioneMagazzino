@@ -86,6 +86,28 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
+// GET /api/kit/sigle-usate - Sigle già utilizzate in kit (ROTTA FONDAMENTALE)
+// Deve essere PRIMA di /:id per evitare conflitto
+// ============================================================
+router.get('/sigle-usate', verifyToken, async (req, res) => {
+  try {
+    console.log('🔍 GET /api/kit/sigle-usate');
+    const [rows] = await db.query(`
+      SELECT DISTINCT kd.sigla_id AS id, s.sigla
+      FROM kit_dettaglio kd
+      INNER JOIN sigle_articoli s ON kd.sigla_id = s.id
+      WHERE s.attivo = 1
+      ORDER BY s.sigla
+    `);
+    console.log(`✅ Trovate ${rows.length} sigle usate`);
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Errore GET /kit/sigle-usate:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/kit/:id - Dettaglio kit
 // ============================================================
 router.get('/:id', verifyToken, async (req, res) => {
@@ -105,27 +127,6 @@ router.get('/:id', verifyToken, async (req, res) => {
     res.json({ ...kit[0], dettagli });
   } catch (err) {
     console.error('❌ Errore GET /kit/:id:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ============================================================
-// GET /api/kit/sigle-usate - Sigle già utilizzate in kit (ROTTA FONDAMENTALE)
-// ============================================================
-router.get('/sigle-usate', verifyToken, async (req, res) => {
-  try {
-    console.log('🔍 GET /api/kit/sigle-usate');
-    const [rows] = await db.query(`
-      SELECT DISTINCT kd.sigla_id AS id, s.sigla
-      FROM kit_dettaglio kd
-      INNER JOIN sigle_articoli s ON kd.sigla_id = s.id
-      WHERE s.attivo = 1
-      ORDER BY s.sigla
-    `);
-    console.log(`✅ Trovate ${rows.length} sigle usate`);
-    res.json(rows);
-  } catch (err) {
-    console.error('❌ Errore GET /kit/sigle-usate:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -323,8 +324,8 @@ router.delete('/:id', verifyToken, async (req, res) => {
 
 console.log('✅ ROTTE KIT REGISTRATE:');
 console.log('   GET    /api/kit');
-console.log('   GET    /api/kit/:id');
 console.log('   GET    /api/kit/sigle-usate  <-- FONDAMENTALE');
+console.log('   GET    /api/kit/:id');
 console.log('   POST   /api/kit');
 console.log('   PUT    /api/kit/:id');
 console.log('   PATCH  /api/kit/:id/note');
