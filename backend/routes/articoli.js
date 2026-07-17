@@ -114,11 +114,10 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD SIGLE - VERSIONE STABILE
+// CRUD SIGLE - VERSIONE CON RIATTIVAZIONE
 // ============================================================
 router.get('/:id/sigle', verifyToken, async (req, res) => {
   try {
-    // Query semplificata: recupera le sigle senza calcolare giacenza in SQL
     const [sigle] = await db.query(
       `SELECT s.* 
        FROM sigle_articoli s
@@ -127,15 +126,12 @@ router.get('/:id/sigle', verifyToken, async (req, res) => {
       [req.params.id]
     );
 
-    // Calcola la giacenza per ogni sigla in modo sicuro (con try/catch)
     for (const s of sigle) {
       try {
-        // Quantità impegnata in kit
         const [inKit] = await db.query(
           'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
           [s.id]
         );
-        // Quantità già assegnata (in carico_sintesi)
         const [assegnata] = await db.query(
           'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
           [s.id, 'ARTICOLO']
@@ -143,7 +139,7 @@ router.get('/:id/sigle', verifyToken, async (req, res) => {
         s.giacenza = s.quantita - inKit[0].totale - assegnata[0].totale;
       } catch (calcErr) {
         console.warn(`⚠️ Errore nel calcolo giacenza per sigla ${s.id}:`, calcErr.message);
-        s.giacenza = s.quantita; // fallback: considera tutta la quantità disponibile
+        s.giacenza = s.quantita;
       }
     }
 
@@ -164,28 +160,39 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // Verifica se esiste già una sigla con lo stesso nome per questo articolo
+    // Verifica se esiste una sigla con lo stesso nome (anche se attivo=0)
     const [existing] = await connection.query(
-      'SELECT id FROM sigle_articoli WHERE articolo_id = ? AND sigla = ? AND attivo = 1',
+      'SELECT id, attivo FROM sigle_articoli WHERE articolo_id = ? AND sigla = ?',
       [req.params.id, sigla]
     );
+
     if (existing.length > 0) {
-      await connection.rollback();
-      return res.status(400).json({ error: 'Sigla già esistente per questo articolo' });
+      if (existing[0].attivo === 1) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Sigla già esistente per questo articolo' });
+      } else {
+        // Riattiva e aggiorna
+        await connection.query(
+          `UPDATE sigle_articoli 
+           SET lunghezza = ?, durezza = ?, codice_modello = ?, note = ?, quantita = ?, quantita_austria = ?, attivo = 1
+           WHERE id = ?`,
+          [lunghezza || null, durezza || null, codice_modello || null, note || null, quantitaVal, quantitaVal, existing[0].id]
+        );
+        console.log('♻️ Sigla riattivata:', { articolo_id: req.params.id, sigla, id: existing[0].id });
+      }
+    } else {
+      console.log('📝 Inserimento sigla:', {
+        articolo_id: req.params.id,
+        sigla,
+        quantita: quantitaVal,
+        quantita_austria: quantitaVal
+      });
+      await connection.query(
+        `INSERT INTO sigle_articoli (articolo_id, sigla, lunghezza, durezza, codice_modello, note, quantita, quantita_austria, attivo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [req.params.id, sigla, lunghezza || null, durezza || null, codice_modello || null, note || null, quantitaVal, quantitaVal]
+      );
     }
-
-    console.log('📝 Inserimento sigla:', {
-      articolo_id: req.params.id,
-      sigla,
-      quantita: quantitaVal,
-      quantita_austria: quantitaVal
-    });
-
-    await connection.query(
-      `INSERT INTO sigle_articoli (articolo_id, sigla, lunghezza, durezza, codice_modello, note, quantita, quantita_austria, attivo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [req.params.id, sigla, lunghezza || null, durezza || null, codice_modello || null, note || null, quantitaVal, quantitaVal]
-    );
 
     await ricalcolaQuantitaTotale(connection, req.params.id);
     await connection.commit();
