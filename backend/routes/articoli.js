@@ -4,7 +4,7 @@ const db = require('../db');
 const { verifyToken } = require('../auth');
 
 // ============================================================
-// HELPER: ricalcola quantita_totale (somma sigle) - versione robusta
+// HELPER: ricalcola quantita_totale (somma sigle)
 // ============================================================
 async function ricalcolaQuantitaTotale(connection, articoloId) {
   try {
@@ -19,7 +19,7 @@ async function ricalcolaQuantitaTotale(connection, articoloId) {
     );
     return nuovoTotale;
   } catch (err) {
-    console.error('Errore in ricalcolaQuantitaTotale:', err);
+    console.error('❌ Errore in ricalcolaQuantitaTotale:', err);
     throw err;
   }
 }
@@ -89,7 +89,7 @@ router.get('/', verifyToken, async (req, res) => {
     const [rows] = await db.query(sql, params);
     res.json({ success: true, data: rows });
   } catch (err) {
-    console.error('Errore GET /articoli:', err);
+    console.error('❌ Errore GET /articoli:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -108,24 +108,45 @@ router.get('/:id', verifyToken, async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ success: false, message: 'Articolo non trovato' });
     res.json({ success: true, data: rows[0] });
   } catch (err) {
-    console.error('Errore GET /articoli/:id:', err);
+    console.error('❌ Errore GET /articoli/:id:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // ============================================================
-// CRUD SIGLE - VERSIONE CORRETTA
+// CRUD SIGLE - VERSIONE STABILE
 // ============================================================
 router.get('/:id/sigle', verifyToken, async (req, res) => {
   try {
-    // Query semplificata per evitare errori complessi
+    // Query semplificata: recupera le sigle senza calcolare giacenza in SQL
     const [sigle] = await db.query(
-      `SELECT s.*, s.quantita AS giacenza
+      `SELECT s.* 
        FROM sigle_articoli s
        WHERE s.articolo_id = ? AND s.attivo = 1
        ORDER BY s.sigla`,
       [req.params.id]
     );
+
+    // Calcola la giacenza per ogni sigla in modo sicuro (con try/catch)
+    for (const s of sigle) {
+      try {
+        // Quantità impegnata in kit
+        const [inKit] = await db.query(
+          'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
+          [s.id]
+        );
+        // Quantità già assegnata (in carico_sintesi)
+        const [assegnata] = await db.query(
+          'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
+          [s.id, 'ARTICOLO']
+        );
+        s.giacenza = s.quantita - inKit[0].totale - assegnata[0].totale;
+      } catch (calcErr) {
+        console.warn(`⚠️ Errore nel calcolo giacenza per sigla ${s.id}:`, calcErr.message);
+        s.giacenza = s.quantita; // fallback: considera tutta la quantità disponibile
+      }
+    }
+
     res.json(sigle);
   } catch (err) {
     console.error('❌ Errore GET /sigle:', err);
@@ -136,13 +157,13 @@ router.get('/:id/sigle', verifyToken, async (req, res) => {
 router.post('/:id/sigle', verifyToken, async (req, res) => {
   const { sigla, lunghezza, durezza, codice_modello, note, quantita } = req.body;
   if (!sigla) return res.status(400).json({ error: 'Sigla obbligatoria' });
-  
+
   const quantitaVal = quantita || 0;
   const connection = await db.getConnection();
-  
+
   try {
     await connection.beginTransaction();
-    
+
     // Verifica se esiste già una sigla con lo stesso nome per questo articolo
     const [existing] = await connection.query(
       'SELECT id FROM sigle_articoli WHERE articolo_id = ? AND sigla = ? AND attivo = 1',
@@ -152,23 +173,23 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
       await connection.rollback();
       return res.status(400).json({ error: 'Sigla già esistente per questo articolo' });
     }
-    
-    console.log('Inserimento sigla:', { 
-      articolo_id: req.params.id, 
-      sigla, 
+
+    console.log('📝 Inserimento sigla:', {
+      articolo_id: req.params.id,
+      sigla,
       quantita: quantitaVal,
-      quantita_austria: quantitaVal 
+      quantita_austria: quantitaVal
     });
-    
+
     await connection.query(
       `INSERT INTO sigle_articoli (articolo_id, sigla, lunghezza, durezza, codice_modello, note, quantita, quantita_austria, attivo)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [req.params.id, sigla, lunghezza || null, durezza || null, codice_modello || null, note || null, quantitaVal, quantitaVal]
     );
-    
+
     await ricalcolaQuantitaTotale(connection, req.params.id);
     await connection.commit();
-    
+
     res.json({ success: true, message: 'Sigla aggiunta con successo' });
   } catch (err) {
     await connection.rollback();
@@ -204,7 +225,7 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
     await db.query(sql, values);
     res.json({ success: true, message: 'Sigla aggiornata' });
   } catch (err) {
-    console.error('Errore PUT /sigle/:id:', err);
+    console.error('❌ Errore PUT /sigle/:id:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -223,7 +244,7 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     res.json({ success: true, message: 'Quantità aggiornata' });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore PUT /sigle/quantita:', err);
+    console.error('❌ Errore PUT /sigle/quantita:', err);
     res.status(500).json({ error: err.message });
   } finally {
     connection.release();
@@ -239,7 +260,7 @@ router.put('/sigle/:id/austria', verifyToken, async (req, res) => {
     await db.query('UPDATE sigle_articoli SET quantita_austria = ? WHERE id = ?', [quantita_austria, req.params.id]);
     res.json({ success: true, message: 'Quantità Austria aggiornata' });
   } catch (err) {
-    console.error('Errore PUT /sigle/austria:', err);
+    console.error('❌ Errore PUT /sigle/austria:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -258,7 +279,7 @@ router.delete('/sigle/:id', verifyToken, async (req, res) => {
     res.json({ success: true, message: 'Sigla eliminata' });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore DELETE /sigle:', err);
+    console.error('❌ Errore DELETE /sigle:', err);
     res.status(500).json({ error: err.message });
   } finally {
     connection.release();
@@ -270,7 +291,7 @@ router.delete('/sigle/:id', verifyToken, async (req, res) => {
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria } = req.body;
-  
+
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
   }
@@ -278,15 +299,15 @@ router.post('/', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    
+
     const [[{ maxId }]] = await connection.query('SELECT MAX(articolo_id) as maxId FROM articoli');
     const newId = (maxId || 0) + 1;
-    
+
     const codice = generateArticleCode({ categoriaNome: '', marcaNome: '', lunghezza, durezza }, newId);
     const descrizioneCompleta = buildDescrizioneCompleta(descrizione, lunghezza, durezza);
     const now = db.now();
     const invAustria = (inventario_austria !== undefined) ? (inventario_austria ? 1 : 0) : 1;
-    
+
     await connection.query(`
       INSERT INTO articoli (articolo_id, codice, descrizione, descrizione_completa, magazzino, settore, categoria, marca,
         lunghezza, durezza, quantita_totale, quantita_in_kit, quantita_obsoleta, versione, stato, data_inserimento, data_modifica, note, codice_modello, inventario_austria)
@@ -303,19 +324,19 @@ router.post('/', verifyToken, async (req, res) => {
       codiceModello || null,
       invAustria
     ]);
-    
+
     await connection.query(
       'INSERT INTO sigle_articoli (articolo_id, sigla, quantita, quantita_austria) VALUES (?, \'NA\', ?, ?)',
       [newId, quantita || 0, quantita || 0]
     );
-    
+
     await ricalcolaQuantitaTotale(connection, newId);
     await connection.commit();
-    
+
     res.json({ success: true, message: 'Articolo creato con successo', id: newId, codice });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore POST /articoli:', err);
+    console.error('❌ Errore POST /articoli:', err);
     res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
@@ -329,7 +350,7 @@ router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { descrizione, lunghezza, durezza, quantita_totale, quantita_obsoleta, versione, stato, note, codiceModello,
           magazzino, settore, categoria, marca, inventario_austria } = req.body;
-  
+
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
   }
@@ -366,7 +387,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     res.json({ success: true, message: 'Articolo aggiornato' });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore PUT /articoli:', err);
+    console.error('❌ Errore PUT /articoli:', err);
     res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
@@ -387,7 +408,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
     res.json({ success: true, message: 'Articolo eliminato' });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore DELETE /articoli:', err);
+    console.error('❌ Errore DELETE /articoli:', err);
     res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
@@ -411,7 +432,7 @@ router.post('/:id/obsoleto', verifyToken, async (req, res) => {
     res.json({ success: true, message: `${quantita} unità rese obsolete` });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore POST /obsoleto:', err);
+    console.error('❌ Errore POST /obsoleto:', err);
     res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
