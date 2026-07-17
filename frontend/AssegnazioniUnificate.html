@@ -289,7 +289,7 @@
   </div>
 </div>
 
-<!-- MODALI (invariate) -->
+<!-- MODALI -->
 <div id="assignModal" class="modal">
   <div class="modal-content">
     <h3>📤 Assegna oggetto</h3>
@@ -552,10 +552,16 @@ function onSoggettoChanged() {
   if (radioCarico.checked && sourceId.value) {
     caricaOggettiInCarico();
   } else {
-    // Se non c'è soggetto selezionato, svuota la tabella
-    oggetti = [];
-    oggettiOriginali = [];
-    popolaTabella();
+    // Se non c'è soggetto selezionato, usa il fallback per mostrare i propri oggetti (solo se non admin)
+    if (!sourceId.value && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
+      // Ricarica con il proprio ID di default
+      caricaOggettiInCarico();
+    } else {
+      // Altrimenti svuota la tabella
+      oggetti = [];
+      oggettiOriginali = [];
+      popolaTabella();
+    }
   }
 }
 
@@ -591,9 +597,14 @@ async function caricaSoggettiPerTipo() {
     if (sel.options.length > 1 && !sel.value) {
       sel.selectedIndex = 1;
     }
-    // Se c'è un soggetto selezionato, carica subito
-    if (radioCarico.checked && sel.value) {
-      caricaOggettiInCarico();
+    // Se c'è un soggetto selezionato, carica subito, altrimenti carica il proprio (se non admin)
+    if (radioCarico.checked) {
+      if (sel.value) {
+        caricaOggettiInCarico();
+      } else {
+        // Fallback: carica i propri oggetti
+        caricaOggettiInCarico();
+      }
     } else {
       // Altrimenti svuota la tabella
       oggetti = [];
@@ -664,7 +675,7 @@ async function getKitDetails(kitId) {
 }
 
 // ============================================================
-// CARICAMENTO OGGETTI IN CARICO (con reset e debug)
+// CARICAMENTO OGGETTI IN CARICO (con fallback per non-admin)
 // ============================================================
 async function getOggettiInCarico(tipo, id) {
   var body = { targetTipo: tipo, targetId: parseInt(id) };
@@ -772,12 +783,18 @@ async function caricaOggettiInCarico() {
   } else {
     tipo = sourceTipo.value;
     id = sourceId.value;
-    // NESSUN FALLBACK: se il valore è vuoto, non caricare nulla
+    // Se non c'è selezione, usa il proprio ID (fallback per vedere i propri oggetti)
     if (!id) {
-      showMessage('Seleziona un soggetto dalla lista', 'info');
-      popolaTabella();
-      hideLoading();
-      return;
+      if (currentUser.riferimento_id) {
+        id = currentUser.riferimento_id;
+        // Il tipo dovrebbe essere 'PROMOTER' o altro, ma lo ricaviamo dal ruolo
+        tipo = currentUser.ruolo.toUpperCase();
+      } else {
+        showMessage('Seleziona un soggetto dalla lista', 'info');
+        popolaTabella();
+        hideLoading();
+        return;
+      }
     }
   }
   
@@ -1648,7 +1665,12 @@ function setup() {
     });
     sourceId.addEventListener('change', function() {
       if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
-      else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
+      else if (currentUser.riferimento_id) {
+        // Se il dropdown è vuoto, carica i propri oggetti
+        caricaOggettiInCarico();
+      } else {
+        oggetti = []; oggettiOriginali = []; popolaTabella();
+      }
     });
     if (currentUser.ruolo === 'promoter' && userLevel === 1) {
       radioMagazzino.disabled = false;
