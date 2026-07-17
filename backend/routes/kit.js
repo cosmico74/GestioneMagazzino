@@ -85,7 +85,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/sigle-usate - Sigle già utilizzate in kit (deprecato)
+// GET /api/kit/sigle-usate (deprecato)
 // ============================================================
 router.get('/sigle-usate', verifyToken, async (req, res) => {
   try {
@@ -127,7 +127,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/kit - Crea un nuovo kit
+// POST /api/kit - Crea un nuovo kit (con aggregazione righe duplicate)
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   const { magazzino, sci_id, note, righe } = req.body;
@@ -146,10 +146,24 @@ router.post('/', verifyToken, async (req, res) => {
     const [sci] = await connection.query('SELECT descrizione, lunghezza, durezza FROM articoli WHERE articolo_id = ?', [sci_id]);
     if (!sci.length) throw new Error('Sci non trovato');
 
+    // ============================================================
+    // AGGREGA RIGHE DUPLICATE (stessa sigla, attacco, skistopper)
+    // ============================================================
+    const aggregated = {};
+    for (const riga of righe) {
+      const key = `${riga.sigla_id}|${riga.attacco_id}|${riga.skistopper_id || ''}`;
+      if (!aggregated[key]) {
+        aggregated[key] = { ...riga, quantita: 0 };
+      }
+      aggregated[key].quantita += riga.quantita;
+    }
+    const righeAggregate = Object.values(aggregated);
+    console.log('📊 Righe aggregate:', JSON.stringify(righeAggregate, null, 2));
+
     const [maxIdRow] = await connection.query('SELECT MAX(id) AS maxId FROM kit');
     const nextSeq = (maxIdRow[0].maxId || 0) + 1;
     const codiceKit = `KIT-${magazzino}-${String(nextSeq).padStart(4, '0')}`;
-    const descKit = await generaDescrizioneKit(connection, sci[0], righe);
+    const descKit = await generaDescrizioneKit(connection, sci[0], righeAggregate);
 
     const now = db.now();
     const [kitRes] = await connection.query(
@@ -159,30 +173,24 @@ router.post('/', verifyToken, async (req, res) => {
     const kitId = kitRes.insertId;
 
     let quantitaTotaleKit = 0;
-    for (const riga of righe) {
+    for (const riga of righeAggregate) {
       const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
       if (!sigla_id || !attacco_id) throw new Error('Ogni riga deve avere sigla e attacco');
 
-      // Aggiorna quantita_in_kit per lo sci
       await aggiungiInKit(connection, sci_id, quantita);
-      // Aggiorna quantita_in_kit per l'attacco
       await aggiungiInKit(connection, attacco_id, quantita);
-      // Se lo skistopper è selezionato, aggiorna anche quello
       if (skistopper_id) {
         await aggiungiInKit(connection, skistopper_id, quantita);
       }
 
-      // Inserisci dettaglio SCI
       await connection.query(
         'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'SCI\', ?, ?, ?)',
         [kitId, sci_id, sigla_id, quantita]
       );
-      // Inserisci dettaglio ATTACCHI
       await connection.query(
         'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'ATTACCHI\', ?, NULL, ?)',
         [kitId, attacco_id, quantita]
       );
-      // Inserisci dettaglio SKISTOPPER (solo se selezionato)
       if (skistopper_id) {
         await connection.query(
           'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'SKISTOPPER\', ?, NULL, ?)',
@@ -222,7 +230,6 @@ router.put('/:id', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // Rimuovi i vecchi dettagli e ripristina le quantità
     const [oldDetails] = await connection.query('SELECT * FROM kit_dettaglio WHERE kit_id = ?', [id]);
     for (const det of oldDetails) {
       await rimuoviDaKit(connection, det.articolo_id, det.quantita);
@@ -231,10 +238,22 @@ router.put('/:id', verifyToken, async (req, res) => {
 
     const [sci] = await connection.query('SELECT descrizione, lunghezza, durezza FROM articoli WHERE articolo_id = ?', [sci_id]);
     if (!sci.length) throw new Error('Sci non trovato');
-    const descKit = await generaDescrizioneKit(connection, sci[0], righe);
+
+    // Aggrega anche in PUT
+    const aggregated = {};
+    for (const riga of righe) {
+      const key = `${riga.sigla_id}|${riga.attacco_id}|${riga.skistopper_id || ''}`;
+      if (!aggregated[key]) {
+        aggregated[key] = { ...riga, quantita: 0 };
+      }
+      aggregated[key].quantita += riga.quantita;
+    }
+    const righeAggregate = Object.values(aggregated);
+
+    const descKit = await generaDescrizioneKit(connection, sci[0], righeAggregate);
 
     let quantitaTotaleKit = 0;
-    for (const riga of righe) {
+    for (const riga of righeAggregate) {
       const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
       await aggiungiInKit(connection, sci_id, quantita);
       await aggiungiInKit(connection, attacco_id, quantita);
@@ -276,7 +295,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/kit/:id/note - Aggiorna solo la nota del kit
+// PATCH /api/kit/:id/note
 // ============================================================
 router.patch('/:id/note', verifyToken, async (req, res) => {
   const { note } = req.body;
@@ -296,7 +315,7 @@ router.patch('/:id/note', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// DELETE /api/kit/:id - Elimina kit
+// DELETE /api/kit/:id
 // ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
