@@ -289,7 +289,7 @@
   </div>
 </div>
 
-<!-- MODALI -->
+<!-- MODALI (invariate) -->
 <div id="assignModal" class="modal">
   <div class="modal-content">
     <h3>📤 Assegna oggetto</h3>
@@ -587,6 +587,7 @@ async function caricaSoggettiPerTipo() {
       sel.appendChild(new Option(testo, item.id));
     });
     
+    // Se c'è almeno un'opzione e nessuna selezionata, seleziona la prima
     if (sel.options.length > 1 && !sel.value) {
       sel.selectedIndex = 1;
     }
@@ -771,16 +772,12 @@ async function caricaOggettiInCarico() {
   } else {
     tipo = sourceTipo.value;
     id = sourceId.value;
+    // NESSUN FALLBACK: se il valore è vuoto, non caricare nulla
     if (!id) {
-      if (currentUser.riferimento_id) {
-        id = currentUser.riferimento_id;
-        tipo = currentUser.ruolo.toUpperCase();
-      } else {
-        showMessage('Seleziona un soggetto', 'error');
-        popolaTabella();
-        hideLoading();
-        return;
-      }
+      showMessage('Seleziona un soggetto dalla lista', 'info');
+      popolaTabella();
+      hideLoading();
+      return;
     }
   }
   
