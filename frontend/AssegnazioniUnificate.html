@@ -42,6 +42,20 @@
     th, td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
     th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; user-select: none; }
     th:hover { background: #e2e8f0; }
+    .sort-arrow {
+      cursor: pointer;
+      font-size: 0.6rem;
+      margin-left: 3px;
+      color: #aaa;
+      user-select: none;
+      display: inline-block;
+      padding: 0 2px;
+    }
+    .sort-arrow.active {
+      color: #1a73e8;
+      font-weight: bold;
+      font-size: 0.8rem;
+    }
     .checkbox-col { width: 30px; text-align: center; }
     .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; background: #f8f9fa; border-top: 1px solid #e2e8f0; font-size: 0.7rem; flex-wrap: wrap; gap: 8px; }
     .pagination-info { display: flex; align-items: center; gap: 8px; }
@@ -194,17 +208,51 @@
   <div class="table-wrapper" id="tableWrapper" style="position:relative;">
     <table id="tabellaOggetti">
       <thead>
-        <th class="checkbox-col"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
-        <th>#</th>
-        <th data-sort="codice_sigla">Codice / Sigla</th>
-        <th data-sort="descrizione">Descrizione</th>
-        <th data-sort="lunghezza">Lunghezza</th>
-        <th data-sort="sigla">Sigla</th>
-        <th id="thQuantita" data-sort="totale">Qtà</th>
-        <th data-sort="stato">Stato</th>
-        <th data-sort="destinatario">Destinatario</th>
-        <th data-sort="data">Data</th>
-        <th>Azioni</th>
+        <tr>
+          <th class="checkbox-col"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+          <th>#</th>
+          <th data-sort="codice_sigla">
+            Codice / Sigla
+            <span class="sort-arrow sort-asc" data-col="codice_sigla">▲</span>
+            <span class="sort-arrow sort-desc" data-col="codice_sigla">▼</span>
+          </th>
+          <th data-sort="descrizione">
+            Descrizione
+            <span class="sort-arrow sort-asc" data-col="descrizione">▲</span>
+            <span class="sort-arrow sort-desc" data-col="descrizione">▼</span>
+          </th>
+          <th data-sort="lunghezza">
+            Lunghezza
+            <span class="sort-arrow sort-asc" data-col="lunghezza">▲</span>
+            <span class="sort-arrow sort-desc" data-col="lunghezza">▼</span>
+          </th>
+          <th data-sort="sigla">
+            Sigla
+            <span class="sort-arrow sort-asc" data-col="sigla">▲</span>
+            <span class="sort-arrow sort-desc" data-col="sigla">▼</span>
+          </th>
+          <th id="thQuantita" data-sort="totale">
+            Qtà
+            <span class="sort-arrow sort-asc" data-col="totale">▲</span>
+            <span class="sort-arrow sort-desc" data-col="totale">▼</span>
+          </th>
+          <th data-sort="stato">
+            Stato
+            <span class="sort-arrow sort-asc" data-col="stato">▲</span>
+            <span class="sort-arrow sort-desc" data-col="stato">▼</span>
+          </th>
+          <th data-sort="destinatario">
+            Destinatario
+            <span class="sort-arrow sort-asc" data-col="destinatario">▲</span>
+            <span class="sort-arrow sort-desc" data-col="destinatario">▼</span>
+          </th>
+          <th data-sort="data">
+            Data
+            <span class="sort-arrow sort-asc" data-col="data">▲</span>
+            <span class="sort-arrow sort-desc" data-col="data">▼</span>
+          </th>
+          <th>Azioni</th>
+        </tr>
       </thead>
       <tbody id="tabellaBody"><tr><td colspan="11" class="text-center">Caricamento...</td></tr></tbody>
     </table>
@@ -423,7 +471,9 @@ var currentUser = null;
 var magazzini = [], categorie = [];
 var oggetti = [], oggettiOriginali = [];
 var currentEditObj = null, currentAssignObj = null;
-var sortColumn = 'codice_sigla', sortAsc = true;
+// ORDINAMENTO: inizialmente per descrizione ascendente, poi lunghezza
+var sortColumn = 'descrizione';
+var sortAsc = true;
 var paginaCorrente = 1, righePerPagina = 25;
 var pendingAction = null;
 var kitDetailsCache = new Map();
@@ -502,11 +552,9 @@ async function caricaSoggettiPerTipo() {
     allSoggetti = data || [];
     sel.innerHTML = '<option value="">Seleziona...</option>';
     
-    // Determina se l'utente è admin
     var isAdmin = (currentUser.ruolo === 'admin');
     var currentSoggettoId = currentUser.riferimento_id ? parseInt(currentUser.riferimento_id) : null;
     
-    // Se non è admin, esclude sé stesso dal dropdown
     var filtered = data;
     if (!isAdmin && currentSoggettoId) {
       filtered = data.filter(function(item) {
@@ -520,7 +568,6 @@ async function caricaSoggettiPerTipo() {
       sel.appendChild(new Option(testo, item.id));
     });
     
-    // Se c'è almeno un'opzione, seleziona la prima (se non già selezionata)
     if (sel.options.length > 1 && !sel.value) {
       sel.selectedIndex = 1;
     }
@@ -690,10 +737,9 @@ async function caricaOggettiInCarico() {
     tipo = sourceTipo.value;
     id = sourceId.value;
   } else {
-    tipo = sourceTipo.value;  // Usa il tipo selezionato
+    tipo = sourceTipo.value;
     id = sourceId.value;
     if (!id) {
-      // Se non c'è un soggetto selezionato, carica il default (promoter stesso)
       if (currentUser.riferimento_id) {
         id = currentUser.riferimento_id;
         tipo = currentUser.ruolo.toUpperCase();
@@ -728,7 +774,6 @@ async function caricaOggettiInCarico() {
     else tutti = inc.concat(ass);
     oggettiOriginali = tutti;
 
-    // ---- FILTRO DESTINATARIO: SOLO per "assegnati" o "entrambi" ----
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       var referenti = [];
       if (tipo === 'PROMOTER') {
@@ -930,8 +975,11 @@ function aggiornaDropdownFiltri(sigleUniche, lunghezzeUniche) {
   }
 }
 
+// ============================================================
+// ORDINAMENTO MULTI-COLONNA (descrizione primario, lunghezza secondario)
+// ============================================================
 function sortOggetti() {
-  oggetti.sort(function(a,b) {
+  oggetti.sort(function(a, b) {
     var va = a[sortColumn] || '', vb = b[sortColumn] || '';
     if (sortColumn === 'totale') {
       va = parseFloat(va) || 0;
@@ -945,39 +993,88 @@ function sortOggetti() {
     }
     if (va < vb) return sortAsc ? -1 : 1;
     if (va > vb) return sortAsc ? 1 : -1;
-    return 0;
+    // Secondo criterio: lunghezza (se non è già la colonna principale)
+    if (sortColumn !== 'lunghezza') {
+      var la = parseFloat(a.lunghezza) || 0;
+      var lb = parseFloat(b.lunghezza) || 0;
+      if (la < lb) return sortAsc ? -1 : 1;
+      if (la > lb) return sortAsc ? 1 : -1;
+    }
+    // Terzo criterio: codice_sigla
+    var ca = (a.codice_sigla || '').toLowerCase();
+    var cb = (b.codice_sigla || '').toLowerCase();
+    return ca.localeCompare(cb);
   });
 }
+
+// ============================================================
+// AGGIORNA INTESTAZIONI (gestione frecce)
+// ============================================================
 function aggiornaIntestazioni() {
-  var ths = document.querySelectorAll('#tabellaOggetti th[data-sort]');
-  for (var i=0; i<ths.length; i++) {
-    var th = ths[i];
-    var col = th.getAttribute('data-sort');
-    if (col === sortColumn) {
-      th.innerText = th.innerText.replace(/[↑↓]/g, '') + (sortAsc ? ' ↑' : ' ↓');
-    } else {
-      th.innerText = th.innerText.replace(/[↑↓]/g, '');
-    }
+  // Rimuovi active da tutte le frecce
+  document.querySelectorAll('.sort-arrow').forEach(function(el) {
+    el.classList.remove('active');
+  });
+
+  var colonnaCorrente = sortColumn;
+  var selettoreAsc = '.sort-arrow.sort-asc[data-col="' + colonnaCorrente + '"]';
+  var selettoreDesc = '.sort-arrow.sort-desc[data-col="' + colonnaCorrente + '"]';
+  var frecciaAsc = document.querySelector(selettoreAsc);
+  var frecciaDesc = document.querySelector(selettoreDesc);
+
+  if (sortAsc) {
+    if (frecciaAsc) frecciaAsc.classList.add('active');
+  } else {
+    if (frecciaDesc) frecciaDesc.classList.add('active');
   }
 }
-function handleSort(col) {
-  if (sortColumn === col) sortAsc = !sortAsc;
-  else { sortColumn = col; sortAsc = true; }
+
+// ============================================================
+// HANDLE SORT (gestisce click su colonna o freccia)
+// ============================================================
+function handleSort(col, direction) {
+  if (direction === 'asc') {
+    sortAsc = true;
+  } else if (direction === 'desc') {
+    sortAsc = false;
+  } else {
+    if (sortColumn === col) sortAsc = !sortAsc;
+    else { sortColumn = col; sortAsc = true; }
+  }
+  sortColumn = col;
   sortOggetti();
   paginaCorrente = 1;
   popolaTabella();
   aggiornaIntestazioni();
 }
-function attachSortHandlers() {
-  var ths = document.querySelectorAll('#tabellaOggetti th[data-sort]');
-  for (var i=0; i<ths.length; i++) {
-    ths[i].addEventListener('click', function(e) {
-      var col = this.getAttribute('data-sort');
+
+// ============================================================
+// ATTACH SORT LISTENERS
+// ============================================================
+function attachSortListeners() {
+  // Click sul testo della colonna (o sulla th) per alternare
+  document.querySelectorAll('#tabellaOggetti th[data-sort]').forEach(function(th) {
+    th.addEventListener('click', function(e) {
+      if (e.target.classList.contains('sort-arrow')) return;
+      var col = th.getAttribute('data-sort');
       handleSort(col);
     });
-  }
+  });
+
+  // Click sulle frecce singole
+  document.querySelectorAll('.sort-arrow').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var col = el.getAttribute('data-col');
+      var direction = el.classList.contains('sort-asc') ? 'asc' : 'desc';
+      handleSort(col, direction);
+    });
+  });
 }
 
+// ============================================================
+// PAGINAZIONE E RENDER
+// ============================================================
 function popolaTabella() {
   var tbody = document.getElementById('tabellaBody');
   tbody.innerHTML = '';
@@ -1518,10 +1615,8 @@ function setup() {
     });
     radioMagazzino.disabled = false;
   } else {
-    // Promoter e altri non-admin
-    sourceTipo.disabled = false; // Abilitato per la scelta del tipo
+    sourceTipo.disabled = false;
     sourceId.disabled = false;
-    // Carica i soggetti per il tipo selezionato (inizialmente PROMOTER)
     sourceTipo.value = 'PROMOTER';
     caricaSoggettiPerTipo();
     sourceTipo.addEventListener('change', function() {
@@ -1532,10 +1627,8 @@ function setup() {
     });
     radioMagazzino.disabled = true;
     if (radioMagazzino.checked) radioCarico.checked = true;
-    // Assicura che la sezione "In carico" sia visibile
     caricoSection.style.display = 'flex';
   }
-  // Altri listener
   modeInCarico.addEventListener('change', function() {
     if (radioCarico.checked) caricaOggettiInCarico();
   });
@@ -1578,7 +1671,7 @@ function setup() {
     sortOggetti();
     popolaTabella();
   });
-  attachSortHandlers();
+  attachSortListeners();
   var btnMassivo = document.getElementById('btnTrasferisciMassivo');
   if (btnMassivo) btnMassivo.addEventListener('click', apriModalTrasferimentoMassivo);
   toggleSource();
