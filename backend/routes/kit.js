@@ -59,7 +59,6 @@ async function generaDescrizioneKit(connection, sci, righe) {
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
-    console.log('📋 GET /api/kit');
     const [kits] = await db.query(`
       SELECT k.*,
         (SELECT a.lunghezza FROM kit_dettaglio kd
@@ -86,12 +85,10 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/sigle-usate - Sigle già utilizzate in kit (ROTTA FONDAMENTALE)
-// Deve essere PRIMA di /:id per evitare conflitto
+// GET /api/kit/sigle-usate - Sigle già utilizzate in kit (deprecato)
 // ============================================================
 router.get('/sigle-usate', verifyToken, async (req, res) => {
   try {
-    console.log('🔍 GET /api/kit/sigle-usate');
     const [rows] = await db.query(`
       SELECT DISTINCT kd.sigla_id AS id, s.sigla
       FROM kit_dettaglio kd
@@ -99,7 +96,6 @@ router.get('/sigle-usate', verifyToken, async (req, res) => {
       WHERE s.attivo = 1
       ORDER BY s.sigla
     `);
-    console.log(`✅ Trovate ${rows.length} sigle usate`);
     res.json(rows);
   } catch (err) {
     console.error('❌ Errore GET /kit/sigle-usate:', err);
@@ -112,7 +108,6 @@ router.get('/sigle-usate', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/:id', verifyToken, async (req, res) => {
   try {
-    console.log(`📋 GET /api/kit/${req.params.id}`);
     const [kit] = await db.query('SELECT * FROM kit WHERE id = ?', [req.params.id]);
     if (!kit.length) return res.status(404).json({ error: 'Kit non trovato' });
     
@@ -132,66 +127,9 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// HELPER: confronta due kit per uguaglianza delle righe
-// ============================================================
-async function findMatchingKit(connection, magazzino, sciId, newRighe) {
-  // Cerca tutti i kit con lo stesso magazzino e sci_id (dobbiamo trovare il kit che ha le stesse righe)
-  // Prima prendiamo tutti i kit che hanno lo stesso sci e magazzino
-  const [kits] = await connection.query(`
-    SELECT k.id
-    FROM kit k
-    WHERE k.magazzino = ? AND EXISTS (
-      SELECT 1 FROM kit_dettaglio kd WHERE kd.kit_id = k.id AND kd.articolo_id = ? AND kd.tipo_articolo = 'SCI'
-    )
-  `, [magazzino, sciId]);
-
-  // Per ogni kit, prendiamo le sue righe e le confrontiamo con le nuove righe
-  // Le righe devono essere identiche in numero e valori (sigla_id, attacco_id, skistopper_id)
-  // Ignoriamo quantita perché verrà sommata.
-  for (const kitRow of kits) {
-    const [dettagli] = await connection.query(`
-      SELECT sigla_id, articolo_id as attacco_id, skistopper_id
-      FROM kit_dettaglio
-      WHERE kit_id = ?
-      ORDER BY sigla_id, attacco_id, skistopper_id
-    `, [kitRow.id]);
-    // Normalizza le nuove righe
-    const newNormalized = newRighe.map(r => ({
-      sigla_id: r.sigla_id,
-      attacco_id: r.attacco_id,
-      skistopper_id: r.skistopper_id
-    })).sort((a, b) => {
-      if (a.sigla_id !== b.sigla_id) return a.sigla_id - b.sigla_id;
-      if (a.attacco_id !== b.attacco_id) return a.attacco_id - b.attacco_id;
-      return (a.skistopper_id || 0) - (b.skistopper_id || 0);
-    });
-    const existingNormalized = dettagli.map(d => ({
-      sigla_id: d.sigla_id,
-      attacco_id: d.attacco_id,
-      skistopper_id: d.skistopper_id
-    })).sort((a, b) => {
-      if (a.sigla_id !== b.sigla_id) return a.sigla_id - b.sigla_id;
-      if (a.attacco_id !== b.attacco_id) return a.attacco_id - b.attacco_id;
-      return (a.skistopper_id || 0) - (b.skistopper_id || 0);
-    });
-    // Confronta le due liste di oggetti
-    if (newNormalized.length === existingNormalized.length &&
-        newNormalized.every((obj, idx) => 
-          obj.sigla_id === existingNormalized[idx].sigla_id &&
-          obj.attacco_id === existingNormalized[idx].attacco_id &&
-          obj.skistopper_id === existingNormalized[idx].skistopper_id
-        )) {
-      return kitRow.id;
-    }
-  }
-  return null;
-}
-
-// ============================================================
-// POST /api/kit - Crea un nuovo kit o aggiorna quantità se esiste
+// POST /api/kit - Crea un nuovo kit
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
-  console.log('📝 POST /api/kit');
   const { magazzino, sci_id, note, righe } = req.body;
   if (!magazzino || !sci_id || !righe || !righe.length) {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
@@ -205,45 +143,6 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // Verifica se esiste già un kit identico
-    const existingKitId = await findMatchingKit(connection, magazzino, sci_id, righe);
-
-    if (existingKitId) {
-      // Aggiorna il kit esistente: incrementa la quantità di ogni riga
-      console.log(`♻️ Trovato kit esistente ID ${existingKitId}, incremento quantità`);
-      
-      // Per ogni riga, incrementa la quantità nel kit_dettaglio
-      for (const riga of righe) {
-        const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
-        await connection.query(
-          `UPDATE kit_dettaglio 
-           SET quantita = quantita + ? 
-           WHERE kit_id = ? AND sigla_id = ? AND articolo_id = ? AND (skistopper_id <=> ?)`,
-          [quantita, existingKitId, sigla_id, attacco_id, skistopper_id]
-        );
-        // Incrementa anche la quantita_in_kit degli articoli coinvolti
-        await aggiungiInKit(connection, sci_id, quantita);
-        await aggiungiInKit(connection, attacco_id, quantita);
-        if (skistopper_id) await aggiungiInKit(connection, skistopper_id, quantita);
-      }
-
-      // Ricalcola la quantità totale del kit
-      const [sum] = await connection.query(
-        'SELECT SUM(quantita) AS totale FROM kit_dettaglio WHERE kit_id = ?',
-        [existingKitId]
-      );
-      const nuovaQuantita = sum[0].totale || 0;
-      await connection.query(
-        'UPDATE kit SET quantita = ?, data_modifica = NOW() WHERE id = ?',
-        [nuovaQuantita, existingKitId]
-      );
-
-      await connection.commit();
-      console.log(`✅ Kit ${existingKitId} aggiornato con nuova quantità ${nuovaQuantita}`);
-      return res.json({ success: true, message: 'Kit aggiornato con successo', kitId: existingKitId });
-    }
-
-    // Se non esiste, crea un nuovo kit (codice esistente)
     const [sci] = await connection.query('SELECT descrizione, lunghezza, durezza FROM articoli WHERE articolo_id = ?', [sci_id]);
     if (!sci.length) throw new Error('Sci non trovato');
 
@@ -264,18 +163,26 @@ router.post('/', verifyToken, async (req, res) => {
       const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
       if (!sigla_id || !attacco_id) throw new Error('Ogni riga deve avere sigla e attacco');
 
+      // Aggiorna quantita_in_kit per lo sci
       await aggiungiInKit(connection, sci_id, quantita);
+      // Aggiorna quantita_in_kit per l'attacco
       await aggiungiInKit(connection, attacco_id, quantita);
-      if (skistopper_id) await aggiungiInKit(connection, skistopper_id, quantita);
+      // Se lo skistopper è selezionato, aggiorna anche quello
+      if (skistopper_id) {
+        await aggiungiInKit(connection, skistopper_id, quantita);
+      }
 
+      // Inserisci dettaglio SCI
       await connection.query(
         'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'SCI\', ?, ?, ?)',
         [kitId, sci_id, sigla_id, quantita]
       );
+      // Inserisci dettaglio ATTACCHI
       await connection.query(
         'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'ATTACCHI\', ?, NULL, ?)',
         [kitId, attacco_id, quantita]
       );
+      // Inserisci dettaglio SKISTOPPER (solo se selezionato)
       if (skistopper_id) {
         await connection.query(
           'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'SKISTOPPER\', ?, NULL, ?)',
@@ -287,7 +194,6 @@ router.post('/', verifyToken, async (req, res) => {
 
     await connection.query('UPDATE kit SET quantita = ? WHERE id = ?', [quantitaTotaleKit, kitId]);
     await connection.commit();
-    console.log(`✅ Kit creato con ID ${kitId}`);
     res.json({ success: true, message: 'Kit creato con successo', kitId });
   } catch (err) {
     await connection.rollback();
@@ -302,7 +208,6 @@ router.post('/', verifyToken, async (req, res) => {
 // PUT /api/kit/:id - Modifica completa del kit
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
-  console.log(`📝 PUT /api/kit/${req.params.id}`);
   const { id } = req.params;
   const { magazzino, sci_id, note, righe } = req.body;
   if (!magazzino || !sci_id || !righe || !righe.length) {
@@ -317,6 +222,7 @@ router.put('/:id', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
+    // Rimuovi i vecchi dettagli e ripristina le quantità
     const [oldDetails] = await connection.query('SELECT * FROM kit_dettaglio WHERE kit_id = ?', [id]);
     for (const det of oldDetails) {
       await rimuoviDaKit(connection, det.articolo_id, det.quantita);
@@ -332,7 +238,9 @@ router.put('/:id', verifyToken, async (req, res) => {
       const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
       await aggiungiInKit(connection, sci_id, quantita);
       await aggiungiInKit(connection, attacco_id, quantita);
-      if (skistopper_id) await aggiungiInKit(connection, skistopper_id, quantita);
+      if (skistopper_id) {
+        await aggiungiInKit(connection, skistopper_id, quantita);
+      }
 
       await connection.query(
         'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'SCI\', ?, ?, ?)',
@@ -357,7 +265,6 @@ router.put('/:id', verifyToken, async (req, res) => {
       [magazzino, note || null, quantitaTotaleKit, descKit, now, id]
     );
     await connection.commit();
-    console.log(`✅ Kit ${id} aggiornato`);
     res.json({ success: true, message: 'Kit aggiornato' });
   } catch (err) {
     await connection.rollback();
@@ -372,7 +279,6 @@ router.put('/:id', verifyToken, async (req, res) => {
 // PATCH /api/kit/:id/note - Aggiorna solo la nota del kit
 // ============================================================
 router.patch('/:id/note', verifyToken, async (req, res) => {
-  console.log(`📝 PATCH /api/kit/${req.params.id}/note`);
   const { note } = req.body;
   if (note === undefined) {
     return res.status(400).json({ error: 'Campo note mancante' });
@@ -393,7 +299,6 @@ router.patch('/:id/note', verifyToken, async (req, res) => {
 // DELETE /api/kit/:id - Elimina kit
 // ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
-  console.log(`🗑️ DELETE /api/kit/${req.params.id}`);
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -406,7 +311,6 @@ router.delete('/:id', verifyToken, async (req, res) => {
     await connection.query('DELETE FROM kit WHERE id = ?', [req.params.id]);
 
     await connection.commit();
-    console.log(`✅ Kit ${req.params.id} eliminato`);
     res.json({ success: true, message: 'Kit eliminato con successo' });
   } catch (err) {
     await connection.rollback();
@@ -416,14 +320,5 @@ router.delete('/:id', verifyToken, async (req, res) => {
     connection.release();
   }
 });
-
-console.log('✅ ROTTE KIT REGISTRATE:');
-console.log('   GET    /api/kit');
-console.log('   GET    /api/kit/sigle-usate  <-- FONDAMENTALE');
-console.log('   GET    /api/kit/:id');
-console.log('   POST   /api/kit (con upsert per kit duplicati)');
-console.log('   PUT    /api/kit/:id');
-console.log('   PATCH  /api/kit/:id/note');
-console.log('   DELETE /api/kit/:id');
 
 module.exports = router;
