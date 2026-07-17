@@ -549,19 +549,24 @@ function onTipoSoggettoChanged() {
 }
 
 function onSoggettoChanged() {
-  if (radioCarico.checked && sourceId.value) {
-    caricaOggettiInCarico();
-  } else {
-    // Se non c'è soggetto selezionato, usa il fallback per mostrare i propri oggetti (solo se non admin)
-    if (!sourceId.value && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
-      // Ricarica con il proprio ID di default
+  if (radioCarico.checked) {
+    // Se il dropdown ha un valore, carica quel soggetto, altrimenti usa il fallback
+    if (sourceId.value) {
+      caricaOggettiInCarico();
+    } else if (currentUser && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
+      // Fallback: carica i propri oggetti
       caricaOggettiInCarico();
     } else {
-      // Altrimenti svuota la tabella
+      // Admin senza selezione o utente senza riferimento: tabella vuota
       oggetti = [];
       oggettiOriginali = [];
       popolaTabella();
     }
+  } else {
+    // Modalità magazzino o altro: tabella vuota
+    oggetti = [];
+    oggettiOriginali = [];
+    popolaTabella();
   }
 }
 
@@ -597,12 +602,12 @@ async function caricaSoggettiPerTipo() {
     if (sel.options.length > 1 && !sel.value) {
       sel.selectedIndex = 1;
     }
-    // Se c'è un soggetto selezionato, carica subito, altrimenti carica il proprio (se non admin)
+    // Se c'è un soggetto selezionato, carica subito, altrimenti usa fallback
     if (radioCarico.checked) {
       if (sel.value) {
         caricaOggettiInCarico();
       } else {
-        // Fallback: carica i propri oggetti
+        // Fallback per non-admin: carica i propri oggetti
         caricaOggettiInCarico();
       }
     } else {
@@ -781,25 +786,25 @@ async function caricaOggettiInCarico() {
     tipo = sourceTipo.value;
     id = sourceId.value;
   } else {
-    tipo = sourceTipo.value;
-    id = sourceId.value;
-    // Se non c'è selezione, usa il proprio ID (fallback per vedere i propri oggetti)
-    if (!id) {
-      if (currentUser.riferimento_id) {
-        id = currentUser.riferimento_id;
-        // Il tipo dovrebbe essere 'PROMOTER' o altro, ma lo ricaviamo dal ruolo
-        tipo = currentUser.ruolo.toUpperCase();
-      } else {
-        showMessage('Seleziona un soggetto dalla lista', 'info');
-        popolaTabella();
-        hideLoading();
-        return;
-      }
+    // Per i non-admin, se il dropdown è vuoto, usa il proprio riferimento
+    var selId = sourceId.value;
+    if (selId) {
+      tipo = sourceTipo.value;
+      id = selId;
+    } else if (currentUser.riferimento_id) {
+      // Fallback: uso il mio ID e il mio tipo (ruolo uppercase)
+      tipo = currentUser.ruolo.toUpperCase();
+      id = currentUser.riferimento_id;
+      console.log('Fallback: usando proprio ID =', id, 'tipo =', tipo);
+    } else {
+      showMessage('Nessun soggetto selezionato e nessun riferimento personale', 'info');
+      popolaTabella();
+      hideLoading();
+      return;
     }
   }
   
-  // DEBUG: stampa i parametri
-  console.log('caricaOggettiInCarico -> tipo:', tipo, 'id:', id, 'sourceId.value:', sourceId.value);
+  console.log('caricaOggettiInCarico -> tipo:', tipo, 'id:', id);
   
   if (!tipo || !id) {
     popolaTabella();
@@ -1652,7 +1657,12 @@ function setup() {
     sourceTipo.addEventListener('change', function() { caricaSorgentiAdmin(); });
     sourceId.addEventListener('change', function() {
       if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
-      else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
+      else if (radioCarico.checked && currentUser.riferimento_id) {
+        // Fallback: carica i propri oggetti
+        caricaOggettiInCarico();
+      } else {
+        oggetti = []; oggettiOriginali = []; popolaTabella();
+      }
     });
     radioMagazzino.disabled = false;
   } else {
@@ -1664,10 +1674,15 @@ function setup() {
       caricaSoggettiPerTipo();
     });
     sourceId.addEventListener('change', function() {
-      if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
-      else if (currentUser.riferimento_id) {
-        // Se il dropdown è vuoto, carica i propri oggetti
-        caricaOggettiInCarico();
+      if (radioCarico.checked) {
+        if (sourceId.value) {
+          caricaOggettiInCarico();
+        } else if (currentUser.riferimento_id) {
+          // Fallback: carica i propri oggetti
+          caricaOggettiInCarico();
+        } else {
+          oggetti = []; oggettiOriginali = []; popolaTabella();
+        }
       } else {
         oggetti = []; oggettiOriginali = []; popolaTabella();
       }
