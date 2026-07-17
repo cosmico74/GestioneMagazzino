@@ -86,8 +86,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/sigle-usate - Sigle già utilizzate in kit (ROTTA FONDAMENTALE)
-// Deve essere PRIMA di /:id per evitare conflitto
+// GET /api/kit/sigle-usate - Sigle già utilizzate in kit
 // ============================================================
 router.get('/sigle-usate', verifyToken, async (req, res) => {
   try {
@@ -132,7 +131,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/kit - Crea un nuovo kit
+// POST /api/kit - Crea un nuovo kit (con aggregazione righe duplicate)
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   console.log('📝 POST /api/kit');
@@ -145,6 +144,18 @@ router.post('/', verifyToken, async (req, res) => {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
   }
 
+  // Aggrega le righe per combinazione (sigla_id, attacco_id, skistopper_id)
+  const righeAggregate = new Map();
+  for (const riga of righe) {
+    const key = `${riga.sigla_id}|${riga.attacco_id}|${riga.skistopper_id || ''}`;
+    if (righeAggregate.has(key)) {
+      righeAggregate.get(key).quantita += riga.quantita;
+    } else {
+      righeAggregate.set(key, { ...riga });
+    }
+  }
+  const righeUniche = Array.from(righeAggregate.values());
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -155,7 +166,7 @@ router.post('/', verifyToken, async (req, res) => {
     const [maxIdRow] = await connection.query('SELECT MAX(id) AS maxId FROM kit');
     const nextSeq = (maxIdRow[0].maxId || 0) + 1;
     const codiceKit = `KIT-${magazzino}-${String(nextSeq).padStart(4, '0')}`;
-    const descKit = await generaDescrizioneKit(connection, sci[0], righe);
+    const descKit = await generaDescrizioneKit(connection, sci[0], righeUniche);
 
     const now = db.now();
     const [kitRes] = await connection.query(
@@ -165,7 +176,7 @@ router.post('/', verifyToken, async (req, res) => {
     const kitId = kitRes.insertId;
 
     let quantitaTotaleKit = 0;
-    for (const riga of righe) {
+    for (const riga of righeUniche) {
       const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
       if (!sigla_id || !attacco_id) throw new Error('Ogni riga deve avere sigla e attacco');
 
@@ -204,7 +215,7 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /api/kit/:id - Modifica completa del kit
+// PUT /api/kit/:id - Modifica completa del kit (con aggregazione righe duplicate)
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   console.log(`📝 PUT /api/kit/${req.params.id}`);
@@ -218,6 +229,18 @@ router.put('/:id', verifyToken, async (req, res) => {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
   }
 
+  // Aggrega le righe per combinazione (sigla_id, attacco_id, skistopper_id)
+  const righeAggregate = new Map();
+  for (const riga of righe) {
+    const key = `${riga.sigla_id}|${riga.attacco_id}|${riga.skistopper_id || ''}`;
+    if (righeAggregate.has(key)) {
+      righeAggregate.get(key).quantita += riga.quantita;
+    } else {
+      righeAggregate.set(key, { ...riga });
+    }
+  }
+  const righeUniche = Array.from(righeAggregate.values());
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -230,10 +253,10 @@ router.put('/:id', verifyToken, async (req, res) => {
 
     const [sci] = await connection.query('SELECT descrizione, lunghezza, durezza FROM articoli WHERE articolo_id = ?', [sci_id]);
     if (!sci.length) throw new Error('Sci non trovato');
-    const descKit = await generaDescrizioneKit(connection, sci[0], righe);
+    const descKit = await generaDescrizioneKit(connection, sci[0], righeUniche);
 
     let quantitaTotaleKit = 0;
-    for (const riga of righe) {
+    for (const riga of righeUniche) {
       const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
       await aggiungiInKit(connection, sci_id, quantita);
       await aggiungiInKit(connection, attacco_id, quantita);
@@ -324,7 +347,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
 
 console.log('✅ ROTTE KIT REGISTRATE:');
 console.log('   GET    /api/kit');
-console.log('   GET    /api/kit/sigle-usate  <-- FONDAMENTALE');
+console.log('   GET    /api/kit/sigle-usate');
 console.log('   GET    /api/kit/:id');
 console.log('   POST   /api/kit');
 console.log('   PUT    /api/kit/:id');
