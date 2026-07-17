@@ -663,7 +663,7 @@ async function getKitDetails(kitId) {
 }
 
 // ============================================================
-// CARICAMENTO OGGETTI IN CARICO (con reset)
+// CARICAMENTO OGGETTI IN CARICO (con reset e debug)
 // ============================================================
 async function getOggettiInCarico(tipo, id) {
   var body = { targetTipo: tipo, targetId: parseInt(id) };
@@ -783,6 +783,10 @@ async function caricaOggettiInCarico() {
       }
     }
   }
+  
+  // DEBUG: stampa i parametri
+  console.log('caricaOggettiInCarico -> tipo:', tipo, 'id:', id, 'sourceId.value:', sourceId.value);
+  
   if (!tipo || !id) {
     popolaTabella();
     hideLoading();
@@ -887,10 +891,9 @@ async function caricaOggettiDaMagazzino() {
   var lunghezzeUniche = {};
 
   try {
-    // Prepara le promesse per le chiamate parallele
-    var promesse = [];
     var includeArticoli = (tipo === 'TUTTI' || tipo === 'ARTICOLO');
     var includeKit = (tipo === 'TUTTI' || tipo === 'KIT');
+    var promesse = [];
 
     if (includeArticoli) {
       var paramsArt = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
@@ -913,10 +916,8 @@ async function caricaOggettiDaMagazzino() {
       );
     }
 
-    // Esegui in parallelo
     var results = await Promise.all(promesse);
 
-    // Elabora articoli
     var articoliResult = results.find(function(res) { return res.type === 'articoli'; });
     if (articoliResult) {
       var articoli = articoliResult.data;
@@ -948,7 +949,6 @@ async function caricaOggettiDaMagazzino() {
       }
     }
 
-    // Elabora kit
     var kitResult = results.find(function(res) { return res.type === 'kit'; });
     if (kitResult) {
       var kits = kitResult.data;
@@ -1210,115 +1210,6 @@ function toggleSelectAll() {
   var cbs = document.querySelectorAll('.row-checkbox');
   for (var i=0; i<cbs.length; i++) cbs[i].checked = c;
 }
-
-// ============================================================
-// MODALI (invariate, troncate per brevità - mantieni il resto)
-// ============================================================
-// ... (le modali rimangono identiche a prima, non le riscrivo per risparmiare spazio)
-// ... ma nel file finale completo vanno incluse.
-// Per brevità qui tralascio ma nel codice finale sono presenti.
-
-// ============================================================
-// GESTIONE TOGGLE E AVVIO
-// ============================================================
-function toggleSource() {
-  var isMag = radioMagazzino.checked;
-  caricoSection.style.display = isMag ? 'none' : 'flex';
-  magazzinoSection.style.display = isMag ? 'flex' : 'none';
-  if (isMag) caricaOggettiDaMagazzino();
-  else caricaOggettiInCarico();
-}
-async function caricaOggetti() {
-  if (radioMagazzino.checked) await caricaOggettiDaMagazzino();
-  else await caricaOggettiInCarico();
-}
-function applicaFiltriMagazzino() {
-  if (radioMagazzino.checked) caricaOggettiDaMagazzino();
-}
-function resetFiltriMagazzino() {
-  filtroSigla.value = '';
-  filtroLunghezza.value = '';
-  filtroCategoria.value = '';
-  if (radioMagazzino.checked) caricaOggettiDaMagazzino();
-}
-
-function setup() {
-  var isAdmin = (currentUser.ruolo === 'admin');
-  if (isAdmin) {
-    sourceTipo.disabled = false;
-    sourceId.disabled = false;
-    sourceTipo.value = 'PROMOTER';
-    caricaSorgentiAdmin();
-    sourceTipo.addEventListener('change', function() { caricaSorgentiAdmin(); });
-    sourceId.addEventListener('change', function() {
-      if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
-      else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
-    });
-    radioMagazzino.disabled = false;
-  } else {
-    sourceTipo.disabled = false;
-    sourceId.disabled = false;
-    sourceTipo.value = 'PROMOTER';
-    caricaSoggettiPerTipo();
-    sourceTipo.addEventListener('change', function() {
-      caricaSoggettiPerTipo();
-    });
-    sourceId.addEventListener('change', function() {
-      if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
-      else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
-    });
-    if (currentUser.ruolo === 'promoter' && userLevel === 1) {
-      radioMagazzino.disabled = false;
-    } else {
-      radioMagazzino.disabled = true;
-      if (radioMagazzino.checked) radioCarico.checked = true;
-    }
-    caricoSection.style.display = 'flex';
-  }
-  modeInCarico.addEventListener('change', function() {
-    if (radioCarico.checked) caricaOggettiInCarico();
-  });
-  modeAssegnati.addEventListener('change', function() {
-    if (radioCarico.checked) caricaOggettiInCarico();
-  });
-  modeEntrambi.addEventListener('change', function() {
-    if (radioCarico.checked) caricaOggettiInCarico();
-  });
-  radioCarico.addEventListener('change', toggleSource);
-  radioMagazzino.addEventListener('change', toggleSource);
-  attachSortListeners();
-  var btnMassivo = document.getElementById('btnTrasferisciMassivo');
-  if (btnMassivo) btnMassivo.addEventListener('click', apriModalTrasferimentoMassivo);
-  toggleSource();
-}
-
-// ============================================================
-// INIT
-// ============================================================
-window.onload = async function() {
-  var token = localStorage.getItem('token');
-  if (!token) {
-    document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>';
-    return;
-  }
-  try {
-    currentUser = JSON.parse(localStorage.getItem('user'));
-    if (!currentUser.riferimento_id && currentUser.RiferimentoID) {
-      currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
-    }
-    userLevel = 0;
-    if (currentUser.riferimento_id) {
-      try {
-        var sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
-        userLevel = sog.livello || 0;
-      } catch(e) { console.warn('Impossibile recuperare il livello del soggetto:', e); }
-    }
-  } catch(e) { logout(); return; }
-  var loginInfo = document.getElementById('loginInfo');
-  loginInfo.innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
-  await Promise.all([caricaMagazzini(), caricaCategorie()]);
-  setup();
-};
 
 // ============================================================
 // MODALI – ASSEGNAZIONE (dal magazzino)
@@ -1714,8 +1605,106 @@ function anteprimaPDF() {
 }
 
 // ============================================================
-// AVVIO (il setup è già chiamato in window.onload)
+// GESTIONE TOGGLE E AVVIO
 // ============================================================
+function toggleSource() {
+  var isMag = radioMagazzino.checked;
+  caricoSection.style.display = isMag ? 'none' : 'flex';
+  magazzinoSection.style.display = isMag ? 'flex' : 'none';
+  if (isMag) caricaOggettiDaMagazzino();
+  else caricaOggettiInCarico();
+}
+async function caricaOggetti() {
+  if (radioMagazzino.checked) await caricaOggettiDaMagazzino();
+  else await caricaOggettiInCarico();
+}
+function applicaFiltriMagazzino() {
+  if (radioMagazzino.checked) caricaOggettiDaMagazzino();
+}
+function resetFiltriMagazzino() {
+  filtroSigla.value = '';
+  filtroLunghezza.value = '';
+  filtroCategoria.value = '';
+  if (radioMagazzino.checked) caricaOggettiDaMagazzino();
+}
+
+function setup() {
+  var isAdmin = (currentUser.ruolo === 'admin');
+  if (isAdmin) {
+    sourceTipo.disabled = false;
+    sourceId.disabled = false;
+    sourceTipo.value = 'PROMOTER';
+    caricaSorgentiAdmin();
+    sourceTipo.addEventListener('change', function() { caricaSorgentiAdmin(); });
+    sourceId.addEventListener('change', function() {
+      if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
+      else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
+    });
+    radioMagazzino.disabled = false;
+  } else {
+    sourceTipo.disabled = false;
+    sourceId.disabled = false;
+    sourceTipo.value = 'PROMOTER';
+    caricaSoggettiPerTipo();
+    sourceTipo.addEventListener('change', function() {
+      caricaSoggettiPerTipo();
+    });
+    sourceId.addEventListener('change', function() {
+      if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
+      else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
+    });
+    if (currentUser.ruolo === 'promoter' && userLevel === 1) {
+      radioMagazzino.disabled = false;
+    } else {
+      radioMagazzino.disabled = true;
+      if (radioMagazzino.checked) radioCarico.checked = true;
+    }
+    caricoSection.style.display = 'flex';
+  }
+  modeInCarico.addEventListener('change', function() {
+    if (radioCarico.checked) caricaOggettiInCarico();
+  });
+  modeAssegnati.addEventListener('change', function() {
+    if (radioCarico.checked) caricaOggettiInCarico();
+  });
+  modeEntrambi.addEventListener('change', function() {
+    if (radioCarico.checked) caricaOggettiInCarico();
+  });
+  radioCarico.addEventListener('change', toggleSource);
+  radioMagazzino.addEventListener('change', toggleSource);
+  attachSortListeners();
+  var btnMassivo = document.getElementById('btnTrasferisciMassivo');
+  if (btnMassivo) btnMassivo.addEventListener('click', apriModalTrasferimentoMassivo);
+  toggleSource();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.onload = async function() {
+  var token = localStorage.getItem('token');
+  if (!token) {
+    document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>';
+    return;
+  }
+  try {
+    currentUser = JSON.parse(localStorage.getItem('user'));
+    if (!currentUser.riferimento_id && currentUser.RiferimentoID) {
+      currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
+    }
+    userLevel = 0;
+    if (currentUser.riferimento_id) {
+      try {
+        var sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
+        userLevel = sog.livello || 0;
+      } catch(e) { console.warn('Impossibile recuperare il livello del soggetto:', e); }
+    }
+  } catch(e) { logout(); return; }
+  var loginInfo = document.getElementById('loginInfo');
+  loginInfo.innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
+  await Promise.all([caricaMagazzini(), caricaCategorie()]);
+  setup();
+};
 </script>
 </body>
 </html>
