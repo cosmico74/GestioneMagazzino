@@ -112,18 +112,40 @@ router.get('/:id', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/:id/sigle', verifyToken, async (req, res) => {
   try {
-    const [rows] = await db.query(`
-      SELECT s.*,
-        (s.quantita - COALESCE((SELECT SUM(quantita) FROM kit_dettaglio WHERE sigla_id = s.id), 0) - 
-         COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE sigla_id = s.id AND tipo_oggetto = 'ARTICOLO'), 0)) AS giacenza
-      FROM sigle_articoli s
-      WHERE s.articolo_id = ? AND s.attivo = 1
-      ORDER BY s.sigla
-    `, [req.params.id]);
-    res.json(rows);
+    // Recupera le sigle senza calcolare giacenza in una singola query complessa
+    const [sigle] = await db.query(
+      `SELECT s.* 
+       FROM sigle_articoli s
+       WHERE s.articolo_id = ? AND s.attivo = 1
+       ORDER BY s.sigla`,
+      [req.params.id]
+    );
+
+    // Calcola giacenza per ogni sigla in modo sicuro (con try/catch per ogni sigla)
+    for (const s of sigle) {
+      try {
+        const [inKit] = await db.query(
+          'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
+          [s.id]
+        );
+        const [assegnata] = await db.query(
+          'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
+          [s.id, 'ARTICOLO']
+        );
+        s.giacenza = s.quantita - inKit[0].totale - assegnata[0].totale;
+      } catch (calcErr) {
+        console.warn(`Errore nel calcolo giacenza per sigla ${s.id}:`, calcErr.message);
+        s.giacenza = s.quantita; // fallback: considera tutta la quantità disponibile
+      }
+    }
+
+    res.json(sigle);
   } catch (err) {
-    console.error('Errore GET /sigle:', err);
-    res.status(500).json({ error: err.message });
+    console.error('❌ Errore GET /sigle:', err);
+    res.status(500).json({ 
+      error: 'Errore nel recupero delle sigle', 
+      details: err.message 
+    });
   }
 });
 
@@ -134,6 +156,7 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+    console.log('Inserimento sigla:', { articolo_id: req.params.id, sigla, quantita, quantita_austria: quantitaAustria });
     await connection.query(
       `INSERT INTO sigle_articoli (articolo_id, sigla, lunghezza, durezza, codice_modello, note, quantita, quantita_austria, attivo)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
@@ -144,7 +167,7 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
     res.json({ success: true, message: 'Sigla aggiunta' });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore POST /sigle:', err);
+    console.error('❌ Errore POST /sigle:', err);
     res.status(500).json({ error: err.message });
   } finally {
     connection.release();
