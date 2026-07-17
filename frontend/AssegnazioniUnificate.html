@@ -468,6 +468,7 @@ function logout() {
 // VARIABILI GLOBALI
 // ============================================================
 var currentUser = null;
+var userLevel = 0; // livello del soggetto (per promoter)
 var magazzini = [], categorie = [];
 var oggetti = [], oggettiOriginali = [];
 var currentEditObj = null, currentAssignObj = null;
@@ -840,6 +841,10 @@ async function caricaOggettiDaMagazzino() {
     hideLoading();
     return;
   }
+  // Recupera il nome del magazzino selezionato
+  var magSelezionato = magazzini.find(function(m) { return m.id == magId; });
+  var magNome = magSelezionato ? magSelezionato.nome : 'Magazzino ' + magId;
+
   var tipo = tipoOggettoMagazzino.value;
   var selSigla = document.getElementById('filtroSigla');
   var selLung = document.getElementById('filtroLunghezza');
@@ -870,7 +875,7 @@ async function caricaOggettiDaMagazzino() {
           sigla: '',
           totale: disp,
           stato: 'In magazzino',
-          destinatario: 'Magazzino ' + magId,
+          destinatario: magNome,
           data: null,
           sigleDisponibili: [],
           siglaId: null,
@@ -910,7 +915,7 @@ async function caricaOggettiDaMagazzino() {
           sigla: sigla,
           totale: dispKit,
           stato: 'In magazzino',
-          destinatario: 'Magazzino ' + magId,
+          destinatario: magNome,
           data: null,
           sigleDisponibili: [],
           siglaId: null,
@@ -1625,8 +1630,15 @@ function setup() {
     sourceId.addEventListener('change', function() {
       if (radioCarico.checked) caricaOggettiInCarico();
     });
-    radioMagazzino.disabled = true;
-    if (radioMagazzino.checked) radioCarico.checked = true;
+    
+    // PERMETTERE AI PROMOTER DI LIVELLO 1 DI USARE "DAL MAGAZZINO"
+    if (currentUser.ruolo === 'promoter' && userLevel === 1) {
+      radioMagazzino.disabled = false;
+    } else {
+      radioMagazzino.disabled = true;
+      if (radioMagazzino.checked) radioCarico.checked = true;
+    }
+    
     caricoSection.style.display = 'flex';
   }
   modeInCarico.addEventListener('change', function() {
@@ -1691,6 +1703,15 @@ window.onload = async function() {
     if (!currentUser.riferimento_id && currentUser.RiferimentoID) {
       currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
     }
+    
+    // RECUPERA IL LIVELLO DEL SOGGETTO
+    if (currentUser.riferimento_id) {
+      try {
+        var sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
+        userLevel = sog.livello || 0;
+      } catch(e) { userLevel = 0; }
+    }
+    
   } catch(e) { logout(); return; }
   var loginInfo = document.getElementById('loginInfo');
   loginInfo.innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
