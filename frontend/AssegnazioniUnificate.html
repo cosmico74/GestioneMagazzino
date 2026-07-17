@@ -468,7 +468,7 @@ function logout() {
 // VARIABILI GLOBALI
 // ============================================================
 var currentUser = null;
-var userLevel = 0; // livello del soggetto (per promoter)
+var userLevel = 0; // livello del soggetto (per promoter) - viene impostato in window.onload
 var magazzini = [], categorie = [];
 var oggetti = [], oggettiOriginali = [];
 var currentEditObj = null, currentAssignObj = null;
@@ -732,6 +732,10 @@ async function getOggettiAssegnati(tipo, id) {
 }
 async function caricaOggettiInCarico() {
   showLoading();
+  // RESET oggetti all'inizio per evitare dati residui
+  oggetti = [];
+  oggettiOriginali = [];
+  
   var tipo, id;
   var isAdmin = (currentUser.ruolo === 'admin');
   if (isAdmin) {
@@ -746,7 +750,6 @@ async function caricaOggettiInCarico() {
         tipo = currentUser.ruolo.toUpperCase();
       } else {
         showMessage('Seleziona un soggetto', 'error');
-        oggetti = [];
         popolaTabella();
         hideLoading();
         return;
@@ -754,7 +757,6 @@ async function caricaOggettiInCarico() {
     }
   }
   if (!tipo || !id) {
-    oggetti = [];
     popolaTabella();
     hideLoading();
     return;
@@ -833,10 +835,13 @@ async function caricaOggettiInCarico() {
 
 async function caricaOggettiDaMagazzino() {
   showLoading();
+  // RESET oggetti all'inizio per evitare dati residui
+  oggetti = [];
+  oggettiOriginali = [];
+  
   var magId = magazzinoSelect.value;
   if (!magId) {
     showMessage('Seleziona un magazzino', 'info');
-    oggetti = [];
     popolaTabella();
     hideLoading();
     return;
@@ -1631,7 +1636,8 @@ function setup() {
       if (radioCarico.checked) caricaOggettiInCarico();
     });
     
-    // PERMETTERE AI PROMOTER DI LIVELLO 1 DI USARE "DAL MAGAZZINO"
+    // SOLO promoter di livello 1 possono usare "Dal magazzino"
+    // Nessun fallback: se userLevel non è 1, il radio rimane disabilitato
     if (currentUser.ruolo === 'promoter' && userLevel === 1) {
       radioMagazzino.disabled = false;
     } else {
@@ -1704,12 +1710,16 @@ window.onload = async function() {
       currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
     }
     
-    // RECUPERA IL LIVELLO DEL SOGGETTO
+    // RECUPERA IL LIVELLO DEL SOGGETTO - NESSUN FALLBACK!
+    userLevel = 0;
     if (currentUser.riferimento_id) {
       try {
         var sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
         userLevel = sog.livello || 0;
-      } catch(e) { userLevel = 0; }
+      } catch(e) { 
+        // Se il recupero fallisce, il livello rimane 0 e il promotore NON potrà accedere al magazzino
+        console.warn('Impossibile recuperare il livello del soggetto:', e);
+      }
     }
     
   } catch(e) { logout(); return; }
