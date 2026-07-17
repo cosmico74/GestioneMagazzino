@@ -86,7 +86,8 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/sigle-usate - Sigle già utilizzate in kit
+// GET /api/kit/sigle-usate - Sigle già utilizzate in kit (ROTTA FONDAMENTALE)
+// Deve essere PRIMA di /:id per evitare conflitto
 // ============================================================
 router.get('/sigle-usate', verifyToken, async (req, res) => {
   try {
@@ -131,7 +132,63 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/kit - Crea un nuovo kit (con aggregazione righe duplicate)
+// HELPER: confronta due kit per uguaglianza delle righe
+// ============================================================
+async function findMatchingKit(connection, magazzino, sciId, newRighe) {
+  // Cerca tutti i kit con lo stesso magazzino e sci_id (dobbiamo trovare il kit che ha le stesse righe)
+  // Prima prendiamo tutti i kit che hanno lo stesso sci e magazzino
+  const [kits] = await connection.query(`
+    SELECT k.id
+    FROM kit k
+    WHERE k.magazzino = ? AND EXISTS (
+      SELECT 1 FROM kit_dettaglio kd WHERE kd.kit_id = k.id AND kd.articolo_id = ? AND kd.tipo_articolo = 'SCI'
+    )
+  `, [magazzino, sciId]);
+
+  // Per ogni kit, prendiamo le sue righe e le confrontiamo con le nuove righe
+  // Le righe devono essere identiche in numero e valori (sigla_id, attacco_id, skistopper_id)
+  // Ignoriamo quantita perché verrà sommata.
+  for (const kitRow of kits) {
+    const [dettagli] = await connection.query(`
+      SELECT sigla_id, articolo_id as attacco_id, skistopper_id
+      FROM kit_dettaglio
+      WHERE kit_id = ?
+      ORDER BY sigla_id, attacco_id, skistopper_id
+    `, [kitRow.id]);
+    // Normalizza le nuove righe
+    const newNormalized = newRighe.map(r => ({
+      sigla_id: r.sigla_id,
+      attacco_id: r.attacco_id,
+      skistopper_id: r.skistopper_id
+    })).sort((a, b) => {
+      if (a.sigla_id !== b.sigla_id) return a.sigla_id - b.sigla_id;
+      if (a.attacco_id !== b.attacco_id) return a.attacco_id - b.attacco_id;
+      return (a.skistopper_id || 0) - (b.skistopper_id || 0);
+    });
+    const existingNormalized = dettagli.map(d => ({
+      sigla_id: d.sigla_id,
+      attacco_id: d.attacco_id,
+      skistopper_id: d.skistopper_id
+    })).sort((a, b) => {
+      if (a.sigla_id !== b.sigla_id) return a.sigla_id - b.sigla_id;
+      if (a.attacco_id !== b.attacco_id) return a.attacco_id - b.attacco_id;
+      return (a.skistopper_id || 0) - (b.skistopper_id || 0);
+    });
+    // Confronta le due liste di oggetti
+    if (newNormalized.length === existingNormalized.length &&
+        newNormalized.every((obj, idx) => 
+          obj.sigla_id === existingNormalized[idx].sigla_id &&
+          obj.attacco_id === existingNormalized[idx].attacco_id &&
+          obj.skistopper_id === existingNormalized[idx].skistopper_id
+        )) {
+      return kitRow.id;
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// POST /api/kit - Crea un nuovo kit o aggiorna quantità se esiste
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   console.log('📝 POST /api/kit');
@@ -144,29 +201,56 @@ router.post('/', verifyToken, async (req, res) => {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
   }
 
-  // Aggrega le righe per combinazione (sigla_id, attacco_id, skistopper_id)
-  const righeAggregate = new Map();
-  for (const riga of righe) {
-    const key = `${riga.sigla_id}|${riga.attacco_id}|${riga.skistopper_id || ''}`;
-    if (righeAggregate.has(key)) {
-      righeAggregate.get(key).quantita += riga.quantita;
-    } else {
-      righeAggregate.set(key, { ...riga });
-    }
-  }
-  const righeUniche = Array.from(righeAggregate.values());
-
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
+    // Verifica se esiste già un kit identico
+    const existingKitId = await findMatchingKit(connection, magazzino, sci_id, righe);
+
+    if (existingKitId) {
+      // Aggiorna il kit esistente: incrementa la quantità di ogni riga
+      console.log(`♻️ Trovato kit esistente ID ${existingKitId}, incremento quantità`);
+      
+      // Per ogni riga, incrementa la quantità nel kit_dettaglio
+      for (const riga of righe) {
+        const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
+        await connection.query(
+          `UPDATE kit_dettaglio 
+           SET quantita = quantita + ? 
+           WHERE kit_id = ? AND sigla_id = ? AND articolo_id = ? AND (skistopper_id <=> ?)`,
+          [quantita, existingKitId, sigla_id, attacco_id, skistopper_id]
+        );
+        // Incrementa anche la quantita_in_kit degli articoli coinvolti
+        await aggiungiInKit(connection, sci_id, quantita);
+        await aggiungiInKit(connection, attacco_id, quantita);
+        if (skistopper_id) await aggiungiInKit(connection, skistopper_id, quantita);
+      }
+
+      // Ricalcola la quantità totale del kit
+      const [sum] = await connection.query(
+        'SELECT SUM(quantita) AS totale FROM kit_dettaglio WHERE kit_id = ?',
+        [existingKitId]
+      );
+      const nuovaQuantita = sum[0].totale || 0;
+      await connection.query(
+        'UPDATE kit SET quantita = ?, data_modifica = NOW() WHERE id = ?',
+        [nuovaQuantita, existingKitId]
+      );
+
+      await connection.commit();
+      console.log(`✅ Kit ${existingKitId} aggiornato con nuova quantità ${nuovaQuantita}`);
+      return res.json({ success: true, message: 'Kit aggiornato con successo', kitId: existingKitId });
+    }
+
+    // Se non esiste, crea un nuovo kit (codice esistente)
     const [sci] = await connection.query('SELECT descrizione, lunghezza, durezza FROM articoli WHERE articolo_id = ?', [sci_id]);
     if (!sci.length) throw new Error('Sci non trovato');
 
     const [maxIdRow] = await connection.query('SELECT MAX(id) AS maxId FROM kit');
     const nextSeq = (maxIdRow[0].maxId || 0) + 1;
     const codiceKit = `KIT-${magazzino}-${String(nextSeq).padStart(4, '0')}`;
-    const descKit = await generaDescrizioneKit(connection, sci[0], righeUniche);
+    const descKit = await generaDescrizioneKit(connection, sci[0], righe);
 
     const now = db.now();
     const [kitRes] = await connection.query(
@@ -176,7 +260,7 @@ router.post('/', verifyToken, async (req, res) => {
     const kitId = kitRes.insertId;
 
     let quantitaTotaleKit = 0;
-    for (const riga of righeUniche) {
+    for (const riga of righe) {
       const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
       if (!sigla_id || !attacco_id) throw new Error('Ogni riga deve avere sigla e attacco');
 
@@ -215,7 +299,7 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /api/kit/:id - Modifica completa del kit (con aggregazione righe duplicate)
+// PUT /api/kit/:id - Modifica completa del kit
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   console.log(`📝 PUT /api/kit/${req.params.id}`);
@@ -229,18 +313,6 @@ router.put('/:id', verifyToken, async (req, res) => {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
   }
 
-  // Aggrega le righe per combinazione (sigla_id, attacco_id, skistopper_id)
-  const righeAggregate = new Map();
-  for (const riga of righe) {
-    const key = `${riga.sigla_id}|${riga.attacco_id}|${riga.skistopper_id || ''}`;
-    if (righeAggregate.has(key)) {
-      righeAggregate.get(key).quantita += riga.quantita;
-    } else {
-      righeAggregate.set(key, { ...riga });
-    }
-  }
-  const righeUniche = Array.from(righeAggregate.values());
-
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -253,10 +325,10 @@ router.put('/:id', verifyToken, async (req, res) => {
 
     const [sci] = await connection.query('SELECT descrizione, lunghezza, durezza FROM articoli WHERE articolo_id = ?', [sci_id]);
     if (!sci.length) throw new Error('Sci non trovato');
-    const descKit = await generaDescrizioneKit(connection, sci[0], righeUniche);
+    const descKit = await generaDescrizioneKit(connection, sci[0], righe);
 
     let quantitaTotaleKit = 0;
-    for (const riga of righeUniche) {
+    for (const riga of righe) {
       const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
       await aggiungiInKit(connection, sci_id, quantita);
       await aggiungiInKit(connection, attacco_id, quantita);
@@ -347,9 +419,9 @@ router.delete('/:id', verifyToken, async (req, res) => {
 
 console.log('✅ ROTTE KIT REGISTRATE:');
 console.log('   GET    /api/kit');
-console.log('   GET    /api/kit/sigle-usate');
+console.log('   GET    /api/kit/sigle-usate  <-- FONDAMENTALE');
 console.log('   GET    /api/kit/:id');
-console.log('   POST   /api/kit');
+console.log('   POST   /api/kit (con upsert per kit duplicati)');
 console.log('   PUT    /api/kit/:id');
 console.log('   PATCH  /api/kit/:id/note');
 console.log('   DELETE /api/kit/:id');
