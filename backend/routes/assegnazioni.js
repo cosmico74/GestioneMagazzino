@@ -19,11 +19,18 @@ async function canUserUseMagazzino(userId, userRole, magazzinoId) {
   return rows.length > 0;
 }
 
+// Helper: ottiene il livello del soggetto di un utente
+async function getUserLevel(userId) {
+  const [user] = await pool.query('SELECT riferimento_id FROM utenti WHERE id = ?', [userId]);
+  if (!user.length || !user[0].riferimento_id) return 0;
+  const [sog] = await pool.query('SELECT livello FROM soggetti WHERE id = ?', [user[0].riferimento_id]);
+  return sog.length ? (sog[0].livello || 0) : 0;
+}
+
 // ============================================================
 // HELPER: Calcola la disponibilità reale di una sigla
 // ============================================================
 async function getDisponibilitaSigla(connection, siglaId, articoloId) {
-  // 1. Quantità totale della sigla
   const [sigla] = await connection.query(
     'SELECT quantita FROM sigle_articoli WHERE id = ? AND articolo_id = ? AND attivo = 1',
     [siglaId, articoloId]
@@ -31,13 +38,11 @@ async function getDisponibilitaSigla(connection, siglaId, articoloId) {
   if (!sigla.length) return 0;
   const quantitaSigla = sigla[0].quantita;
 
-  // 2. Quantità impegnata in kit (TUTTI i tipi di articolo)
   const [inKit] = await connection.query(
     'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
     [siglaId]
   );
 
-  // 3. Quantità già assegnata (in carico_sintesi)
   const [assegnata] = await connection.query(
     'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = \'ARTICOLO\'',
     [siglaId]
@@ -100,7 +105,7 @@ async function canPromoterAssignTo(connection, promoterId, targetSoggettoId) {
 }
 
 // ============================================================
-// HELPER: Aggiorna carico_sintesi (senza toccare le sigle)
+// HELPER: Aggiorna carico_sintesi
 // ============================================================
 async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, quantita, provenienzaTipo, provenienzaId, dataAssegnazione) {
   if (quantita === 0) {
@@ -123,7 +128,7 @@ async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneI
 }
 
 // ============================================================
-// USCITA BATCH (dal magazzino)
+// USCITA BATCH (dal magazzino) - CON PERMESSI PER PROMOTER LIVELLO 1
 // ============================================================
 router.post('/uscita/batch', verifyToken, async (req, res) => {
   const { magazzinoId, destinazioneTipo, destinazioneId, note, oggetti } = req.body;
@@ -134,14 +139,16 @@ router.post('/uscita/batch', verifyToken, async (req, res) => {
   const connection = await pool.getConnection();
   await connection.beginTransaction();
   try {
-    if (req.userRole !== 'admin') {
-      throw new Error('Solo gli admin possono prelevare dal magazzino');
+    // Verifica permessi: admin o promoter livello 1
+    const userLevel = await getUserLevel(req.userId);
+    if (req.userRole !== 'admin' && !(req.userRole === 'promoter' && userLevel === 1)) {
+      throw new Error('Solo admin o promoter di livello 1 possono prelevare dal magazzino');
     }
 
     let provenienzaTipo = 'MAGAZZINO';
     let provenienzaId = magazzinoId;
     const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
-    if (user[0] && user[0].riferimento_id) {
+    if (user[0] && user[0].riferimento_id && req.userRole !== 'admin') {
       provenienzaTipo = 'PROMOTER';
       provenienzaId = user[0].riferimento_id;
     }
@@ -216,6 +223,14 @@ router.post('/rientro/batch', verifyToken, async (req, res) => {
   const connection = await pool.getConnection();
   await connection.beginTransaction();
   try {
+    // Controllo permessi per rientro: admin o promoter livello 1
+    if (req.userRole !== 'admin') {
+      const userLevel = await getUserLevel(req.userId);
+      if (!(req.userRole === 'promoter' && userLevel === 1)) {
+        return res.status(403).json({ success: false, message: 'Solo admin o promoter di livello 1 possono effettuare rientri' });
+      }
+    }
+
     const [user] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = user[0].username;
     const now = db.now();
@@ -327,7 +342,7 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// OTTIENI OGGETTI IN CARICO (con supporto includeReferenced e sigla kit)
+// OTTIENI OGGETTI IN CARICO
 // ============================================================
 router.post('/oggetti', verifyToken, async (req, res) => {
   try {
@@ -437,7 +452,7 @@ router.post('/oggetti', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// OTTIENI OGGETTI INVIATI (da un soggetto) - con sigla kit
+// OTTIENI OGGETTI INVIATI
 // ============================================================
 router.get('/inviati', verifyToken, async (req, res) => {
   try {
@@ -478,23 +493,6 @@ router.get('/inviati', verifyToken, async (req, res) => {
     console.error('Errore /inviati:', err);
     res.status(500).json({ error: err.message });
   }
-});
-
-router.post('/rientro/batch', verifyToken, async (req, res) => {
-  // ---- NUOVO CONTROLLO PERMESSI ----
-  if (req.userRole !== 'admin') {
-    const [user] = await pool.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
-    if (!user.length || !user[0].riferimento_id) {
-      return res.status(403).json({ success: false, message: 'Accesso negato: utente non associato a un soggetto' });
-    }
-    const [sog] = await pool.query('SELECT livello FROM soggetti WHERE id = ?', [user[0].riferimento_id]);
-    if (!sog.length || sog[0].livello !== 1) {
-      return res.status(403).json({ success: false, message: 'Solo admin o promoter di livello 1 possono effettuare rientri' });
-    }
-  }
-  // ---- FINE CONTROLLO ----
-
-  // ... resto del codice esistente ...
 });
 
 // ============================================================
