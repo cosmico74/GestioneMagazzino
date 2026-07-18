@@ -114,7 +114,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD SIGLE - VERSIONE CON RIATTIVAZIONE
+// CRUD SIGLE - VERSIONE CON RIATTIVAZIONE E CONTROLLO RIDUZIONE
 // ============================================================
 router.get('/:id/sigle', verifyToken, async (req, res) => {
   try {
@@ -160,7 +160,6 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // Verifica se esiste una sigla con lo stesso nome (anche se attivo=0)
     const [existing] = await connection.query(
       'SELECT id, attivo FROM sigle_articoli WHERE articolo_id = ? AND sigla = ?',
       [req.params.id, sigla]
@@ -171,7 +170,6 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
         await connection.rollback();
         return res.status(400).json({ error: 'Sigla già esistente per questo articolo' });
       } else {
-        // Riattiva e aggiorna
         await connection.query(
           `UPDATE sigle_articoli 
            SET lunghezza = ?, durezza = ?, codice_modello = ?, note = ?, quantita = ?, quantita_austria = ?, attivo = 1
@@ -237,16 +235,48 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE
+// ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   const { quantita } = req.body;
   if (quantita === undefined || quantita < 0) return res.status(400).json({ error: 'Quantità non valida' });
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+
+    // Recupera l'articolo_id della sigla
     const [sigla] = await connection.query('SELECT articolo_id FROM sigle_articoli WHERE id = ?', [req.params.id]);
     if (!sigla.length) throw new Error('Sigla non trovata');
+    const articoloId = sigla[0].articolo_id;
+
+    // Calcola quanto è già usato nei kit
+    const [usedInKit] = await connection.query(
+      'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
+      [req.params.id]
+    );
+    // Calcola quanto è già assegnato (carico_sintesi)
+    const [assegnato] = await connection.query(
+      'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
+      [req.params.id, 'ARTICOLO']
+    );
+    const impegnato = usedInKit[0].totale + assegnato[0].totale;
+
+    // Se la nuova quantità è inferiore all'impegnato, blocca
+    if (quantita < impegnato) {
+      await connection.rollback();
+      return res.status(400).json({
+        error: `Impossibile ridurre la sigla: ${impegnato} unità sono già impegnate (${usedInKit[0].totale} in kit, ${assegnato[0].totale} assegnate)`
+      });
+    }
+
+    // Aggiorna la quantità
     await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantita, req.params.id]);
-    await ricalcolaQuantitaTotale(connection, sigla[0].articolo_id);
+
+    // Ricalcola la quantita_totale dell'articolo
+    await ricalcolaQuantitaTotale(connection, articoloId);
+
     await connection.commit();
     res.json({ success: true, message: 'Quantità aggiornata' });
   } catch (err) {
