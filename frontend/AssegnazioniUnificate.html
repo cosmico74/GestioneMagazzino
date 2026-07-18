@@ -18,6 +18,8 @@
     .btn-secondary { background: #6c757d; }
     .btn-warning { background: #f39c12; color: white; }
     .btn-sm { padding: 2px 8px; font-size: 0.65rem; }
+    .btn-massive { background: #8b5cf6; color: white; font-weight: bold; padding: 6px 16px; border-radius: 8px; }
+    .btn-massive:hover { background: #7c3aed; }
     .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px; }
     .compact-bar {
       display: flex;
@@ -51,11 +53,7 @@
       display: inline-block;
       padding: 0 2px;
     }
-    .sort-arrow.active {
-      color: #1a73e8;
-      font-weight: bold;
-      font-size: 0.8rem;
-    }
+    .sort-arrow.active { color: #1a73e8; font-weight: bold; font-size: 0.8rem; }
     .checkbox-col { width: 30px; text-align: center; }
     .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; background: #f8f9fa; border-top: 1px solid #e2e8f0; font-size: 0.7rem; flex-wrap: wrap; gap: 8px; }
     .pagination-info { display: flex; align-items: center; gap: 8px; }
@@ -70,17 +68,12 @@
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; color: #2c3e50; }
     .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; }
-    .warning-badge { background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 8px; font-size: 0.65rem; margin-top: 4px; }
     .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
     .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
     .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
     .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
     .text-center { text-align: center; }
     .kit-row td { background: #fcf8e8; }
-    @media (max-width: 768px) { .filter-bar { flex-direction: column; align-items: stretch; } .radio-group { flex-direction: column; gap: 5px; } }
-    .btn-massive { background: #8b5cf6; color: white; font-weight: bold; padding: 6px 16px; border-radius: 8px; }
-    .btn-massive:hover { background: #7c3aed; }
-    .btn-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .spinner {
       display: inline-block;
       width: 30px;
@@ -90,42 +83,30 @@
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     #loadingOverlay {
       display: none;
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.7);
-      z-index: 100;
-      justify-content: center;
-      align-items: center;
-      border-radius: 12px;
-      flex-direction: column;
-      gap: 10px;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.7); z-index: 100;
+      justify-content: center; align-items: center; border-radius: 12px;
+      flex-direction: column; gap: 10px;
     }
-    #loadingOverlay.show {
-      display: flex;
-    }
-    #loadingOverlay span {
-      font-size: 0.9rem;
-      color: #1a73e8;
+    #loadingOverlay.show { display: flex; }
+    #loadingOverlay span { font-size: 0.9rem; color: #1a73e8; }
+    @media (max-width: 768px) {
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .radio-group { flex-direction: column; gap: 5px; }
     }
   </style>
 </head>
 <body>
 <div class="container">
 
-  <!-- COMPACT BAR con LOGO CENTRATO -->
+  <!-- COMPACT BAR -->
   <div class="compact-bar">
     <div style="flex: 1;"></div>
-    <div class="logo">
-      <img src="/images/kastle-logo.png" alt="Kastle">
-    </div>
+    <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
     <div style="display: flex; gap: 6px; align-items: center; flex: 1; justify-content: flex-end;">
       <span id="loginInfo" class="login-info"></span>
       <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
@@ -159,9 +140,7 @@
     </div>
     <div class="filter-group">
       <label>Seleziona soggetto</label>
-      <select id="sourceId" onchange="onSoggettoChanged()">
-        <option value="">Seleziona...</option>
-      </select>
+      <select id="sourceId" onchange="onSoggettoChanged()"><option value="">Seleziona...</option></select>
     </div>
     <div class="radio-group" style="flex:1; gap:15px; margin:0;">
       <label><input type="radio" name="caricoMode" id="modeInCarico" value="incarico" checked> 📦 In possesso</label>
@@ -258,11 +237,8 @@
       </thead>
       <tbody id="tabellaBody"><tr><td colspan="11" class="text-center">Caricamento...</td></tr></tbody>
     </table>
-    <!-- OVERLAY DI CARICAMENTO -->
-    <div id="loadingOverlay">
-      <div class="spinner"></div>
-      <span>Caricamento in corso...</span>
-    </div>
+    <!-- OVERLAY -->
+    <div id="loadingOverlay"><div class="spinner"></div><span>Caricamento in corso...</span></div>
     <!-- PAGINAZIONE -->
     <div class="pagination-bar">
       <div class="pagination-info">
@@ -283,35 +259,62 @@
       </div>
     </div>
   </div>
-  <!-- Pulsante massivo in basso -->
-  <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+
+  <!-- PULSANTI AZIONI -->
+  <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px; flex-wrap:wrap;">
     <button class="btn btn-massive" id="btnTrasferisciMassivo" onclick="apriModalTrasferimentoMassivo()">➡️ Trasferisci selezionati</button>
+    <button class="btn btn-success" id="btnCreaKitDaCarico" onclick="apriModalCreaKitDaCarico()">📦 Crea Kit da selezionati</button>
   </div>
 </div>
 
-<!-- MODALI -->
-<div id="assignModal" class="modal">
-  <div class="modal-content">
-    <h3>📤 Assegna oggetto</h3>
+<!-- ===== MODALI ===== -->
+<div id="assignModal" class="modal"><div class="modal-content"><h3>📤 Assegna oggetto</h3>
+  <div class="form-group"><label>Oggetto</label><input type="text" id="assignOggetto" class="form-control" readonly></div>
+  <div class="form-group"><label>Sigla</label><input type="text" id="assignSiglaDisplay" class="form-control" readonly></div>
+  <div class="form-group"><label>Giacenza disponibile</label><input type="number" id="assignGiacenza" class="form-control" readonly></div>
+  <div class="form-group"><label>Quantità da assegnare</label><input type="number" id="assignQta" class="form-control" min="1"></div>
+  <div class="form-group"><label>Destinazione tipo</label><select id="assignDestTipo" class="form-control" onchange="caricaDestinazioniAssegnazione()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
+  <div class="form-group"><label>Destinazione</label><select id="assignDestId" class="form-control"></select></div>
+  <div class="form-group"><label>Note</label><input type="text" id="assignNote" class="form-control"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiAssignModal()">Annulla</button><button class="btn btn-success" onclick="confermaAssegnazione()">Conferma</button></div>
+</div></div>
+
+<div id="editAssignmentModal" class="modal"><div class="modal-content"><h3>✏️ Modifica assegnazione</h3>
+  <div class="form-group"><label>Oggetto</label><input type="text" id="editOggetto" class="form-control" readonly></div>
+  <div class="form-group"><label>Sigla</label><input type="text" id="editSiglaDisplay" class="form-control" readonly></div>
+  <div class="form-group"><label>Quantità attuale</label><input type="number" id="editQuantitaAttuale" class="form-control" readonly></div>
+  <div class="form-group"><label>Nuova quantità</label><input type="number" id="editQuantitaNuova" class="form-control" min="1"></div>
+  <div class="form-group"><label>Nuova destinazione</label><select id="editDestTipo" class="form-control" onchange="caricaDestinazioniEdit()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
+  <div class="form-group"><label>Destinazione</label><select id="editDestId" class="form-control"></select></div>
+  <div class="form-group"><label>Note</label><input type="text" id="editNote" class="form-control"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiEditModal()">Annulla</button><button class="btn btn-success" onclick="confermaModificaSingola()">Conferma</button></div>
+</div></div>
+
+<div id="massiveModal" class="modal"><div class="modal-content"><h3>➡️ Trasferimento massivo</h3>
+  <div id="massiveRiepilogo"></div>
+  <div class="form-group"><label>Destinazione tipo</label><select id="massiveDestTipo" class="form-control" onchange="caricaDestinazioniMassive()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option><option value="MAGAZZINO">Magazzino (rientro)</option></select></div>
+  <div class="form-group" id="massiveDestContainer"><label>Destinazione</label><select id="massiveDestId" class="form-control"></select></div>
+  <div class="form-group"><label>Note</label><input type="text" id="massiveNote" class="form-control"></div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiMassiveModal()">Annulla</button><button class="btn btn-success" onclick="confermaMassive()">Conferma</button></div>
+</div></div>
+
+<div id="confirmModal" class="modal"><div class="modal-content"><h3>⚠️ Conferma operazione</h3><p id="confirmMessage"></p>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiConfirmModal()">Annulla</button><button class="btn btn-danger" id="confirmActionBtn" onclick="eseguiConferma()">Conferma</button></div>
+</div></div>
+
+<!-- ===== MODALE CREA KIT DA CARICO ===== -->
+<div id="modalCreaKitDaCarico" class="modal">
+  <div class="modal-content" style="max-width:600px;">
+    <h3>📦 Crea Kit da carico</h3>
+    <p>Gli articoli selezionati saranno rimossi dal carico del soggetto e trasformati in un kit.</p>
+    <div id="riepilogoSelezione"></div>
     <div class="form-group">
-      <label>Oggetto</label>
-      <input type="text" id="assignOggetto" class="form-control" readonly>
+      <label>Magazzino di destinazione *</label>
+      <select id="creaKitMagazzino" class="form-control"></select>
     </div>
     <div class="form-group">
-      <label>Sigla</label>
-      <input type="text" id="assignSiglaDisplay" class="form-control" readonly>
-    </div>
-    <div class="form-group">
-      <label>Giacenza disponibile</label>
-      <input type="number" id="assignGiacenza" class="form-control" readonly>
-    </div>
-    <div class="form-group">
-      <label>Quantità da assegnare</label>
-      <input type="number" id="assignQta" class="form-control" min="1">
-    </div>
-    <div class="form-group">
-      <label>Destinazione tipo</label>
-      <select id="assignDestTipo" class="form-control" onchange="caricaDestinazioniAssegnazione()">
+      <label>Destinatario tipo</label>
+      <select id="creaKitDestTipo" class="form-control" onchange="caricaDestinazioniCreaKit()">
         <option value="PROMOTER">Promoter</option>
         <option value="NEGOZIO">Negozio</option>
         <option value="CLIENTE">Cliente</option>
@@ -319,100 +322,16 @@
       </select>
     </div>
     <div class="form-group">
-      <label>Destinazione</label>
-      <select id="assignDestId" class="form-control"></select>
+      <label>Destinatario</label>
+      <select id="creaKitDestId" class="form-control"></select>
     </div>
     <div class="form-group">
-      <label>Note</label>
-      <input type="text" id="assignNote" class="form-control">
+      <label>Note (opzionali)</label>
+      <input type="text" id="creaKitNote" class="form-control">
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="chiudiAssignModal()">Annulla</button>
-      <button class="btn btn-success" onclick="confermaAssegnazione()">Conferma</button>
-    </div>
-  </div>
-</div>
-
-<div id="editAssignmentModal" class="modal">
-  <div class="modal-content">
-    <h3>✏️ Modifica assegnazione</h3>
-    <div class="form-group">
-      <label>Oggetto</label>
-      <input type="text" id="editOggetto" class="form-control" readonly>
-    </div>
-    <div class="form-group">
-      <label>Sigla</label>
-      <input type="text" id="editSiglaDisplay" class="form-control" readonly>
-    </div>
-    <div class="form-group">
-      <label>Quantità attuale</label>
-      <input type="number" id="editQuantitaAttuale" class="form-control" readonly>
-    </div>
-    <div class="form-group">
-      <label>Nuova quantità</label>
-      <input type="number" id="editQuantitaNuova" class="form-control" min="1">
-    </div>
-    <div class="form-group">
-      <label>Nuova destinazione</label>
-      <select id="editDestTipo" class="form-control" onchange="caricaDestinazioniEdit()">
-        <option value="PROMOTER">Promoter</option>
-        <option value="NEGOZIO">Negozio</option>
-        <option value="CLIENTE">Cliente</option>
-        <option value="AGENTE">Agente</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Destinazione</label>
-      <select id="editDestId" class="form-control"></select>
-    </div>
-    <div class="form-group">
-      <label>Note</label>
-      <input type="text" id="editNote" class="form-control">
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="chiudiEditModal()">Annulla</button>
-      <button class="btn btn-success" onclick="confermaModificaSingola()">Conferma</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODALE TRASFERIMENTO MASSIVO -->
-<div id="massiveModal" class="modal">
-  <div class="modal-content">
-    <h3>➡️ Trasferimento massivo</h3>
-    <div id="massiveRiepilogo"></div>
-    <div class="form-group">
-      <label>Destinazione tipo</label>
-      <select id="massiveDestTipo" class="form-control" onchange="caricaDestinazioniMassive()">
-        <option value="PROMOTER">Promoter</option>
-        <option value="NEGOZIO">Negozio</option>
-        <option value="CLIENTE">Cliente</option>
-        <option value="AGENTE">Agente</option>
-        <option value="MAGAZZINO">Magazzino (rientro)</option>
-      </select>
-    </div>
-    <div class="form-group" id="massiveDestContainer">
-      <label>Destinazione</label>
-      <select id="massiveDestId" class="form-control"></select>
-    </div>
-    <div class="form-group">
-      <label>Note</label>
-      <input type="text" id="massiveNote" class="form-control">
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="chiudiMassiveModal()">Annulla</button>
-      <button class="btn btn-success" onclick="confermaMassive()">Conferma</button>
-    </div>
-  </div>
-</div>
-
-<div id="confirmModal" class="modal">
-  <div class="modal-content">
-    <h3>⚠️ Conferma operazione</h3>
-    <p id="confirmMessage"></p>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="chiudiConfirmModal()">Annulla</button>
-      <button class="btn btn-danger" id="confirmActionBtn" onclick="eseguiConferma()">Conferma</button>
+      <button class="btn btn-secondary" onclick="chiudiModalCreaKit()">Annulla</button>
+      <button class="btn btn-success" onclick="confermaCreaKitDaCarico()">📦 Crea Kit</button>
     </div>
   </div>
 </div>
@@ -434,16 +353,11 @@ async function apiFetch(endpoint, options) {
   options = options || {};
   var headers = { 'Content-Type': 'application/json' };
   var auth = getAuthHeader();
-  for (var key in auth) {
-    if (auth.hasOwnProperty(key)) headers[key] = auth[key];
-  }
-  for (var h in options.headers) {
-    if (options.headers.hasOwnProperty(h)) headers[h] = options.headers[h];
-  }
+  for (var key in auth) { if (auth.hasOwnProperty(key)) headers[key] = auth[key]; }
+  for (var h in options.headers) { if (options.headers.hasOwnProperty(h)) headers[h] = options.headers[h]; }
   var r = await fetch('/api' + endpoint, { method: options.method || 'GET', headers: headers, body: options.body });
   if (r.status === 401 || r.status === 403) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('token'); localStorage.removeItem('user');
     window.location.href = 'Login.html';
     throw new Error('Sessione scaduta');
   }
@@ -481,6 +395,7 @@ var pendingAction = null;
 var kitDetailsCache = new Map();
 var soggettoNomeCache = new Map();
 var allSoggetti = [];
+var selectedPerKit = [];
 
 var radioCarico = document.getElementById('sourceCarico');
 var radioMagazzino = document.getElementById('sourceMagazzino');
@@ -500,16 +415,11 @@ var filtroDestinatario = document.getElementById('filtroDestinatario');
 var filtroDestContainer = document.getElementById('filtroDestinatarioContainer');
 
 var loadingOverlay = document.getElementById('loadingOverlay');
-
-function showLoading() {
-  loadingOverlay.classList.add('show');
-}
-function hideLoading() {
-  loadingOverlay.classList.remove('show');
-}
+function showLoading() { loadingOverlay.classList.add('show'); }
+function hideLoading() { loadingOverlay.classList.remove('show'); }
 
 // ============================================================
-// CARICAMENTO ANAGRAFICHE (in parallelo)
+// CARICAMENTO ANAGRAFICHE
 // ============================================================
 async function caricaMagazzini() {
   try {
@@ -536,27 +446,18 @@ async function caricaCategorie() {
 }
 
 // ============================================================
-// GESTIONE CAMBIO TIPO SOGGETTO (reset immediato)
+// GESTIONE CAMBIO TIPO SOGGETTO / SOGGETTO
 // ============================================================
 function onTipoSoggettoChanged() {
   sourceId.innerHTML = '<option value="">Seleziona...</option>';
-  oggetti = [];
-  oggettiOriginali = [];
+  oggetti = []; oggettiOriginali = [];
   popolaTabella();
   caricaSoggettiPerTipo();
 }
-
 function onSoggettoChanged() {
-  if (radioCarico.checked && sourceId.value) {
-    caricaOggettiInCarico();
-  } else if (radioCarico.checked && currentUser && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
-    // Fallback per vedere i propri oggetti se il dropdown è vuoto
-    caricaOggettiInCarico();
-  } else {
-    oggetti = [];
-    oggettiOriginali = [];
-    popolaTabella();
-  }
+  if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
+  else if (radioCarico.checked && currentUser && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) caricaOggettiInCarico();
+  else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
 }
 
 // ============================================================
@@ -570,26 +471,18 @@ async function caricaSoggettiPerTipo() {
     var data = await apiFetch('/soggetti/tipo/' + tipo);
     allSoggetti = data || [];
     sel.innerHTML = '<option value="">Seleziona...</option>';
-    
     var isAdmin = (currentUser.ruolo === 'admin');
     var currentSoggettoId = currentUser.riferimento_id ? parseInt(currentUser.riferimento_id) : null;
-    
     var filtered = data;
     if (!isAdmin && currentSoggettoId) {
-      filtered = data.filter(function(item) {
-        return item.id != currentSoggettoId;
-      });
+      filtered = data.filter(function(item) { return item.id != currentSoggettoId; });
     }
-    
     filtered.forEach(function(item) {
       var testo = tipo === 'PROMOTER' ? (item.nome + ' ' + (item.cognome || '')).trim() : item.nome;
       if (item.livello) testo += ' (liv.' + item.livello + ')';
       sel.appendChild(new Option(testo, item.id));
     });
-    
-    if (sel.options.length > 1 && !sel.value) {
-      sel.selectedIndex = 1;
-    }
+    if (sel.options.length > 1 && !sel.value) sel.selectedIndex = 1;
     if (radioCarico.checked) {
       if (sel.value) caricaOggettiInCarico();
       else caricaOggettiInCarico(); // fallback per vedere i propri
@@ -601,10 +494,6 @@ async function caricaSoggettiPerTipo() {
     showMessage('Errore caricamento soggetti: ' + e.message, 'error');
   }
 }
-
-// ============================================================
-// CARICAMENTO SORGENTI ADMIN
-// ============================================================
 async function caricaSorgentiAdmin() {
   var tipo = sourceTipo.value;
   try {
@@ -654,9 +543,7 @@ async function getKitDetails(kitId) {
     var res = { sigla: sigla, lunghezza: lung };
     kitDetailsCache.set(kitId, res);
     return res;
-  } catch(e) {
-    return { sigla: '', lunghezza: '' };
-  }
+  } catch(e) { return { sigla: '', lunghezza: '' }; }
 }
 
 // ============================================================
@@ -715,7 +602,8 @@ async function getOggettiInCarico(tipo, id) {
       destinazioneId: o.destinazioneId,
       isCarico: true,
       oggettoId: o.ID,
-      tipoOggetto: o.tipo
+      tipoOggetto: o.tipo,
+      categoriaNome: o.categoriaNome || null
     });
   }
   return result;
@@ -751,14 +639,14 @@ async function getOggettiAssegnati(tipo, id) {
       destinazioneId: row.destinazione_id,
       isCarico: false,
       oggettoId: row.oggetto_id,
-      tipoOggetto: row.tipo_oggetto
+      tipoOggetto: row.tipo_oggetto,
+      categoriaNome: null
     };
   });
 }
 async function caricaOggettiInCarico() {
   showLoading();
-  oggetti = [];
-  oggettiOriginali = [];
+  oggetti = []; oggettiOriginali = [];
   
   var tipo, id;
   var isAdmin = (currentUser.ruolo === 'admin');
@@ -784,33 +672,23 @@ async function caricaOggettiInCarico() {
     }
   }
   
-  console.log('caricaOggettiInCarico -> tipo:', tipo, 'id:', id, 'mode:', modeVal);
-  
-  if (!tipo || !id) {
-    popolaTabella();
-    hideLoading();
-    return;
-  }
+  if (!tipo || !id) { popolaTabella(); hideLoading(); return; }
   
   try {
     var inc = [], ass = [];
     
-    // ===== IN POSSESSO =====
-    // Usa il soggetto SELEZIONATO come destinazione
+    // IN POSSESSO: soggetto SELEZIONATO come destinazione
     if (modeVal === 'incarico' || modeVal === 'entrambi') {
       inc = await getOggettiInCarico(tipo, id);
     }
     
-    // ===== INVIATO AD ALTRI =====
-    // Usa L'UTENTE LOGGATO come provenienza (non il soggetto selezionato)
+    // INVIATO AD ALTRI: UTENTE LOGGATO come provenienza
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
-      // Per i non-admin, usa il proprio riferimento
       if (!isAdmin && currentUser.riferimento_id) {
         var mioTipo = currentUser.ruolo.toUpperCase();
         var mioId = currentUser.riferimento_id;
         ass = await getOggettiAssegnati(mioTipo, mioId);
       } else if (isAdmin) {
-        // Per admin, usa il soggetto selezionato come provenienza (per vedere cosa ha inviato quel soggetto)
         ass = await getOggettiAssegnati(tipo, id);
       } else {
         ass = [];
@@ -823,7 +701,7 @@ async function caricaOggettiInCarico() {
     else tutti = inc.concat(ass);
     oggettiOriginali = tutti;
 
-    // Filtro destinatario (solo per modalità "assegnati" o "entrambi")
+    // Filtro destinatario
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       var referenti = [];
       var provenienzaId = isAdmin ? id : (currentUser.riferimento_id || null);
@@ -876,9 +754,7 @@ async function caricaOggettiInCarico() {
     showMessage('Errore: ' + e.message, 'error');
     oggetti = [];
     popolaTabella();
-  } finally {
-    hideLoading();
-  }
+  } finally { hideLoading(); }
 }
 
 // ============================================================
@@ -886,9 +762,7 @@ async function caricaOggettiInCarico() {
 // ============================================================
 async function caricaOggettiDaMagazzino() {
   showLoading();
-  oggetti = [];
-  oggettiOriginali = [];
-  
+  oggetti = []; oggettiOriginali = [];
   var magId = magazzinoSelect.value;
   if (!magId) {
     showMessage('Seleziona un magazzino', 'info');
@@ -960,7 +834,8 @@ async function caricaOggettiDaMagazzino() {
           destinazioneId: null,
           isCarico: false,
           oggettoId: a.articolo_id,
-          tipoOggetto: 'ARTICOLO'
+          tipoOggetto: 'ARTICOLO',
+          categoriaNome: null
         });
         if (a.lunghezza) lunghezzeUniche[a.lunghezza] = true;
       }
@@ -1000,7 +875,8 @@ async function caricaOggettiDaMagazzino() {
           destinazioneId: null,
           isCarico: false,
           oggettoId: kit.id,
-          tipoOggetto: 'KIT'
+          tipoOggetto: 'KIT',
+          categoriaNome: null
         });
         if (sigla) sigleUniche[sigla] = true;
         if (lung) lunghezzeUniche[lung] = true;
@@ -1019,9 +895,7 @@ async function caricaOggettiDaMagazzino() {
     showMessage('Errore magazzino: ' + e.message, 'error');
     oggetti = [];
     popolaTabella();
-  } finally {
-    hideLoading();
-  }
+  } finally { hideLoading(); }
 }
 
 function aggiornaDropdownFiltri(sigleUniche, lunghezzeUniche) {
@@ -1058,20 +932,17 @@ function aggiornaDropdownFiltri(sigleUniche, lunghezzeUniche) {
 }
 
 // ============================================================
-// ORDINAMENTO MULTI-COLONNA
+// ORDINAMENTO
 // ============================================================
 function sortOggetti() {
   oggetti.sort(function(a, b) {
     var va = a[sortColumn] || '', vb = b[sortColumn] || '';
     if (sortColumn === 'totale') {
-      va = parseFloat(va) || 0;
-      vb = parseFloat(vb) || 0;
+      va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
     } else if (sortColumn === 'data') {
-      va = va ? new Date(va).getTime() : 0;
-      vb = vb ? new Date(vb).getTime() : 0;
+      va = va ? new Date(va).getTime() : 0; vb = vb ? new Date(vb).getTime() : 0;
     } else {
-      va = va.toString().toLowerCase();
-      vb = vb.toString().toLowerCase();
+      va = va.toString().toLowerCase(); vb = vb.toString().toLowerCase();
     }
     if (va < vb) return sortAsc ? -1 : 1;
     if (va > vb) return sortAsc ? 1 : -1;
@@ -1295,12 +1166,8 @@ async function confermaAssegnazione() {
       showMessage('Assegnazione effettuata con successo!', 'success');
       chiudiAssignModal();
       caricaOggettiDaMagazzino();
-    } else {
-      showMessage(r.message, 'error');
-    }
-  } catch(e) {
-    showMessage(e.message, 'error');
-  }
+    } else { showMessage(r.message, 'error'); }
+  } catch(e) { showMessage(e.message, 'error'); }
 }
 
 // ============================================================
@@ -1320,9 +1187,7 @@ async function apriModificaSingola(obj) {
     var selId = document.getElementById('editDestId');
     if (obj.destinazioneId) selId.value = obj.destinazioneId;
     document.getElementById('editAssignmentModal').style.display = 'flex';
-  } catch(e) {
-    showMessage('Errore: ' + e.message, 'error');
-  }
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
 }
 async function caricaDestinazioniEdit() {
   var tipo = document.getElementById('editDestTipo').value;
@@ -1381,12 +1246,8 @@ async function confermaModificaSingola() {
       showMessage('Trasferimento completato!', 'success');
       chiudiEditModal();
       caricaOggettiInCarico();
-    } else {
-      showMessage(r.message, 'error');
-    }
-  } catch(e) {
-    showMessage(e.message, 'error');
-  }
+    } else { showMessage(r.message, 'error'); }
+  } catch(e) { showMessage(e.message, 'error'); }
 }
 
 // ============================================================
@@ -1416,24 +1277,18 @@ function apriModalTrasferimentoMassivo() {
   caricaDestinazioniMassive();
   document.getElementById('massiveModal').style.display = 'flex';
 }
-
 function chiudiMassiveModal() {
   document.getElementById('massiveModal').style.display = 'none';
   selectedMassive = [];
 }
-
 async function caricaDestinazioniMassive() {
   var tipo = document.getElementById('massiveDestTipo').value;
   var sel = document.getElementById('massiveDestId');
   if (!sel) return;
   if (tipo === 'MAGAZZINO') {
-    if (!magazzini || magazzini.length === 0) {
-      await caricaMagazzini();
-    }
+    if (!magazzini || magazzini.length === 0) await caricaMagazzini();
     sel.innerHTML = '<option value="">Seleziona magazzino</option>';
-    magazzini.forEach(function(m) {
-      sel.appendChild(new Option(m.nome, m.id));
-    });
+    magazzini.forEach(function(m) { sel.appendChild(new Option(m.nome, m.id)); });
   } else {
     sel.innerHTML = '<option value="">Caricamento...</option>';
     try {
@@ -1441,9 +1296,7 @@ async function caricaDestinazioniMassive() {
       sel.innerHTML = '<option value="">Seleziona...</option>';
       if (data && data.length > 0) {
         data.forEach(function(item) {
-          var nome = tipo === 'PROMOTER'
-            ? (item.nome || '') + ' ' + (item.cognome || '')
-            : (item.nome || '');
+          var nome = tipo === 'PROMOTER' ? (item.nome || '') + ' ' + (item.cognome || '') : (item.nome || '');
           sel.appendChild(new Option(nome.trim() || 'Soggetto ' + item.id, item.id));
         });
       } else {
@@ -1456,7 +1309,6 @@ async function caricaDestinazioniMassive() {
     }
   }
 }
-
 async function confermaMassive() {
   var dT = document.getElementById('massiveDestTipo').value;
   var dId = document.getElementById('massiveDestId').value;
@@ -1513,16 +1365,159 @@ async function confermaMassive() {
       showMessage('Trasferimento completato con successo!', 'success');
       chiudiMassiveModal();
       caricaOggetti();
+    } else { showMessage(r.message, 'error'); }
+  } catch(e) { showMessage('Errore durante il trasferimento massivo: ' + e.message, 'error'); }
+}
+
+// ============================================================
+// CREA KIT DA CARICO
+// ============================================================
+function apriModalCreaKitDaCarico() {
+  var idx = [];
+  var cbs = document.querySelectorAll('.row-checkbox:checked');
+  for (var i = 0; i < cbs.length; i++) {
+    var id = parseInt(cbs[i].dataset.rowId);
+    if (!isNaN(id)) idx.push(id);
+  }
+  if (idx.length === 0) {
+    showMessage('Seleziona almeno un elemento', 'error');
+    return;
+  }
+  // Verifica che ci sia almeno uno sci e un attacco
+  var selezionati = idx.map(function(i) { return oggetti[i]; });
+  var hasSci = false, hasAttacco = false;
+  var magazzinoId = null;
+  for (var o of selezionati) {
+    if (o.categoriaNome && o.categoriaNome.toLowerCase() === 'sci') {
+      hasSci = true;
+      // Prendi il magazzino dal primo sci trovato (se disponibile)
+      if (!magazzinoId && o.magazzino) magazzinoId = o.magazzino;
+    }
+    if (o.categoriaNome && o.categoriaNome.toLowerCase() === 'attacchi') {
+      hasAttacco = true;
+    }
+  }
+  if (!hasSci) {
+    showMessage('Devi selezionare almeno uno sci', 'error');
+    return;
+  }
+  if (!hasAttacco) {
+    showMessage('Devi selezionare almeno un attacco', 'error');
+    return;
+  }
+
+  selectedPerKit = selezionati;
+
+  // Riepilogo
+  var rip = '<strong>Elementi selezionati (' + selectedPerKit.length + '):</strong><ul>';
+  for (var o of selectedPerKit) {
+    var tipo = o.categoriaNome || 'ARTICOLO';
+    rip += '<li>' + tipo + ': ' + o.codice_sigla + ' - ' + o.descrizione + ' (q.' + o.totale + ')</li>';
+  }
+  rip += '</ul>';
+  document.getElementById('riepilogoSelezione').innerHTML = rip;
+
+  // Popola dropdown magazzini
+  var selMag = document.getElementById('creaKitMagazzino');
+  selMag.innerHTML = '<option value="">Seleziona magazzino</option>';
+  for (var m of magazzini) {
+    var opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.nome;
+    if (magazzinoId && m.id == magazzinoId) opt.selected = true;
+    selMag.appendChild(opt);
+  }
+
+  // Imposta destinatario predefinito: stesso soggetto in carico
+  var selTipo = document.getElementById('creaKitDestTipo');
+  var selId = document.getElementById('creaKitDestId');
+  selTipo.value = sourceTipo.value || 'PROMOTER';
+  caricaDestinazioniCreaKit();
+  if (sourceId.value) {
+    var options = selId.options;
+    for (var i = 0; i < options.length; i++) {
+      if (options[i].value == sourceId.value) {
+        selId.value = sourceId.value;
+        break;
+      }
+    }
+  }
+
+  document.getElementById('modalCreaKitDaCarico').style.display = 'flex';
+}
+
+function chiudiModalCreaKit() {
+  document.getElementById('modalCreaKitDaCarico').style.display = 'none';
+  selectedPerKit = [];
+}
+
+async function caricaDestinazioniCreaKit() {
+  var tipo = document.getElementById('creaKitDestTipo').value;
+  var sel = document.getElementById('creaKitDestId');
+  sel.innerHTML = '<option value="">Caricamento...</option>';
+  if (!tipo) return;
+  try {
+    var data = await apiFetch('/soggetti/tipo/' + tipo);
+    sel.innerHTML = '<option value="">Seleziona...</option>';
+    for (var item of data) {
+      var label = tipo === 'PROMOTER' ? (item.nome + ' ' + (item.cognome||'')).trim() : item.nome;
+      sel.appendChild(new Option(label, item.id));
+    }
+  } catch(e) {
+    sel.innerHTML = '<option value="">Errore caricamento</option>';
+  }
+}
+
+async function confermaCreaKitDaCarico() {
+  var magazzinoId = document.getElementById('creaKitMagazzino').value;
+  var destTipo = document.getElementById('creaKitDestTipo').value;
+  var destId = document.getElementById('creaKitDestId').value;
+  var note = document.getElementById('creaKitNote').value.trim();
+
+  if (!magazzinoId) {
+    showMessage('Seleziona un magazzino', 'error');
+    return;
+  }
+  if (!destTipo || !destId) {
+    showMessage('Seleziona un destinatario', 'error');
+    return;
+  }
+
+  var oggettiPayload = selectedPerKit.map(function(o) {
+    return {
+      tipoOggetto: 'ARTICOLO',
+      oggettoId: o.oggettoId,
+      siglaId: o.siglaId || null,
+      quantita: o.totale
+    };
+  });
+
+  var payload = {
+    soggettoTipo: sourceTipo.value,
+    soggettoId: parseInt(sourceId.value),
+    oggetti: oggettiPayload,
+    destinazioneTipo: destTipo,
+    destinazioneId: parseInt(destId),
+    magazzinoId: parseInt(magazzinoId),
+    note: note
+  };
+
+  try {
+    var r = await apiFetch('/kit/da-carico', { method: 'POST', body: JSON.stringify(payload) });
+    if (r.success) {
+      showMessage('Kit creato con successo!', 'success');
+      chiudiModalCreaKit();
+      caricaOggetti();
     } else {
       showMessage(r.message, 'error');
     }
   } catch(e) {
-    showMessage('Errore durante il trasferimento massivo: ' + e.message, 'error');
+    showMessage('Errore: ' + e.message, 'error');
   }
 }
 
 // ============================================================
-// ANTEPRIMA PDF
+// PDF E ALTRO
 // ============================================================
 function anteprimaPDF() {
   var data = oggetti;
@@ -1533,17 +1528,12 @@ function anteprimaPDF() {
   var destinatarioLabel = '';
   if (radioCarico.checked) {
     var sel = document.getElementById('sourceId');
-    if (sel && sel.selectedIndex >= 0) {
-      destinatarioLabel = sel.options[sel.selectedIndex].text;
-    } else if (currentUser && currentUser.ruolo !== 'admin') {
-      destinatarioLabel = currentUser.nome_visualizzato || currentUser.username;
-    }
+    if (sel && sel.selectedIndex >= 0) destinatarioLabel = sel.options[sel.selectedIndex].text;
+    else if (currentUser && currentUser.ruolo !== 'admin') destinatarioLabel = currentUser.nome_visualizzato || currentUser.username;
     if (!destinatarioLabel) destinatarioLabel = 'N/A';
   } else if (radioMagazzino.checked) {
     var selMag = document.getElementById('magazzinoSelect');
-    if (selMag && selMag.selectedIndex >= 0) {
-      destinatarioLabel = selMag.options[selMag.selectedIndex].text;
-    }
+    if (selMag && selMag.selectedIndex >= 0) destinatarioLabel = selMag.options[selMag.selectedIndex].text;
     if (!destinatarioLabel) destinatarioLabel = 'Magazzino';
   }
   var rows = data.map(function(r, i) {
@@ -1615,10 +1605,9 @@ function anteprimaPDF() {
     }
   });
   var now = new Date();
-  var dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  var dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
   var destClean = destinatarioLabel.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
-  var fileName = 'Assegnazioni_' + dateStr + '_' + destClean + '.pdf';
-  doc.save(fileName);
+  doc.save('Assegnazioni_' + dateStr + '_' + destClean + '.pdf');
 }
 
 // ============================================================
@@ -1655,11 +1644,8 @@ function setup() {
     sourceTipo.addEventListener('change', function() { caricaSorgentiAdmin(); });
     sourceId.addEventListener('change', function() {
       if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
-      else if (radioCarico.checked && currentUser.riferimento_id) {
-        caricaOggettiInCarico();
-      } else {
-        oggetti = []; oggettiOriginali = []; popolaTabella();
-      }
+      else if (radioCarico.checked && currentUser.riferimento_id) caricaOggettiInCarico();
+      else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
     });
     radioMagazzino.disabled = false;
   } else {
@@ -1667,9 +1653,7 @@ function setup() {
     sourceId.disabled = false;
     sourceTipo.value = 'PROMOTER';
     caricaSoggettiPerTipo();
-    sourceTipo.addEventListener('change', function() {
-      caricaSoggettiPerTipo();
-    });
+    sourceTipo.addEventListener('change', function() { caricaSoggettiPerTipo(); });
     sourceId.addEventListener('change', function() {
       if (radioCarico.checked) {
         if (sourceId.value) caricaOggettiInCarico();
@@ -1687,15 +1671,9 @@ function setup() {
     }
     caricoSection.style.display = 'flex';
   }
-  modeInCarico.addEventListener('change', function() {
-    if (radioCarico.checked) caricaOggettiInCarico();
-  });
-  modeAssegnati.addEventListener('change', function() {
-    if (radioCarico.checked) caricaOggettiInCarico();
-  });
-  modeEntrambi.addEventListener('change', function() {
-    if (radioCarico.checked) caricaOggettiInCarico();
-  });
+  modeInCarico.addEventListener('change', function() { if (radioCarico.checked) caricaOggettiInCarico(); });
+  modeAssegnati.addEventListener('change', function() { if (radioCarico.checked) caricaOggettiInCarico(); });
+  modeEntrambi.addEventListener('change', function() { if (radioCarico.checked) caricaOggettiInCarico(); });
   radioCarico.addEventListener('change', toggleSource);
   radioMagazzino.addEventListener('change', toggleSource);
   attachSortListeners();

@@ -105,7 +105,7 @@ async function canPromoterAssignTo(connection, promoterId, targetSoggettoId) {
 }
 
 // ============================================================
-// HELPER: Aggiorna carico_sintesi
+// HELPER: Aggiorna carico_sintesi (esportata per kit.js)
 // ============================================================
 async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, quantita, provenienzaTipo, provenienzaId, dataAssegnazione) {
   if (quantita === 0) {
@@ -139,10 +139,13 @@ router.post('/uscita/batch', verifyToken, async (req, res) => {
   const connection = await pool.getConnection();
   await connection.beginTransaction();
   try {
-    // Verifica permessi: admin o promoter livello 1
     const userLevel = await getUserLevel(req.userId);
     if (req.userRole !== 'admin' && !(req.userRole === 'promoter' && userLevel === 1)) {
       throw new Error('Solo admin o promoter di livello 1 possono prelevare dal magazzino');
+    }
+
+    if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzinoId))) {
+      throw new Error('Magazzino non autorizzato per questo utente');
     }
 
     let provenienzaTipo = 'MAGAZZINO';
@@ -223,7 +226,6 @@ router.post('/rientro/batch', verifyToken, async (req, res) => {
   const connection = await pool.getConnection();
   await connection.beginTransaction();
   try {
-    // Controllo permessi per rientro: admin o promoter livello 1
     if (req.userRole !== 'admin') {
       const userLevel = await getUserLevel(req.userId);
       if (!(req.userRole === 'promoter' && userLevel === 1)) {
@@ -342,7 +344,7 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// OTTIENI OGGETTI IN CARICO
+// OTTIENI OGGETTI IN CARICO (con categoria)
 // ============================================================
 router.post('/oggetti', verifyToken, async (req, res) => {
   try {
@@ -366,12 +368,14 @@ router.post('/oggetti', verifyToken, async (req, res) => {
              WHERE kd.kit_id = cs.oggetto_id AND kd.tipo_articolo = 'SCI' LIMIT 1)
           ) AS SIGLA_CORRENTE,
           sog.nome AS destinatario_nome,
-          sog.cognome AS destinatario_cognome
+          sog.cognome AS destinatario_cognome,
+          c.nome AS categoria_nome
         FROM carico_sintesi cs
         LEFT JOIN articoli a ON cs.tipo_oggetto = 'ARTICOLO' AND cs.oggetto_id = a.articolo_id
         LEFT JOIN kit k ON cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id
         LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
         LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
+        LEFT JOIN categorie c ON a.categoria = c.categoria_id
         WHERE cs.destinazione_tipo = ? AND cs.destinazione_id = ? AND cs.quantita > 0
       `;
       const params = [tipo, id];
@@ -424,7 +428,8 @@ router.post('/oggetti', verifyToken, async (req, res) => {
           sigleDisponibili: sigleDisponibili,
           provenienzaTipo: row.provenienza_tipo,
           provenienzaId: row.provenienza_id,
-          dataAssegnazione: row.data_assegnazione
+          dataAssegnazione: row.data_assegnazione,
+          categoriaNome: row.categoria_nome || null // NUOVO
         });
       }
       return risultati;
@@ -537,4 +542,7 @@ router.get('/verifica-sigla', verifyToken, async (req, res) => {
   }
 });
 
+// ESPORTA UTILITÀ PER KIT.JS
 module.exports = router;
+module.exports.aggiornaCaricoSintesi = aggiornaCaricoSintesi;
+module.exports.getDisponibilitaSigla = getDisponibilitaSigla;
