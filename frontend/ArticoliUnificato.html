@@ -46,6 +46,7 @@
     .form-group { margin-bottom: 0; }
     label { font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; display: block; color: #2c3e50; }
     input, select, textarea { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: #f9fafb; }
+    input:read-only { background: #e9ecef; cursor: not-allowed; }
     .btn { background: linear-gradient(135deg, #1a73e8, #0f5bb5); color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; transition: 0.1s; }
     .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
     .btn-danger { background: linear-gradient(135deg, #dc3545, #b02a37); }
@@ -96,8 +97,6 @@
     .checkbox-inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
     .checkbox-inline input { width: auto; margin: 0; }
     .checkbox-inline label { margin: 0; font-weight: normal; font-size: 0.7rem; }
-
-    /* ===== NUOVI STILI PER LE FRECCE DI ORDINAMENTO ===== */
     .sort-arrow {
       cursor: pointer;
       font-size: 0.6rem;
@@ -112,12 +111,10 @@
       font-weight: bold;
       font-size: 0.8rem;
     }
-    th {
-      cursor: default;
-    }
-    th .sort-arrow {
-      cursor: pointer;
-    }
+    th { cursor: default; }
+    th .sort-arrow { cursor: pointer; }
+    .field-note { color: #666; font-size: 0.65rem; display: block; margin-top: 2px; }
+    .field-note i { font-style: normal; }
   </style>
 </head>
 <body>
@@ -291,7 +288,11 @@
       </div>
       <div class="form-row">
         <div class="form-group"><label>Durezza</label><input type="text" id="editDurezza" list="editDurezzaList"><datalist id="editDurezzaList"></datalist></div>
-        <div class="form-group"><label>Quantità Totale *</label><input type="number" id="editQuantita" required min="0"></div>
+        <div class="form-group">
+          <label>Quantità Totale</label>
+          <input type="number" id="editQuantita" min="0" readonly>
+          <small class="field-note"><i>⚠️ La quantità totale si gestisce tramite il modale delle sigle (pulsante 🔖)</i></small>
+        </div>
       </div>
       <div class="form-group"><label>Note</label><textarea id="editNote" rows="2"></textarea></div>
       <div class="form-group">
@@ -564,18 +565,13 @@ async function caricaAnagrafiche() {
     popola(categoriaSelect, categorie, 'id', 'nome');
     popola(marcaSelect, marche, 'id', 'nome');
 
-    // Imposta il default: West se presente e disponibile, altrimenti il primo disponibile
+    // Default: West se presente
     const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'west');
     if (defaultMag) {
       const exists = Array.from(magazzinoSelect.options).some(opt => opt.value == defaultMag.id);
-      if (exists) {
-        magazzinoSelect.value = defaultMag.id;
-      } else if (magazzinoSelect.options.length > 1) {
-        magazzinoSelect.selectedIndex = 1;
-      }
-    } else if (magazzinoSelect.options.length > 1) {
-      magazzinoSelect.selectedIndex = 1;
-    }
+      if (exists) magazzinoSelect.value = defaultMag.id;
+      else if (magazzinoSelect.options.length > 1) magazzinoSelect.selectedIndex = 1;
+    } else if (magazzinoSelect.options.length > 1) magazzinoSelect.selectedIndex = 1;
 
     const defaultSett = settori.find(s => s.nome.toLowerCase() === 'sci alpino');
     if (defaultSett) settoreSelect.value = defaultSett.id;
@@ -688,14 +684,10 @@ function ordinaArticoli() {
   });
 }
 
-// ===== NUOVA GESTIONE ORDINAMENTO =====
 function handleSort(col, direction) {
-  if (direction === 'asc') {
-    sortAsc = true;
-  } else if (direction === 'desc') {
-    sortAsc = false;
-  } else {
-    // Alterna (click sul testo)
+  if (direction === 'asc') sortAsc = true;
+  else if (direction === 'desc') sortAsc = false;
+  else {
     if (sortColumn === col) sortAsc = !sortAsc;
     else { sortColumn = col; sortAsc = true; }
   }
@@ -707,20 +699,14 @@ function handleSort(col, direction) {
 }
 
 function aggiornaIndicatoriOrdine() {
-  // Rimuovi active da tutte le frecce
   document.querySelectorAll('.sort-arrow').forEach(el => el.classList.remove('active'));
-
   const colonnaCorrente = sortColumn;
   const selettoreAsc = `.sort-arrow.sort-asc[data-col="${colonnaCorrente}"]`;
   const selettoreDesc = `.sort-arrow.sort-desc[data-col="${colonnaCorrente}"]`;
   const frecciaAsc = document.querySelector(selettoreAsc);
   const frecciaDesc = document.querySelector(selettoreDesc);
-
-  if (sortAsc) {
-    if (frecciaAsc) frecciaAsc.classList.add('active');
-  } else {
-    if (frecciaDesc) frecciaDesc.classList.add('active');
-  }
+  if (sortAsc) { if (frecciaAsc) frecciaAsc.classList.add('active'); }
+  else { if (frecciaDesc) frecciaDesc.classList.add('active'); }
 }
 
 function renderTabellaPaginata() {
@@ -816,9 +802,7 @@ function resetFiltri() {
   caricaArticoli();
 }
 
-// ===== ATTACH SORT LISTENERS (aggiornato) =====
 function attachSortListeners() {
-  // Click sul testo della colonna (o sulla th) per alternare
   document.querySelectorAll('#tabellaArticoli th[data-sort]').forEach(th => {
     th.addEventListener('click', (e) => {
       if (e.target.classList.contains('sort-arrow')) return;
@@ -826,8 +810,6 @@ function attachSortListeners() {
       handleSort(col);
     });
   });
-
-  // Click sulle frecce singole
   document.querySelectorAll('.sort-arrow').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -918,6 +900,7 @@ async function modificaArticolo(id) {
   document.getElementById('editDurezza').value = art.durezza || '';
   document.getElementById('editCodiceModello').value = art.codice_modello || '';
   document.getElementById('editQuantita').value = art.quantita_totale;
+  document.getElementById('editQuantita').readOnly = true; // LETTURA SOLO
   document.getElementById('editNote').value = art.note || '';
   document.getElementById('editInventarioAustria').checked = art.inventario_austria == 1;
   await refreshEditDatalists();
@@ -953,11 +936,11 @@ async function refreshEditDatalists() {
 async function salvaModifica() {
   const id = document.getElementById('editId').value;
   const inventarioAustria = document.getElementById('editInventarioAustria').checked;
+  const qtaField = document.getElementById('editQuantita');
   const dati = {
     descrizione: document.getElementById('editDescrizione').value.trim(),
     lunghezza: document.getElementById('editLunghezza').value.trim(),
     durezza: document.getElementById('editDurezza').value.trim(),
-    quantita_totale: parseInt(document.getElementById('editQuantita').value),
     note: document.getElementById('editNote').value.trim(),
     codiceModello: document.getElementById('editCodiceModello').value.trim(),
     magazzino: parseInt(document.getElementById('editMagazzino').value),
@@ -966,7 +949,11 @@ async function salvaModifica() {
     marca: parseInt(document.getElementById('editMarca').value),
     inventario_austria: inventarioAustria
   };
-  if (!dati.descrizione || isNaN(dati.quantita_totale)) { showMessage('Dati non validi', 'error'); return; }
+  // Solo se il campo non è readonly (ma lo è), non inviamo quantità
+  if (!qtaField.readOnly) {
+    dati.quantita_totale = parseInt(qtaField.value);
+  }
+  if (!dati.descrizione) { showMessage('Descrizione obbligatoria', 'error'); return; }
   try {
     const res = await apiFetch('/articoli/' + id, { method: 'PUT', body: JSON.stringify(dati) });
     if (res.success) { showMessage('Aggiornato', 'success'); chiudiModale(); caricaArticoli(); }
@@ -1118,10 +1105,7 @@ async function salvaModificaSigla() {
   const sigla = document.getElementById('modSiglaInput').value.trim();
   const nota = document.getElementById('modNotaInput').value.trim();
   const quantitaAustria = parseInt(document.getElementById('modQuantitaAustriaInput').value) || 0;
-  if (!sigla) {
-    showMessage('La sigla è obbligatoria', 'error');
-    return;
-  }
+  if (!sigla) { showMessage('La sigla è obbligatoria', 'error'); return; }
   const payload = { sigla };
   if (nota !== '') payload.note = nota;
   payload.quantita_austria = quantitaAustria;
@@ -1133,9 +1117,7 @@ async function salvaModificaSigla() {
       await caricaSigleArticolo(currentSigleArticoloId);
       caricaArticoli();
     }
-  } catch(err) {
-    showMessage(err.message, 'error');
-  }
+  } catch(err) { showMessage(err.message, 'error'); }
 }
 async function eliminaSigla(id) {
   if (!confirm('Eliminare sigla?')) return;
