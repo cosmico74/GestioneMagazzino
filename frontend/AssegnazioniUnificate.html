@@ -539,31 +539,20 @@ async function caricaCategorie() {
 // GESTIONE CAMBIO TIPO SOGGETTO (reset immediato)
 // ============================================================
 function onTipoSoggettoChanged() {
-  // Svuota il dropdown dei soggetti e la tabella
   sourceId.innerHTML = '<option value="">Seleziona...</option>';
   oggetti = [];
   oggettiOriginali = [];
   popolaTabella();
-  // Poi carica i soggetti del nuovo tipo
   caricaSoggettiPerTipo();
 }
 
 function onSoggettoChanged() {
-  if (radioCarico.checked) {
-    // Se il dropdown ha un valore, carica quel soggetto, altrimenti usa il fallback
-    if (sourceId.value) {
-      caricaOggettiInCarico();
-    } else if (currentUser && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
-      // Fallback: carica i propri oggetti
-      caricaOggettiInCarico();
-    } else {
-      // Admin senza selezione o utente senza riferimento: tabella vuota
-      oggetti = [];
-      oggettiOriginali = [];
-      popolaTabella();
-    }
+  if (radioCarico.checked && sourceId.value) {
+    caricaOggettiInCarico();
+  } else if (radioCarico.checked && currentUser && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
+    // Fallback per vedere i propri oggetti se il dropdown è vuoto
+    caricaOggettiInCarico();
   } else {
-    // Modalità magazzino o altro: tabella vuota
     oggetti = [];
     oggettiOriginali = [];
     popolaTabella();
@@ -598,23 +587,14 @@ async function caricaSoggettiPerTipo() {
       sel.appendChild(new Option(testo, item.id));
     });
     
-    // Se c'è almeno un'opzione e nessuna selezionata, seleziona la prima
     if (sel.options.length > 1 && !sel.value) {
       sel.selectedIndex = 1;
     }
-    // Se c'è un soggetto selezionato, carica subito, altrimenti usa fallback
     if (radioCarico.checked) {
-      if (sel.value) {
-        caricaOggettiInCarico();
-      } else {
-        // Fallback per non-admin: carica i propri oggetti
-        caricaOggettiInCarico();
-      }
+      if (sel.value) caricaOggettiInCarico();
+      else caricaOggettiInCarico(); // fallback per vedere i propri
     } else {
-      // Altrimenti svuota la tabella
-      oggetti = [];
-      oggettiOriginali = [];
-      popolaTabella();
+      oggetti = []; oggettiOriginali = []; popolaTabella();
     }
   } catch(e) {
     sel.innerHTML = '<option value="">Errore nel caricamento</option>';
@@ -680,7 +660,7 @@ async function getKitDetails(kitId) {
 }
 
 // ============================================================
-// CARICAMENTO OGGETTI IN CARICO (con fallback per non-admin)
+// CARICAMENTO OGGETTI IN CARICO (con correzione per inviati)
 // ============================================================
 async function getOggettiInCarico(tipo, id) {
   var body = { targetTipo: tipo, targetId: parseInt(id) };
@@ -782,58 +762,76 @@ async function caricaOggettiInCarico() {
   
   var tipo, id;
   var isAdmin = (currentUser.ruolo === 'admin');
+  var mode = document.querySelector('input[name="caricoMode"]:checked');
+  var modeVal = mode ? mode.value : 'incarico';
+  
   if (isAdmin) {
     tipo = sourceTipo.value;
     id = sourceId.value;
   } else {
-    // Per i non-admin, se il dropdown è vuoto, usa il proprio riferimento
-    var selId = sourceId.value;
-    if (selId) {
-      tipo = sourceTipo.value;
-      id = selId;
-    } else if (currentUser.riferimento_id) {
-      // Fallback: uso il mio ID e il mio tipo (ruolo uppercase)
-      tipo = currentUser.ruolo.toUpperCase();
-      id = currentUser.riferimento_id;
-      console.log('Fallback: usando proprio ID =', id, 'tipo =', tipo);
-    } else {
-      showMessage('Nessun soggetto selezionato e nessun riferimento personale', 'info');
-      popolaTabella();
-      hideLoading();
-      return;
+    tipo = sourceTipo.value;
+    id = sourceId.value;
+    if (!id) {
+      if (currentUser.riferimento_id) {
+        id = currentUser.riferimento_id;
+        tipo = currentUser.ruolo.toUpperCase();
+      } else {
+        showMessage('Seleziona un soggetto dalla lista', 'info');
+        popolaTabella();
+        hideLoading();
+        return;
+      }
     }
   }
   
-  console.log('caricaOggettiInCarico -> tipo:', tipo, 'id:', id);
+  console.log('caricaOggettiInCarico -> tipo:', tipo, 'id:', id, 'mode:', modeVal);
   
   if (!tipo || !id) {
     popolaTabella();
     hideLoading();
     return;
   }
-  var mode = document.querySelector('input[name="caricoMode"]:checked');
-  var modeVal = mode ? mode.value : 'incarico';
+  
   try {
     var inc = [], ass = [];
+    
+    // ===== IN POSSESSO =====
+    // Usa il soggetto SELEZIONATO come destinazione
     if (modeVal === 'incarico' || modeVal === 'entrambi') {
       inc = await getOggettiInCarico(tipo, id);
     }
+    
+    // ===== INVIATO AD ALTRI =====
+    // Usa L'UTENTE LOGGATO come provenienza (non il soggetto selezionato)
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
-      ass = await getOggettiAssegnati(tipo, id);
+      // Per i non-admin, usa il proprio riferimento
+      if (!isAdmin && currentUser.riferimento_id) {
+        var mioTipo = currentUser.ruolo.toUpperCase();
+        var mioId = currentUser.riferimento_id;
+        ass = await getOggettiAssegnati(mioTipo, mioId);
+      } else if (isAdmin) {
+        // Per admin, usa il soggetto selezionato come provenienza (per vedere cosa ha inviato quel soggetto)
+        ass = await getOggettiAssegnati(tipo, id);
+      } else {
+        ass = [];
+      }
     }
+    
     var tutti = [];
     if (modeVal === 'incarico') tutti = inc;
     else if (modeVal === 'assegnati') tutti = ass;
     else tutti = inc.concat(ass);
     oggettiOriginali = tutti;
 
+    // Filtro destinatario (solo per modalità "assegnati" o "entrambi")
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       var referenti = [];
-      if (tipo === 'PROMOTER') {
+      var provenienzaId = isAdmin ? id : (currentUser.riferimento_id || null);
+      if (provenienzaId) {
         try {
           var refData = await apiFetch('/soggetti/visibili');
           referenti = refData.filter(function(s) {
-            return s.tipo === 'PROMOTER' && s.id != id;
+            return s.tipo === 'PROMOTER' && s.id != provenienzaId;
           });
         } catch(e) { console.error(e); }
       }
@@ -1658,7 +1656,6 @@ function setup() {
     sourceId.addEventListener('change', function() {
       if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
       else if (radioCarico.checked && currentUser.riferimento_id) {
-        // Fallback: carica i propri oggetti
         caricaOggettiInCarico();
       } else {
         oggetti = []; oggettiOriginali = []; popolaTabella();
@@ -1675,14 +1672,9 @@ function setup() {
     });
     sourceId.addEventListener('change', function() {
       if (radioCarico.checked) {
-        if (sourceId.value) {
-          caricaOggettiInCarico();
-        } else if (currentUser.riferimento_id) {
-          // Fallback: carica i propri oggetti
-          caricaOggettiInCarico();
-        } else {
-          oggetti = []; oggettiOriginali = []; popolaTabella();
-        }
+        if (sourceId.value) caricaOggettiInCarico();
+        else if (currentUser.riferimento_id) caricaOggettiInCarico();
+        else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
       } else {
         oggetti = []; oggettiOriginali = []; popolaTabella();
       }
