@@ -39,7 +39,6 @@ router.get('/tipo/:tipo', verifyToken, async (req, res) => {
   const validi = ['PROMOTER', 'NEGOZIO', 'CLIENTE', 'AGENTE'];
   if (!validi.includes(tipo)) return res.status(400).json({ error: 'Tipo non valido' });
   try {
-    // Se admin, restituisce tutti i soggetti del tipo richiesto
     if (req.userRole === 'admin') {
       const [rows] = await db.query(
         'SELECT id, tipo, nome, cognome, email, telefono FROM soggetti WHERE tipo = ? ORDER BY nome, cognome',
@@ -47,11 +46,8 @@ router.get('/tipo/:tipo', verifyToken, async (req, res) => {
       );
       return res.json(rows);
     }
-    // Se non admin (promoter)
     const [user] = await db.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
-    if (!user.length || !user[0].riferimento_id) {
-      return res.json([]);
-    }
+    if (!user.length || !user[0].riferimento_id) return res.json([]);
     const promoterId = user[0].riferimento_id;
     const [sog] = await db.query('SELECT livello FROM soggetti WHERE id = ?', [promoterId]);
     const livello = sog.length ? sog[0].livello : 0;
@@ -66,9 +62,7 @@ router.get('/tipo/:tipo', verifyToken, async (req, res) => {
     const params = [tipo, promoterId, promoterId];
 
     if (livello === 1) {
-      // Vede tutti i promoter di livello 1
       sql += ' OR s.livello = 1';
-      // Per i tipi non promoter, vede anche quelli referenziati da un promoter di livello 1
       if (tipo !== 'PROMOTER') {
         sql += ` OR EXISTS (
           SELECT 1 FROM soggetti_referenti sr
@@ -164,12 +158,9 @@ router.get('/:id', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
-    // Se non admin, restituisce solo i soggetti visibili
     if (req.userRole !== 'admin') {
       const [user] = await db.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
-      if (!user.length || !user[0].riferimento_id) {
-        return res.json([]);
-      }
+      if (!user.length || !user[0].riferimento_id) return res.json([]);
       const promoterId = user[0].riferimento_id;
       const [sog] = await db.query('SELECT livello FROM soggetti WHERE id = ?', [promoterId]);
       const livello = sog.length ? sog[0].livello : 0;
@@ -205,7 +196,6 @@ router.get('/', verifyToken, async (req, res) => {
       return res.json(soggettiConReferenti);
     }
 
-    // Admin: tutti i soggetti
     const [rows] = await db.query(`
       SELECT s.*, u.id AS utente_id, u.username AS utente_username, u.ruolo AS utente_ruolo
       FROM soggetti s
@@ -234,10 +224,10 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/soggetti (con controllo permessi)
+// POST /api/soggetti
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
-  const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, nuovaPassword, magazziniAssociati } = req.body;
+  const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, nuovaPassword, magazziniAssociati, creaUtente } = req.body;
   if (!tipo || !nome) return res.status(400).json({ error: 'Tipo e nome sono obbligatori' });
 
   const connection = await db.getConnection();
@@ -249,7 +239,6 @@ router.post('/', verifyToken, async (req, res) => {
       else if (typeof referente === 'string') referenteStr = referente;
     }
 
-    // Se l'utente non è admin, forza l'aggiunta del suo ID come referente
     if (req.userRole !== 'admin') {
       const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
       if (user.length && user[0].riferimento_id) {
@@ -273,6 +262,7 @@ router.post('/', verifyToken, async (req, res) => {
     await syncSoggettiMagazzini(connection, soggettoId, magazziniAssociati || []);
 
     let utenteCreato = null;
+
     // Gestione utente associato (solo admin può associare un utente esistente)
     if (utenteAssociato) {
       if (req.userRole !== 'admin') {
@@ -281,18 +271,20 @@ router.post('/', verifyToken, async (req, res) => {
       const [userExists] = await connection.query('SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)', [utenteAssociato, soggettoId]);
       if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
       await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [soggettoId, utenteAssociato]);
-    } else if (tipo === 'PROMOTER') {
-      // Se il tipo è PROMOTER e l'utente non è admin, crea automaticamente un utente
+    } else if (tipo === 'PROMOTER' && creaUtente === true) {
+      // Crea l'utente solo se esplicitamente richiesto
       const username = email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, '');
+      // Se username è vuoto, usa un fallback
+      const finalUsername = username || 'user_' + soggettoId;
       const password = nuovaPassword && nuovaPassword.trim() ? nuovaPassword.trim() : Math.random().toString(36).slice(-8);
       const hashedPassword = await bcrypt.hash(password, 10);
       const nomeVisualizzato = (nome + ' ' + (cognome || '')).trim();
       const [userResult] = await connection.query(
         `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
          VALUES (?, ?, 'promoter', ?, ?, ?)`,
-        [username, hashedPassword, soggettoId, nomeVisualizzato, email || null]
+        [finalUsername, hashedPassword, soggettoId, nomeVisualizzato, email || null]
       );
-      utenteCreato = { username, password, id: userResult.insertId };
+      utenteCreato = { username: finalUsername, password, id: userResult.insertId };
     }
 
     await connection.commit();
@@ -307,15 +299,14 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /api/soggetti/:id (con controllo permessi)
+// PUT /api/soggetti/:id
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
-  const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, magazziniAssociati } = req.body;
+  const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, magazziniAssociati, creaUtente } = req.body;
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
-    // Controllo permessi per non-admin
     if (req.userRole !== 'admin') {
       const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
       if (!user.length || !user[0].riferimento_id) {
@@ -358,6 +349,26 @@ router.put('/:id', verifyToken, async (req, res) => {
       }
     }
 
+    // Gestione creazione utente su modifica (solo per promoter e solo se richiesto)
+    if (tipo === 'PROMOTER' && creaUtente === true && req.userRole === 'admin') {
+      const [existingUser] = await connection.query('SELECT id FROM utenti WHERE riferimento_id = ?', [req.params.id]);
+      if (existingUser.length === 0) {
+        const username = email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, '');
+        const finalUsername = username || 'user_' + req.params.id;
+        const password = Math.random().toString(36).slice(-8);
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const nomeVisualizzato = (nome + ' ' + (cognome || '')).trim();
+        await connection.query(
+          `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
+           VALUES (?, ?, 'promoter', ?, ?, ?)`,
+          [finalUsername, hashedPassword, req.params.id, nomeVisualizzato, email || null]
+        );
+        // Nota: la password non viene restituita nella risposta PUT
+        // Si potrebbe loggare, ma non è sicuro. L'admin può reimpostarla da Gestione Utenti.
+        console.log(`🔑 Utente creato per soggetto ${req.params.id} con username ${finalUsername}`);
+      }
+    }
+
     await connection.commit();
     res.json({ success: true });
   } catch (err) {
@@ -373,7 +384,6 @@ router.put('/:id', verifyToken, async (req, res) => {
 // DELETE /api/soggetti/:id (solo admin)
 // ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
-  // Solo admin può eliminare soggetti
   if (req.userRole !== 'admin') {
     return res.status(403).json({ error: 'Solo admin può eliminare soggetti' });
   }

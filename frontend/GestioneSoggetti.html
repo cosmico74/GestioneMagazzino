@@ -35,6 +35,9 @@
     }
     .checkbox-group label:hover { background: #f0f4ff; }
     .checkbox-group input[type="checkbox"] { margin-right: 8px; transform: scale(1.1); }
+    .checkbox-inline { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+    .checkbox-inline input[type="checkbox"] { width: auto; margin: 0; transform: scale(1.1); }
+    .checkbox-inline label { font-weight: normal; font-size: 0.8rem; margin: 0; cursor: pointer; }
     .btn-sm { padding: 3px 8px; font-size: 0.7rem; }
     .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: flex-end; }
     .filter-group { flex: 1; min-width: 150px; }
@@ -74,6 +77,7 @@
     .logo { display: flex; justify-content: center; flex: 1; }
     .logo img { height: 120px; width: auto; display: block; }
     .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; }
+    .field-note { color: #666; font-size: 0.65rem; display: block; margin-top: 2px; }
     @media (max-width: 768px) { .filter-bar { flex-direction: column; } .container { padding: 15px; } }
   </style>
 </head>
@@ -166,6 +170,16 @@
         <label>Utente associato (esistente)</label>
         <select id="utenteAssociato" class="form-control"><option value="">-- Nessuno --</option></select>
       </div>
+
+      <!-- ===== NUOVO CHECKBOX PER CREAZIONE UTENTE OPZIONALE ===== -->
+      <div class="form-group" id="creaUtenteGroup" style="display:none;">
+        <div class="checkbox-inline">
+          <input type="checkbox" id="creaUtente" checked>
+          <label for="creaUtente">🔐 Crea un utente per questo promoter (potrà accedere al sistema)</label>
+        </div>
+        <small class="field-note">Se deselezionato, il promoter sarà solo un soggetto di riferimento senza credenziali di accesso.</small>
+      </div>
+
       <div class="form-group" id="passwordGroup" style="display:none;">
         <label>Password (nuovo utente, solo per promoter)</label>
         <input type="password" id="nuovaPassword" class="form-control" placeholder="Lascia vuoto per generare automatica">
@@ -188,8 +202,6 @@ async function apiFetch(e, o = {}) {
   const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...o.headers };
   const r = await fetch('/api' + e, { ...o, headers });
   if (r.status === 401 || r.status === 403) {
-    // Per i promoter, se ricevono 403 su /utenti, non vogliamo fare logout automatico
-    // Controlliamo l'URL per evitare logout su /utenti
     if (e !== '/utenti') {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -223,7 +235,6 @@ async function caricaMagazzini() {
   try { magazzini = await apiFetch('/anagrafiche/magazzini'); } catch(e) { console.error(e); }
 }
 async function caricaUtentiLiberi() {
-  // Solo admin può caricare gli utenti
   if (!isAdmin) {
     document.getElementById('utenteAssociato').innerHTML = '<option value="">-- Solo admin --</option>';
     document.getElementById('utenteAssociato').disabled = true;
@@ -297,9 +308,18 @@ function renderTabella(lista) {
 function togglePasswordField() {
   const tipo = document.getElementById('tipo').value;
   const utenteSel = document.getElementById('utenteAssociato').value;
-  const show = (tipo === 'PROMOTER' && !utenteSel && isAdmin); // solo admin può creare utenti
-  document.getElementById('passwordGroup').style.display = show ? 'block' : 'none';
+  const showPassword = (tipo === 'PROMOTER' && !utenteSel && isAdmin);
+  document.getElementById('passwordGroup').style.display = showPassword ? 'block' : 'none';
+
+  // Mostra/nascondi il checkbox "Crea utente" per i promoter quando non c'è utente associato
+  const creaUtenteGroup = document.getElementById('creaUtenteGroup');
+  if (tipo === 'PROMOTER' && !utenteSel) {
+    creaUtenteGroup.style.display = 'block';
+  } else {
+    creaUtenteGroup.style.display = 'none';
+  }
 }
+
 async function apriModaleNuovo() {
   document.getElementById('modalTitle').innerText = 'Nuovo Soggetto';
   document.getElementById('soggettoId').value = '';
@@ -316,8 +336,8 @@ async function apriModaleNuovo() {
   document.getElementById('attivo').value = '1';
   document.getElementById('note').value = '';
   document.getElementById('nuovaPassword').value = '';
-  
-  // Carica utenti solo se admin
+  document.getElementById('creaUtente').checked = true;
+
   await caricaUtentiLiberi();
   document.getElementById('utenteAssociato').value = '';
   togglePasswordField();
@@ -332,8 +352,8 @@ async function apriModaleNuovo() {
       }
     }
     tipoSelect.value = 'PROMOTER';
-    // Disabilita il campo utente
     document.getElementById('utenteAssociato').disabled = true;
+    document.getElementById('creaUtenteGroup').style.display = 'block';
   } else {
     document.getElementById('utenteAssociato').disabled = false;
   }
@@ -341,6 +361,7 @@ async function apriModaleNuovo() {
   popolaCheckboxes([]);
   document.getElementById('soggettoModal').style.display = 'flex';
 }
+
 async function modificaSoggetto(id) {
   try {
     const s = await apiFetch('/soggetti/' + id);
@@ -359,7 +380,7 @@ async function modificaSoggetto(id) {
     document.getElementById('livello').value = s.livello || '0';
     document.getElementById('attivo').value = s.attivo ? '1' : '0';
     document.getElementById('note').value = s.note || '';
-    
+
     await caricaUtentiLiberi();
     const selUt = document.getElementById('utenteAssociato');
     if (s.utenteAssociato) {
@@ -367,12 +388,17 @@ async function modificaSoggetto(id) {
       for (let i=0; i<selUt.options.length; i++) { if (selUt.options[i].value == s.utenteAssociato.id) { exists = true; break; } }
       if (!exists) selUt.appendChild(new Option(s.utenteAssociato.username + ' (' + s.utenteAssociato.ruolo + ')', s.utenteAssociato.id));
       selUt.value = s.utenteAssociato.id;
-    } else selUt.value = '';
+    } else {
+      selUt.value = '';
+    }
+    document.getElementById('creaUtente').checked = false;
     document.getElementById('passwordGroup').style.display = 'none';
+    togglePasswordField();
     popolaCheckboxes(s);
     document.getElementById('soggettoModal').style.display = 'flex';
   } catch(e) { showMessage('Errore caricamento soggetto: '+e.message, 'error'); }
 }
+
 function popolaCheckboxes(sog) {
   const currentRefs = sog.referenti || [];
   const currentMags = sog.magazziniAssociati || [];
@@ -382,7 +408,6 @@ function popolaCheckboxes(sog) {
 
   if (!isAdmin) {
     if (!currentId) {
-      // Nuovo soggetto: precompila con il promoter stesso come referente
       const label = document.createElement('label');
       const cb = document.createElement('input');
       cb.type = 'checkbox';
@@ -395,7 +420,6 @@ function popolaCheckboxes(sog) {
       label.appendChild(document.createTextNode(' ' + nome + ' (tu)'));
       containerRef.appendChild(label);
     } else {
-      // Modifica: mostra solo i referenti esistenti (disabilitati)
       soggetti.forEach(s => {
         if (s.id == currentId) return;
         if (!currentRefs.includes(s.id)) return;
@@ -438,6 +462,7 @@ function popolaCheckboxes(sog) {
     containerMag.appendChild(label);
   });
 }
+
 function chiudiModal() { document.getElementById('soggettoModal').style.display = 'none'; }
 
 // ============================================================
@@ -463,7 +488,9 @@ async function salvaSoggetto() {
     livello: parseInt(document.getElementById('livello').value) || null,
     note: document.getElementById('note').value.trim(),
     utenteAssociato: document.getElementById('utenteAssociato').value || null,
-    nuovaPassword: document.getElementById('nuovaPassword').value || null
+    nuovaPassword: document.getElementById('nuovaPassword').value || null,
+    // AGGIUNTO: flag per creazione utente opzionale
+    creaUtente: document.getElementById('creaUtente').checked
   };
   if (!dati.nome) { showMessage('Il nome è obbligatorio', 'error'); return; }
   try {
@@ -479,6 +506,7 @@ async function salvaSoggetto() {
     caricaSoggetti();
   } catch(e) { showMessage('Errore: '+e.message, 'error'); }
 }
+
 async function eliminaSoggetto(id) {
   if (!confirm('Eliminare questo soggetto? L\'utente associato rimarrà senza riferimento.')) return;
   try {
