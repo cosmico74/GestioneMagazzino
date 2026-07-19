@@ -114,7 +114,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD SIGLE - VERSIONE CON RIATTIVAZIONE E CONTROLLO RIDUZIONE
+// CRUD SIGLE - VERSIONE CON RIATTIVAZIONE
 // ============================================================
 router.get('/:id/sigle', verifyToken, async (req, res) => {
   try {
@@ -236,7 +236,7 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /sigle/:id/quantita - CON LOG E CONTROLLO RIDUZIONE
+// PUT /sigle/:id/quantita - CON LOG DETTAGLIATO PER DEBUG
 // ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   console.log('🔍 [PUT] /sigle/:id/quantita - params.id:', req.params.id);
@@ -272,37 +272,71 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     await connection.beginTransaction();
     console.log('📊 [PUT] transazione iniziata');
 
-    const [sigla] = await connection.query('SELECT articolo_id FROM sigle_articoli WHERE id = ?', [req.params.id]);
-    if (!sigla.length) {
+    // 1. Recupera la sigla per avere articolo_id e quantità attuale
+    const [siglaRows] = await connection.query(
+      'SELECT * FROM sigle_articoli WHERE id = ?',
+      [req.params.id]
+    );
+    if (!siglaRows.length) {
       await connection.rollback();
       return res.status(404).json({ error: 'Sigla non trovata' });
     }
-    const articoloId = sigla[0].articolo_id;
-    console.log(`📊 [PUT] articoloId: ${articoloId}`);
+    const sigla = siglaRows[0];
+    const articoloId = sigla.articolo_id;
+    console.log(`📊 [PUT] sigla trovata: ID ${sigla.id}, sigla "${sigla.sigla}", quantità attuale: ${sigla.quantita}, articoloId: ${articoloId}`);
 
-    const [usedInKit] = await connection.query(
-      'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
+    // 2. Leggi TUTTI i dettagli dei kit che usano questa sigla
+    const [kitDettagli] = await connection.query(
+      'SELECT * FROM kit_dettaglio WHERE sigla_id = ?',
       [req.params.id]
     );
-    const [assegnato] = await connection.query(
-      'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
+    console.log(`📊 [PUT] trovati ${kitDettagli.length} dettagli kit per sigla ${req.params.id}:`);
+    console.log(JSON.stringify(kitDettagli, null, 2));
+
+    // 3. Leggi TUTTI gli assegnamenti in carico_sintesi per questa sigla
+    const [caricoRows] = await connection.query(
+      'SELECT * FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
       [req.params.id, 'ARTICOLO']
     );
-    const impegnato = usedInKit[0].totale + assegnato[0].totale;
-    console.log(`📊 [PUT] impegnato: ${impegnato} (kit: ${usedInKit[0].totale}, assegnato: ${assegnato[0].totale})`);
+    console.log(`📊 [PUT] trovati ${caricoRows.length} assegnamenti in carico_sintesi per sigla ${req.params.id}:`);
+    console.log(JSON.stringify(caricoRows, null, 2));
 
+    // 4. Calcola impegni
+    let kitImpegno = 0;
+    for (const det of kitDettagli) {
+      kitImpegno += det.quantita;
+    }
+    let assegnato = 0;
+    for (const row of caricoRows) {
+      assegnato += row.quantita;
+    }
+    const impegnato = kitImpegno + assegnato;
+    console.log(`📊 [PUT] kitImpegno: ${kitImpegno}, assegnato: ${assegnato}, totale impegnato: ${impegnato}`);
+
+    // 5. Controllo: se la nuova quantità è inferiore all'impegnato, blocca
     if (qtaIntero < impegnato) {
       await connection.rollback();
+      console.log(`❌ [PUT] bloccato: qtaIntero ${qtaIntero} < impegnato ${impegnato}`);
       return res.status(400).json({
-        error: `Impossibile ridurre la sigla: ${impegnato} unità sono già impegnate (${usedInKit[0].totale} in kit, ${assegnato[0].totale} assegnate)`
+        error: `Impossibile ridurre la sigla: ${impegnato} unità sono già impegnate (${kitImpegno} in kit, ${assegnato} assegnate)`,
+        details: {
+          kitImpegno,
+          assegnato,
+          impegnato,
+          kitDettagli: kitDettagli.map(d => ({ kit_id: d.kit_id, quantita: d.quantita })),
+          caricoRows: caricoRows.map(r => ({ destinazione_id: r.destinazione_id, quantita: r.quantita }))
+        }
       });
     }
 
+    // 6. Aggiorna la quantità
     await connection.query(
       'UPDATE sigle_articoli SET quantita = ? WHERE id = ?',
       [qtaIntero, req.params.id]
     );
+    console.log(`✅ [PUT] quantità aggiornata a ${qtaIntero}`);
 
+    // 7. Ricalcola la quantita_totale dell'articolo
     await ricalcolaQuantitaTotale(connection, articoloId);
     console.log('📊 [PUT] ricalcolo completato');
 
