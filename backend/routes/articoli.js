@@ -239,43 +239,49 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
 // PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E LOG PER DEBUG
 // ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
-  console.log('🔍 PUT /sigle/:id/quantita - params.id:', req.params.id);
-  console.log('🔍 PUT /sigle/:id/quantita - body:', req.body);
-  console.log('🔍 PUT /sigle/:id/quantita - content-type:', req.headers['content-type']);
+  console.log('🔍 [PUT] /sigle/:id/quantita - params.id:', req.params.id);
+  console.log('🔍 [PUT] body ricevuto:', JSON.stringify(req.body, null, 2));
+  console.log('🔍 [PUT] content-type:', req.headers['content-type']);
 
   let { quantita } = req.body;
 
-  // Se quantita è undefined o null, setta a 0
+  // Se il campo non esiste o è null/undefined, restituisci errore chiaro
   if (quantita === undefined || quantita === null) {
-    quantita = 0;
-  }
-
-  // Converti a numero (se stringa, parse; se booleano, 0/1)
-  const quantitaNum = Number(quantita);
-  if (isNaN(quantitaNum) || !Number.isFinite(quantitaNum)) {
     return res.status(400).json({
-      error: 'Quantità non valida',
-      received: quantita,
-      message: 'Invia un numero valido'
+      error: 'Campo "quantita" mancante',
+      received: quantita
     });
   }
 
-  // Arrotonda all'intero più vicino
+  // Converti a numero e arrotonda all'intero più vicino
+  const quantitaNum = Number(quantita);
+  if (isNaN(quantitaNum) || !Number.isFinite(quantitaNum)) {
+    return res.status(400).json({
+      error: 'Quantità non numerica',
+      received: quantita,
+      type: typeof quantita
+    });
+  }
   const qtaIntero = Math.round(quantitaNum);
   if (qtaIntero < 0) {
     return res.status(400).json({ error: 'Quantità non può essere negativa' });
   }
 
-  console.log(`📊 PUT /sigle/${req.params.id}/quantita - qtaIntero:`, qtaIntero);
+  console.log(`📊 [PUT] qtaIntero: ${qtaIntero}`);
 
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+    console.log('📊 [PUT] transazione iniziata');
 
     // Recupera l'articolo_id della sigla
     const [sigla] = await connection.query('SELECT articolo_id FROM sigle_articoli WHERE id = ?', [req.params.id]);
-    if (!sigla.length) throw new Error('Sigla non trovata');
+    if (!sigla.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Sigla non trovata' });
+    }
     const articoloId = sigla[0].articolo_id;
+    console.log(`📊 [PUT] articoloId: ${articoloId}`);
 
     // Calcola quanto è già usato nei kit
     const [usedInKit] = await connection.query(
@@ -288,6 +294,7 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       [req.params.id, 'ARTICOLO']
     );
     const impegnato = usedInKit[0].totale + assegnato[0].totale;
+    console.log(`📊 [PUT] impegnato: ${impegnato} (kit: ${usedInKit[0].totale}, assegnato: ${assegnato[0].totale})`);
 
     // Se la nuova quantità è inferiore all'impegnato, blocca
     if (qtaIntero < impegnato) {
@@ -298,19 +305,26 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     }
 
     // Aggiorna la quantità
-    await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [qtaIntero, req.params.id]);
+    const [updateResult] = await connection.query(
+      'UPDATE sigle_articoli SET quantita = ? WHERE id = ?',
+      [qtaIntero, req.params.id]
+    );
+    console.log(`📊 [PUT] updateResult: ${JSON.stringify(updateResult)}`);
 
     // Ricalcola la quantita_totale dell'articolo
     await ricalcolaQuantitaTotale(connection, articoloId);
+    console.log('📊 [PUT] ricalcolo completato');
 
     await connection.commit();
+    console.log('📊 [PUT] transazione committata');
     res.json({ success: true, message: 'Quantità aggiornata' });
   } catch (err) {
     await connection.rollback();
-    console.error('❌ Errore PUT /sigle/quantita:', err);
-    res.status(500).json({ error: err.message });
+    console.error('❌ [PUT] Errore:', err);
+    res.status(500).json({ error: err.message, stack: err.stack });
   } finally {
     connection.release();
+    console.log('📊 [PUT] connessione rilasciata');
   }
 });
 

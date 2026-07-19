@@ -1047,7 +1047,6 @@ async function caricaSigleArticolo(articoloId) {
 }
 async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
   console.log('📤 aggiornaQuantitaSigla - siglaId:', siglaId, 'nuovaQuantita:', nuovaQuantita);
-  // Assicura che nuovaQuantita sia un numero valido
   let qta = parseInt(nuovaQuantita);
   if (isNaN(qta) || qta < 0) {
     qta = 0;
@@ -1059,16 +1058,20 @@ async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
       method: 'PUT',
       body: JSON.stringify({ quantita: qta })
     });
+    console.log('📤 aggiornaQuantitaSigla - risposta:', res);
     if (res.success) {
       showMessage('Quantità aggiornata', 'success');
       await caricaSigleArticolo(articoloId);
       caricaArticoli();
-    } else showMessage(res.message, 'error');
+    } else {
+      showMessage(res.error || res.message || 'Errore', 'error');
+    }
   } catch(err) {
     showMessage('Errore: ' + err.message, 'error');
     console.error('❌ Errore aggiornaQuantitaSigla:', err);
   }
 }
+
 async function aggiornaQuantitaAustriaSigla(siglaId, nuovaQuantita) {
   const qta = parseInt(nuovaQuantita);
   if (isNaN(qta) || qta < 0) { showMessage('Quantità Austria non valida', 'error'); return; }
