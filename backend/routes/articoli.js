@@ -236,7 +236,7 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E LOG PER DEBUG
+// PUT /sigle/:id/quantita - CON LOG E CONTROLLO RIDUZIONE
 // ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   console.log('🔍 [PUT] /sigle/:id/quantita - params.id:', req.params.id);
@@ -245,7 +245,6 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
 
   let { quantita } = req.body;
 
-  // Se il campo non esiste o è null/undefined, restituisci errore chiaro
   if (quantita === undefined || quantita === null) {
     return res.status(400).json({
       error: 'Campo "quantita" mancante',
@@ -253,7 +252,6 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     });
   }
 
-  // Converti a numero e arrotonda all'intero più vicino
   const quantitaNum = Number(quantita);
   if (isNaN(quantitaNum) || !Number.isFinite(quantitaNum)) {
     return res.status(400).json({
@@ -274,7 +272,6 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     await connection.beginTransaction();
     console.log('📊 [PUT] transazione iniziata');
 
-    // Recupera l'articolo_id della sigla
     const [sigla] = await connection.query('SELECT articolo_id FROM sigle_articoli WHERE id = ?', [req.params.id]);
     if (!sigla.length) {
       await connection.rollback();
@@ -283,12 +280,10 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     const articoloId = sigla[0].articolo_id;
     console.log(`📊 [PUT] articoloId: ${articoloId}`);
 
-    // Calcola quanto è già usato nei kit
     const [usedInKit] = await connection.query(
       'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
       [req.params.id]
     );
-    // Calcola quanto è già assegnato (carico_sintesi)
     const [assegnato] = await connection.query(
       'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
       [req.params.id, 'ARTICOLO']
@@ -296,7 +291,6 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     const impegnato = usedInKit[0].totale + assegnato[0].totale;
     console.log(`📊 [PUT] impegnato: ${impegnato} (kit: ${usedInKit[0].totale}, assegnato: ${assegnato[0].totale})`);
 
-    // Se la nuova quantità è inferiore all'impegnato, blocca
     if (qtaIntero < impegnato) {
       await connection.rollback();
       return res.status(400).json({
@@ -304,14 +298,11 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       });
     }
 
-    // Aggiorna la quantità
-    const [updateResult] = await connection.query(
+    await connection.query(
       'UPDATE sigle_articoli SET quantita = ? WHERE id = ?',
       [qtaIntero, req.params.id]
     );
-    console.log(`📊 [PUT] updateResult: ${JSON.stringify(updateResult)}`);
 
-    // Ricalcola la quantita_totale dell'articolo
     await ricalcolaQuantitaTotale(connection, articoloId);
     console.log('📊 [PUT] ricalcolo completato');
 
