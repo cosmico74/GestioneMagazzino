@@ -999,6 +999,12 @@ async function caricaSigleArticolo(articoloId) {
       qtaInput.value = s.quantita || 0;
       qtaInput.style.width = '80px';
       qtaInput.dataset.siglaId = s.id;
+      // Listener per evitare valori vuoti o negativi
+      qtaInput.addEventListener('input', function() {
+        if (this.value === '' || this.value === '-') {
+          this.value = 0;
+        }
+      });
       qtaCell.appendChild(qtaInput);
       const qtaAustriaCell = row.insertCell(5);
       const qtaAustriaInput = document.createElement('input');
@@ -1014,7 +1020,10 @@ async function caricaSigleArticolo(articoloId) {
       btnSave.textContent = '💾';
       btnSave.className = 'btn';
       btnSave.style.padding = '2px 6px';
-      btnSave.onclick = () => aggiornaQuantitaSigla(articoloId, s.id, qtaInput.value);
+      btnSave.onclick = function() {
+        console.log('💾 btnSave.click - siglaId:', s.id, 'qtaInput.value:', qtaInput.value);
+        aggiornaQuantitaSigla(articoloId, s.id, qtaInput.value);
+      };
       actionsCell.appendChild(btnSave);
       const btnSaveAustria = document.createElement('button');
       btnSaveAustria.textContent = '🇦🇹';
@@ -1037,16 +1046,28 @@ async function caricaSigleArticolo(articoloId) {
   } catch(err) { showMessage('Errore caricamento sigle', 'error'); console.error(err); }
 }
 async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
-  const qta = parseInt(nuovaQuantita);
-  if (isNaN(qta) || qta < 0) { showMessage('Quantità non valida', 'error'); return; }
+  console.log('📤 aggiornaQuantitaSigla - siglaId:', siglaId, 'nuovaQuantita:', nuovaQuantita);
+  // Assicura che nuovaQuantita sia un numero valido
+  let qta = parseInt(nuovaQuantita);
+  if (isNaN(qta) || qta < 0) {
+    qta = 0;
+  }
+  console.log('📤 aggiornaQuantitaSigla - qta parsed:', qta);
   try {
-    const res = await apiFetch('/articoli/sigle/' + siglaId + '/quantita', { method: 'PUT', body: JSON.stringify({ quantita: qta }) });
+    console.log('📤 aggiornaQuantitaSigla - body inviato:', JSON.stringify({ quantita: qta }));
+    const res = await apiFetch('/articoli/sigle/' + siglaId + '/quantita', {
+      method: 'PUT',
+      body: JSON.stringify({ quantita: qta })
+    });
     if (res.success) {
       showMessage('Quantità aggiornata', 'success');
       await caricaSigleArticolo(articoloId);
       caricaArticoli();
     } else showMessage(res.message, 'error');
-  } catch(err) { showMessage(err.message, 'error'); }
+  } catch(err) {
+    showMessage('Errore: ' + err.message, 'error');
+    console.error('❌ Errore aggiornaQuantitaSigla:', err);
+  }
 }
 async function aggiornaQuantitaAustriaSigla(siglaId, nuovaQuantita) {
   const qta = parseInt(nuovaQuantita);

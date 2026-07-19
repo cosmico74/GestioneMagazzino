@@ -236,30 +236,37 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E VALIDAZIONE TOLLERANTE
+// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E LOG PER DEBUG
 // ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
-  console.log('🔍 PUT /sigle/:id/quantita - body ricevuto:', req.body);
+  console.log('🔍 PUT /sigle/:id/quantita - params.id:', req.params.id);
+  console.log('🔍 PUT /sigle/:id/quantita - body:', req.body);
+  console.log('🔍 PUT /sigle/:id/quantita - content-type:', req.headers['content-type']);
+
   let { quantita } = req.body;
 
-  // Se il campo non esiste o è null/undefined, imposta 0
+  // Se quantita è undefined o null, setta a 0
   if (quantita === undefined || quantita === null) {
     quantita = 0;
   }
 
-  // Converti a numero e arrotonda all'intero più vicino
+  // Converti a numero (se stringa, parse; se booleano, 0/1)
   const quantitaNum = Number(quantita);
-  if (isNaN(quantitaNum)) {
+  if (isNaN(quantitaNum) || !Number.isFinite(quantitaNum)) {
     return res.status(400).json({
       error: 'Quantità non valida',
       received: quantita,
       message: 'Invia un numero valido'
     });
   }
+
+  // Arrotonda all'intero più vicino
   const qtaIntero = Math.round(quantitaNum);
   if (qtaIntero < 0) {
     return res.status(400).json({ error: 'Quantità non può essere negativa' });
   }
+
+  console.log(`📊 PUT /sigle/${req.params.id}/quantita - qtaIntero:`, qtaIntero);
 
   const connection = await db.getConnection();
   try {
