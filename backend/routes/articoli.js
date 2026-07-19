@@ -236,24 +236,20 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E LOG
+// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E LOG (versione tollerante)
 // ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   console.log('🔍 PUT /sigle/:id/quantita - body ricevuto:', req.body);
   const { quantita } = req.body;
 
-  // Validazione robusta
-  if (quantita === undefined || quantita === null || isNaN(quantita) || quantita < 0) {
+  // Converti a numero: se è stringa vuota o null, diventa 0
+  const quantitaNum = Number(quantita);
+  if (isNaN(quantitaNum) || !Number.isInteger(quantitaNum) || quantitaNum < 0) {
     return res.status(400).json({
       error: 'Quantità non valida',
       received: quantita,
-      message: 'Invia un numero valido >= 0'
+      message: 'Invia un numero intero >= 0 (o stringa vuota per 0)'
     });
-  }
-
-  const quantitaNum = parseFloat(quantita);
-  if (!Number.isInteger(quantitaNum)) {
-    return res.status(400).json({ error: 'La quantità deve essere un numero intero' });
   }
 
   const connection = await db.getConnection();
