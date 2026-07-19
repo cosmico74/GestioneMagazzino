@@ -236,20 +236,29 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E LOG (versione tollerante)
+// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E VALIDAZIONE TOLLERANTE
 // ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   console.log('🔍 PUT /sigle/:id/quantita - body ricevuto:', req.body);
-  const { quantita } = req.body;
+  let { quantita } = req.body;
 
-  // Converti a numero: se è stringa vuota o null, diventa 0
+  // Se il campo non esiste o è null/undefined, imposta 0
+  if (quantita === undefined || quantita === null) {
+    quantita = 0;
+  }
+
+  // Converti a numero e arrotonda all'intero più vicino
   const quantitaNum = Number(quantita);
-  if (isNaN(quantitaNum) || !Number.isInteger(quantitaNum) || quantitaNum < 0) {
+  if (isNaN(quantitaNum)) {
     return res.status(400).json({
       error: 'Quantità non valida',
       received: quantita,
-      message: 'Invia un numero intero >= 0 (o stringa vuota per 0)'
+      message: 'Invia un numero valido'
     });
+  }
+  const qtaIntero = Math.round(quantitaNum);
+  if (qtaIntero < 0) {
+    return res.status(400).json({ error: 'Quantità non può essere negativa' });
   }
 
   const connection = await db.getConnection();
@@ -274,7 +283,7 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     const impegnato = usedInKit[0].totale + assegnato[0].totale;
 
     // Se la nuova quantità è inferiore all'impegnato, blocca
-    if (quantitaNum < impegnato) {
+    if (qtaIntero < impegnato) {
       await connection.rollback();
       return res.status(400).json({
         error: `Impossibile ridurre la sigla: ${impegnato} unità sono già impegnate (${usedInKit[0].totale} in kit, ${assegnato[0].totale} assegnate)`
@@ -282,7 +291,7 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     }
 
     // Aggiorna la quantità
-    await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantitaNum, req.params.id]);
+    await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [qtaIntero, req.params.id]);
 
     // Ricalcola la quantita_totale dell'articolo
     await ricalcolaQuantitaTotale(connection, articoloId);
