@@ -68,6 +68,28 @@
       font-size: 0.75rem;
       background: white;
     }
+    .filter-group.checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 160px;
+      flex: 0 1 auto;
+    }
+    .filter-group.checkbox-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: normal;
+      font-size: 0.75rem;
+      text-transform: none;
+      cursor: pointer;
+      margin: 0;
+    }
+    .filter-group.checkbox-group input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+      cursor: pointer;
+    }
     .radio-group {
       display: flex;
       flex-wrap: wrap;
@@ -176,6 +198,24 @@
           <option value="KIT">Solo Kit</option>
         </select>
       </div>
+      <!-- NUOVI FILTRI -->
+      <div class="filter-group">
+        <label>Codice</label>
+        <input type="text" id="filtroCodice" placeholder="Codice...">
+      </div>
+      <div class="filter-group">
+        <label>Descrizione</label>
+        <input type="text" id="filtroDescrizione" placeholder="Descrizione...">
+      </div>
+      <div class="filter-group">
+        <label>Lunghezza</label>
+        <input type="text" id="filtroLunghezza" placeholder="Lunghezza...">
+      </div>
+      <div class="filter-group checkbox-group">
+        <label>
+          <input type="checkbox" id="raggruppaCheck"> Raggruppa per modello
+        </label>
+      </div>
       <div class="btn-group">
         <button class="btn" onclick="caricaItalia()">🔍 Carica</button>
         <button class="btn btn-warning" onclick="anteprimaPDF('italia')">👁️ Anteprima PDF</button>
@@ -192,7 +232,7 @@
             <th>Codice</th>
             <th>Descrizione</th>
             <th>Lunghezza</th>
-            <th>Sigla (solo Kit)</th>
+            <th id="colonnaSigla">Sigla (solo Kit)</th>
             <th>Nota</th>
             <th>Stato</th>
             <th>Destinatario</th>
@@ -417,17 +457,25 @@ function renderAustria(data) {
 }
 
 // ============================================================
-// REPORT ITALIA (con giacenza)
+// REPORT ITALIA (con raggruppamento e filtri)
 // ============================================================
 async function caricaItalia() {
   const magazzino = document.getElementById('italiaMagazzino').value;
   const tipo = document.getElementById('italiaTipo').value;
+  const raggruppa = document.getElementById('raggruppaCheck').checked;
+  const filtroCodice = document.getElementById('filtroCodice').value;
+  const filtroDescrizione = document.getElementById('filtroDescrizione').value;
+  const filtroLunghezza = document.getElementById('filtroLunghezza').value;
   const tbody = document.getElementById('italiaBody');
   tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>';
   try {
     const params = new URLSearchParams();
     if (magazzino) params.append('magazzino', magazzino);
     if (tipo) params.append('tipo', tipo);
+    if (raggruppa) params.append('raggruppa', 'true');
+    if (filtroCodice) params.append('filtro_codice', filtroCodice);
+    if (filtroDescrizione) params.append('filtro_descrizione', filtroDescrizione);
+    if (filtroLunghezza) params.append('filtro_lunghezza', filtroLunghezza);
     const r = await apiFetch('/report/italia?' + params.toString());
     if (r.success) {
       italiaData = r.data;
@@ -442,6 +490,13 @@ async function caricaItalia() {
 function renderItalia(data) {
   const tbody = document.getElementById('italiaBody');
   tbody.innerHTML = '';
+  const raggruppa = document.getElementById('raggruppaCheck').checked;
+  // Aggiorna intestazione colonna sigla
+  const thSigla = document.getElementById('colonnaSigla');
+  if (thSigla) {
+    thSigla.innerText = raggruppa ? 'Sigle' : 'Sigla (solo Kit)';
+  }
+
   if (!data || !data.length) {
     tbody.innerHTML = '<tr><td colspan="12" class="text-center">📭 Nessun dato</td></tr>';
     return;
@@ -452,7 +507,7 @@ function renderItalia(data) {
     const badge = tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
     const stato = r.stato || 'In magazzino';
     const statoBadge = stato === 'In magazzino' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-    
+
     row.insertCell(0).innerText = i + 1;
     row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
     row.insertCell(2).innerText = r.codice || '-';
@@ -461,7 +516,7 @@ function renderItalia(data) {
     if (tipo === 'KIT') {
       row.insertCell(5).innerText = r.sigla_sci || 'NA';
     } else {
-      row.insertCell(5).innerText = '';
+      row.insertCell(5).innerText = raggruppa ? (r.sigle || '') : '';
     }
     row.insertCell(6).innerText = r.nota || '';
     row.insertCell(7).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
@@ -589,13 +644,14 @@ async function generaPDF(tab, anteprima = false) {
     filename = 'report_austria.pdf';
   } else if (tab === 'italia') {
     data = italiaData;
+    const raggruppa = document.getElementById('raggruppaCheck').checked;
     columns = [
       { header: '#', dataKey: 'index' },
       { header: 'Tipo', dataKey: 'tipo_oggetto' },
       { header: 'Codice', dataKey: 'codice' },
       { header: 'Descrizione', dataKey: 'descrizione' },
       { header: 'Lunghezza', dataKey: 'lunghezza' },
-      { header: 'Sigla (Kit)', dataKey: 'sigla_sci' },
+      { header: raggruppa ? 'Sigle' : 'Sigla (Kit)', dataKey: 'sigla_sci' },
       { header: 'Nota', dataKey: 'nota' },
       { header: 'Stato', dataKey: 'stato' },
       { header: 'Destinatario', dataKey: 'destinatario' },
@@ -637,6 +693,14 @@ async function generaPDF(tab, anteprima = false) {
     if (row.stato) row.stato = row.stato.replace(/[📦📤]/g, '').trim();
     if (row.tipo_oggetto) row.tipo_oggetto = row.tipo_oggetto.replace(/[📦📤]/g, '').trim();
     if (row.tipo) row.tipo = row.tipo.replace(/[📦📤]/g, '').trim();
+    // Per la colonna sigla_sci, se raggruppato e tipo ARTICOLO, usa sigle
+    if (row.tipo_oggetto === 'ARTICOLO' && row.sigle) {
+      row.sigla_sci = row.sigle;
+    } else if (row.tipo_oggetto === 'KIT' && row.sigla_sci) {
+      // ok
+    } else {
+      row.sigla_sci = row.sigla_sci || '';
+    }
     return row;
   });
 
@@ -725,7 +789,8 @@ function esportaCSV(tab) {
     filename = 'report_austria.csv';
   } else if (tab === 'italia') {
     data = italiaData;
-    columns = ['tipo_oggetto', 'codice', 'descrizione', 'lunghezza', 'sigla_sci', 'nota', 'stato', 'destinatario', 'quantita', 'giacenza', 'magazzino_nome'];
+    const raggruppa = document.getElementById('raggruppaCheck').checked;
+    columns = ['tipo_oggetto', 'codice', 'descrizione', 'lunghezza', raggruppa ? 'sigle' : 'sigla_sci', 'nota', 'stato', 'destinatario', 'quantita', 'giacenza', 'magazzino_nome'];
     filename = 'report_italia.csv';
   } else if (tab === 'soggetti') {
     data = soggettiData;
@@ -755,6 +820,7 @@ function esportaCSV(tab) {
     stato: 'Stato',
     destinatario: 'Destinatario',
     sigla_sci: 'Sigla (Kit)',
+    sigle: 'Sigle',
     tipo: 'Tipo',
     codice_sigla: 'Codice/Sigla',
     sigla: 'Sigla',
@@ -842,8 +908,13 @@ window.onload = async function() {
     });
   });
 
+  // Aggiungi event listener per filtri Italia
   document.getElementById('italiaTipo').addEventListener('change', caricaItalia);
   document.getElementById('italiaMagazzino').addEventListener('change', caricaItalia);
+  document.getElementById('filtroCodice').addEventListener('input', caricaItalia);
+  document.getElementById('filtroDescrizione').addEventListener('input', caricaItalia);
+  document.getElementById('filtroLunghezza').addEventListener('input', caricaItalia);
+  document.getElementById('raggruppaCheck').addEventListener('change', caricaItalia);
   document.getElementById('austriaMagazzino').addEventListener('change', caricaAustria);
 };
 </script>
