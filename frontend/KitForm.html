@@ -34,7 +34,17 @@
     .table-wrapper { overflow-x: auto; margin-top: 20px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-    th { background: #f8f9fa; }
+    th { background: #f8f9fa; cursor: pointer; user-select: none; }
+    th:hover { background: #e2e8f0; }
+    th .sort-arrow {
+      font-size: 0.6rem;
+      margin-left: 4px;
+      color: #999;
+    }
+    th .sort-arrow.active {
+      color: #1a73e8;
+      font-weight: bold;
+    }
     .sigle-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .sigle-table th, .sigle-table td { border: 1px solid #ddd; padding: 6px; }
     .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
@@ -147,13 +157,13 @@
     <table id="tabellaKit">
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Codice</th>
-          <th>Descrizione</th>
-          <th>Sigla Sci</th>
-          <th>Magazzino</th>
-          <th>Quantità</th>
-          <th>Nota</th>
+          <th data-sort="id">ID <span class="sort-arrow">▲</span><span class="sort-arrow">▼</span></th>
+          <th data-sort="codice_kit">Codice <span class="sort-arrow">▲</span><span class="sort-arrow">▼</span></th>
+          <th data-sort="descrizione">Descrizione <span class="sort-arrow">▲</span><span class="sort-arrow">▼</span></th>
+          <th data-sort="sigla_sci">Sigla Sci <span class="sort-arrow">▲</span><span class="sort-arrow">▼</span></th>
+          <th data-sort="magazzino">Magazzino <span class="sort-arrow">▲</span><span class="sort-arrow">▼</span></th>
+          <th data-sort="quantita">Quantità <span class="sort-arrow">▲</span><span class="sort-arrow">▼</span></th>
+          <th data-sort="note">Nota <span class="sort-arrow">▲</span><span class="sort-arrow">▼</span></th>
           <th>Azioni</th>
         </tr>
       </thead>
@@ -226,6 +236,10 @@ let currentSigleDisponibili = [];
 let currentKitId = null;
 let formResetting = false;
 let isLoadingSci = false;
+
+// Variabili per ordinamento tabella kit
+let kitSortColumn = 'descrizione';
+let kitSortAsc = true;
 
 const kitMagazzinoSelect = document.getElementById('kitMagazzino');
 const kitSciSelect = document.getElementById('kitSci');
@@ -301,7 +315,7 @@ async function caricaSiglePerSci(sciId) {
       seen.add(s.id);
       return true;
     });
-    // Filtra solo per giacenza > 0 (non escludere quelle già usate in kit)
+    // Filtra solo per giacenza > 0
     currentSigleDisponibili = sigleUniche.filter(s => s.giacenza > 0);
   } catch(e) {
     currentSigleDisponibili = [];
@@ -310,7 +324,7 @@ async function caricaSiglePerSci(sciId) {
 }
 
 // ============================================================
-// POPOLA DROPDOWN SCI (con aggiornamento giacenza)
+// POPOLA DROPDOWN SCI (con ordinamento e raggruppamento)
 // ============================================================
 async function popolaSciDisponibili() {
   try {
@@ -343,6 +357,15 @@ async function popolaSciDisponibili() {
     });
 
     articoliSci = Object.values(sciGroupMap);
+
+    // ORDINA per descrizione e lunghezza
+    articoliSci.sort((a, b) => {
+      if (a.descrizione < b.descrizione) return -1;
+      if (a.descrizione > b.descrizione) return 1;
+      const la = parseFloat(a.lunghezza) || 0;
+      const lb = parseFloat(b.lunghezza) || 0;
+      return la - lb;
+    });
 
     // Ricostruisci mappa
     articoliSciGroup = {};
@@ -517,7 +540,7 @@ function resetForm() {
 }
 
 // ============================================================
-// CARICAMENTO ANAGRAFICHE (senza sigleUsateInKit)
+// CARICAMENTO ANAGRAFICHE (con ordinamento dropdown sci)
 // ============================================================
 async function caricaAnagrafiche() {
   if (isLoadingSci) return;
@@ -541,71 +564,13 @@ async function caricaAnagrafiche() {
     const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
     const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-    let params = new URLSearchParams({ min_giacenza: '1' });
-    if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
-    if (sciCat) params.append('categoria', sciCat.id);
-    
-    const sciRes = await apiFetch('/articoli?' + params.toString());
-    const articoliSciRaw = sciRes.success ? sciRes.data : [];
-
-    // Raggruppa per DESCRIZIONE + LUNGHEZZA
-    const sciGroupMap = {};
-    articoliSciRaw.forEach(a => {
-      const descrizioneNorm = a.descrizione ? a.descrizione.trim().replace(/\s+/g, ' ') : '';
-      const lunghezza = a.lunghezza || '';
-      const key = `${descrizioneNorm.toLowerCase()}|${lunghezza}`;
-      if (!sciGroupMap[key]) {
-        sciGroupMap[key] = {
-          articolo_id: a.articolo_id,
-          descrizione: descrizioneNorm,
-          lunghezza: lunghezza,
-          quantita_totale: 0,
-          articoli_ids: []
-        };
-      }
-      sciGroupMap[key].quantita_totale += a.quantita_totale;
-      sciGroupMap[key].articoli_ids.push(a.articolo_id);
-    });
-
-    articoliSci = Object.values(sciGroupMap);
-    articoliSciGroup = {};
-    articoliSci.forEach(a => {
-      articoliSciGroup[a.articolo_id] = a.articoli_ids;
-    });
-
-    // Popola dropdown
-    kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
-    const seenLabels = new Set();
-    articoliSci.forEach(a => {
-      let label = a.descrizione;
-      if (a.lunghezza) label += ` ${a.lunghezza}cm`;
-      label = label.replace(/\s+/g, ' ').trim();
-      if (!seenLabels.has(label)) {
-        seenLabels.add(label);
-        kitSciSelect.appendChild(new Option(label, a.articolo_id));
-      }
-    });
-
-    // Deduplica finale
-    const finalSeen = new Set();
-    const options = kitSciSelect.querySelectorAll('option');
-    options.forEach(opt => {
-      if (opt.value === '') return;
-      const text = opt.textContent.trim().replace(/\s+/g, ' ');
-      if (finalSeen.has(text)) {
-        opt.remove();
-      } else {
-        finalSeen.add(text);
-      }
-    });
-
+    // Carica attacchi e skistoppers
     await caricaArticoliPerCategoria();
 
-    if (articoliSci.length > 0) {
-      kitSciSelect.value = articoliSci[0].articolo_id;
-      await caricaSiglePerSci(kitSciSelect.value);
-    }
+    // Popola dropdown sci (già ordinato)
+    await popolaSciDisponibili();
 
+    // Eventi
     kitSciSelect.removeEventListener('change', sciChangeHandler);
     kitSciSelect.addEventListener('change', sciChangeHandler);
 
@@ -716,7 +681,6 @@ async function salvaKit() {
       aggiornaTutteLeRighe();
       await caricaKit();
       resetForm();
-      // Aggiorna il dropdown sci (rimuove quelli esauriti)
       await popolaSciDisponibili();
     } else {
       showMessage(res.message, 'error');
@@ -730,16 +694,69 @@ async function salvaKit() {
 }
 
 // ============================================================
-// CARICA KIT
+// CARICA KIT (con ordinamento per descrizione e lunghezza)
 // ============================================================
 async function caricaKit() {
   try {
     const res = await apiFetch('/kit');
     allKits = Array.isArray(res) ? res : [];
+    // Ordinamento iniziale per descrizione (primario) e lunghezza (secondario)
+    allKits.sort((a, b) => {
+      const descA = (a.descrizione || '').toLowerCase();
+      const descB = (b.descrizione || '').toLowerCase();
+      if (descA < descB) return -1;
+      if (descA > descB) return 1;
+      const la = parseFloat(a.lunghezza_sci) || 0;
+      const lb = parseFloat(b.lunghezza_sci) || 0;
+      return la - lb;
+    });
+    kitSortColumn = 'descrizione';
+    kitSortAsc = true;
     popolaTabellaKit();
   } catch (err) {
     showMessage('Errore caricamento kit: ' + err.message, 'error');
   }
+}
+
+// ============================================================
+// ORDINAMENTO TABELLA KIT
+// ============================================================
+function ordinaKit(colonna) {
+  if (kitSortColumn === colonna) {
+    kitSortAsc = !kitSortAsc;
+  } else {
+    kitSortColumn = colonna;
+    kitSortAsc = true;
+  }
+  allKits.sort((a, b) => {
+    let va = a[colonna] || '', vb = b[colonna] || '';
+    if (colonna === 'quantita') {
+      va = parseFloat(va) || 0;
+      vb = parseFloat(vb) || 0;
+    } else if (colonna === 'id') {
+      va = parseInt(va) || 0;
+      vb = parseInt(vb) || 0;
+    } else {
+      va = va.toString().toLowerCase();
+      vb = vb.toString().toLowerCase();
+    }
+    if (va < vb) return kitSortAsc ? -1 : 1;
+    if (va > vb) return kitSortAsc ? 1 : -1;
+    return 0;
+  });
+  aggiornaIntestazioniKit();
+  popolaTabellaKit();
+}
+
+function aggiornaIntestazioniKit() {
+  document.querySelectorAll('#tabellaKit thead th[data-sort]').forEach(th => {
+    const col = th.getAttribute('data-sort');
+    const arrows = th.querySelectorAll('.sort-arrow');
+    if (arrows.length === 2) {
+      arrows[0].classList.toggle('active', col === kitSortColumn && kitSortAsc);
+      arrows[1].classList.toggle('active', col === kitSortColumn && !kitSortAsc);
+    }
+  });
 }
 
 function popolaTabellaKit() {
@@ -765,6 +782,19 @@ function popolaTabellaKit() {
       <button class="btn" onclick="apriModificaKit(${k.id}, '${k.codice_kit.replace(/'/g, "\\'")}', '${(k.note || '').replace(/'/g, "\\'")}')">✏️</button>
       <button class="btn btn-danger" onclick="eliminaKit(${k.id})">🗑️</button>
     `;
+  });
+  aggiornaIntestazioniKit();
+}
+
+// ============================================================
+// ATTACH SORT LISTENERS PER TABELLA KIT
+// ============================================================
+function attachKitSortListeners() {
+  document.querySelectorAll('#tabellaKit thead th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.getAttribute('data-sort');
+      ordinaKit(col);
+    });
   });
 }
 
@@ -817,7 +847,6 @@ async function eliminaKit(id) {
       aggiornaTutteLeRighe();
       await caricaKit();
       resetForm();
-      // Aggiorna il dropdown sci (ripristina quelli rilasciati)
       await popolaSciDisponibili();
     } else {
       showMessage(res.message, 'error');
@@ -843,6 +872,7 @@ window.onload = async () => {
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
 
   await caricaAnagrafiche();
+  attachKitSortListeners();
 };
 </script>
 </body>
