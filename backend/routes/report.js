@@ -4,9 +4,6 @@ const pool = require('../db');
 const { verifyToken } = require('../auth');
 
 // ============================================================
-// REPORT AUSTRIA – solo articoli con inventario_austria = 1
-// ============================================================
-// ============================================================
 // REPORT AUSTRIA – somma delle quantita_austria delle sigle
 // ============================================================
 router.get('/austria', verifyToken, async (req, res) => {
@@ -42,7 +39,7 @@ router.get('/austria', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT ITALIA – articoli + kit (in magazzino e assegnati)
+// REPORT ITALIA – articoli + kit (con giacenza anche 0)
 // ============================================================
 router.get('/italia', verifyToken, async (req, res) => {
   try {
@@ -54,7 +51,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 
     // --- ARTICOLI ---
     if (includeArticoli) {
-      // 1. Articoli in magazzino (giacenza > 0)
+      // 1. Articoli in magazzino (anche con giacenza 0)
       let sqlMagazzino = `
         SELECT 
           a.articolo_id,
@@ -72,8 +69,7 @@ router.get('/italia', verifyToken, async (req, res) => {
           NULL AS destinatario
         FROM articoli a
         LEFT JOIN magazzini m ON a.magazzino = m.magazzino_id
-        WHERE (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta - 
-               COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) > 0
+        WHERE a.quantita_totale > 0
       `;
       const paramsMag = [];
       if (magazzino) {
@@ -106,6 +102,10 @@ router.get('/italia', verifyToken, async (req, res) => {
         WHERE cs.tipo_oggetto = 'ARTICOLO' AND cs.quantita > 0
       `;
       const paramsAssegnati = [];
+      if (magazzino) {
+        sqlAssegnati += ' AND a.magazzino = ?';
+        paramsAssegnati.push(magazzino);
+      }
       sqlAssegnati += ' ORDER BY a.codice';
       const [rowsAssegnati] = await pool.query(sqlAssegnati, paramsAssegnati);
       risultati = risultati.concat(rowsAssegnati.map(r => ({ ...r, tipo_oggetto: 'ARTICOLO' })));
@@ -113,7 +113,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 
     // --- KIT ---
     if (includeKit) {
-      // 1. Kit in magazzino (giacenza > 0)
+      // 1. Kit in magazzino (anche con giacenza 0)
       let sqlKitMagazzino = `
         SELECT 
           k.id AS articolo_id,
@@ -133,7 +133,7 @@ router.get('/italia', verifyToken, async (req, res) => {
            WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI' LIMIT 1) AS sigla_sci
         FROM kit k
         LEFT JOIN magazzini m ON k.magazzino = m.magazzino_id
-        WHERE (k.quantita - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'KIT' AND oggetto_id = k.id), 0)) > 0
+        WHERE k.quantita > 0
       `;
       const paramsKitMag = [];
       if (magazzino) {
@@ -169,6 +169,10 @@ router.get('/italia', verifyToken, async (req, res) => {
         WHERE cs.tipo_oggetto = 'KIT' AND cs.quantita > 0
       `;
       const paramsKitAss = [];
+      if (magazzino) {
+        sqlKitAssegnati += ' AND k.magazzino = ?';
+        paramsKitAss.push(magazzino);
+      }
       sqlKitAssegnati += ' ORDER BY k.codice_kit';
       const [rowsKitAss] = await pool.query(sqlKitAssegnati, paramsKitAss);
       risultati = risultati.concat(rowsKitAss.map(r => ({ ...r, tipo_oggetto: 'KIT' })));
