@@ -236,11 +236,25 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE
+// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E LOG
 // ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
+  console.log('🔍 PUT /sigle/:id/quantita - body ricevuto:', req.body);
   const { quantita } = req.body;
-  if (quantita === undefined || quantita < 0) return res.status(400).json({ error: 'Quantità non valida' });
+
+  // Validazione robusta
+  if (quantita === undefined || quantita === null || isNaN(quantita) || quantita < 0) {
+    return res.status(400).json({
+      error: 'Quantità non valida',
+      received: quantita,
+      message: 'Invia un numero valido >= 0'
+    });
+  }
+
+  const quantitaNum = parseFloat(quantita);
+  if (!Number.isInteger(quantitaNum)) {
+    return res.status(400).json({ error: 'La quantità deve essere un numero intero' });
+  }
 
   const connection = await db.getConnection();
   try {
@@ -264,7 +278,7 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     const impegnato = usedInKit[0].totale + assegnato[0].totale;
 
     // Se la nuova quantità è inferiore all'impegnato, blocca
-    if (quantita < impegnato) {
+    if (quantitaNum < impegnato) {
       await connection.rollback();
       return res.status(400).json({
         error: `Impossibile ridurre la sigla: ${impegnato} unità sono già impegnate (${usedInKit[0].totale} in kit, ${assegnato[0].totale} assegnate)`
@@ -272,7 +286,7 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     }
 
     // Aggiorna la quantità
-    await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantita, req.params.id]);
+    await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantitaNum, req.params.id]);
 
     // Ricalcola la quantita_totale dell'articolo
     await ricalcolaQuantitaTotale(connection, articoloId);
