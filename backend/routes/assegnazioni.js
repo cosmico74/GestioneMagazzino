@@ -409,11 +409,11 @@ router.post('/dividi', verifyToken, async (req, res) => {
     
     await connection.query(insertSql, insertParams);
 
-    // 4. Registra movimento
+    // 4. Registra movimento (usando 'DIVISIONE' come tipo, più corto)
     const movSql = `
       INSERT INTO movimenti 
       (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
-      VALUES (?, 'TRASFERIMENTO_PARZIALE', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)
+      VALUES (?, 'DIVISIONE', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)
     `;
     const movParams = [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, operatore, note || null, siglaId || null];
     console.log('📋 [POST] /dividi - SQL MOV:', movSql, 'params:', movParams);
