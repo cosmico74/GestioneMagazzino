@@ -1318,7 +1318,7 @@ async function confermaDividi() {
   try {
     var r = await apiFetch('/assegnazioni/dividi', { method: 'POST', body: JSON.stringify(payload) });
     if (r.success) {
-      showMessage('Divisione completata! ' + qtaDaTrasferire + ' unità trasferite a ' + (destTipo) + ' ' + dId, 'success');
+      showMessage('Divisione completata! ' + qtaDaTrasferire + ' unità trasferite a ' + dT + ' ' + dId, 'success');
       chiudiEditModal();
       caricaOggettiInCarico();
     } else {
@@ -1326,6 +1326,7 @@ async function confermaDividi() {
     }
   } catch(e) {
     showMessage('Errore: ' + e.message, 'error');
+    console.error('❌ Errore in confermaDividi:', e);
   }
 }
 
