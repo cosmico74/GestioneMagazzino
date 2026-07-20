@@ -30,6 +30,7 @@ try {
     app.use('/api/anagrafiche', require('./routes/anagrafiche'));
     app.use('/api/report', require('./routes/report'));
     app.use('/api/movimenti', require('./routes/movimenti'));
+    app.use('/api/audit', require('./routes/audit'));
     console.log('✅ Routes caricate.');
 } catch (err) {
     console.error('❌ Errore nel caricamento delle routes:', err);

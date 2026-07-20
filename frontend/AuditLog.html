@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>📋 Audit Log</title>
+  <link rel="icon" type="image/png" href="/images/kastle-logo.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .compact-bar { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 0 0 12px 12px; padding: 4px 20px; margin-bottom: 15px; }
+    .logo { display: flex; justify-content: center; flex: 1; }
+    .logo img { height: 120px; width: auto; display: block; }
+    .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; }
+    h2 { border-left: 5px solid #1a73e8; padding-left: 15px; color: #1e2a3a; margin: 15px 0; }
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: flex-end; }
+    .filter-group { flex: 1; min-width: 150px; }
+    .filter-group label { display: block; font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; color: #2c3e50; }
+    .filter-group select, .filter-group input { width: 100%; padding: 5px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.8rem; }
+    .btn { background: #1a73e8; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    .btn:hover { background: #0f5bb5; transform: translateY(-1px); }
+    .btn-danger { background: #dc3545; }
+    .btn-secondary { background: #6c757d; }
+    .btn-success { background: #27ae60; }
+    .btn-warning { background: #f39c12; color: white; }
+    .table-wrapper { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+    th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; }
+    .badge-creazione { background: #d4edda; color: #155724; }
+    .badge-modifica { background: #fff3cd; color: #856404; }
+    .badge-eliminazione { background: #f8d7da; color: #721c24; }
+    .badge-annullato { background: #e2e3e5; color: #383d41; }
+    .text-center { text-align: center; }
+    .actions { display: flex; gap: 4px; flex-wrap: wrap; }
+    .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
+    .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
+    .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
+    .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="compact-bar">
+    <div style="flex:1;"></div>
+    <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
+    <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
+      <span id="loginInfo" class="login-info"></span>
+      <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
+      <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+
+  <h2>📋 Audit Log – Operazioni su Articoli e Kit</h2>
+  <div id="messageArea"></div>
+
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Tabella</label>
+      <select id="filtroTabella">
+        <option value="">Tutte</option>
+        <option value="articoli">Articoli</option>
+        <option value="kit">Kit</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Operazione</label>
+      <select id="filtroOperazione">
+        <option value="">Tutte</option>
+        <option value="CREAZIONE">Creazione</option>
+        <option value="MODIFICA">Modifica</option>
+        <option value="ELIMINAZIONE">Eliminazione</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>ID Riga</label>
+      <input type="number" id="filtroRigaId" placeholder="ID">
+    </div>
+    <div style="display:flex; gap:6px;">
+      <button class="btn" onclick="caricaLog()">🔍 Cerca</button>
+      <button class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
+    </div>
+  </div>
+
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Tabella</th>
+          <th>Operazione</th>
+          <th>ID Riga</th>
+          <th>Data</th>
+          <th>Utente</th>
+          <th>Annullato</th>
+          <th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="logBody"><tr><td colspan="8" class="text-center">Caricamento...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// UTILITY
+// ============================================================
+function getAuthHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+function showMessage(msg, type) {
+  const d = document.getElementById('messageArea');
+  d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
+  setTimeout(() => d.innerHTML = '', 5000);
+}
+async function apiFetch(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
+  const res = await fetch('/api' + endpoint, { ...options, headers });
+  if (!res.ok) {
+    let err = 'Errore ' + res.status;
+    try { const data = await res.json(); err = data.message || err; } catch(e) {}
+    throw new Error(err);
+  }
+  return res.json();
+}
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = 'Login.html';
+}
+function formatDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  return dt.toLocaleString('it-IT');
+}
+
+// ============================================================
+// CARICAMENTO LOG
+// ============================================================
+async function caricaLog() {
+  const tabella = document.getElementById('filtroTabella').value;
+  const operazione = document.getElementById('filtroOperazione').value;
+  const rigaId = document.getElementById('filtroRigaId').value;
+  const params = new URLSearchParams();
+  if (tabella) params.append('tabella', tabella);
+  if (operazione) params.append('operazione', operazione);
+  if (rigaId) params.append('riga_id', rigaId);
+  try {
+    const res = await apiFetch('/audit/log?' + params.toString());
+    if (res.success) {
+      renderLog(res.data);
+    } else showMessage(res.message, 'error');
+  } catch(e) {
+    showMessage(e.message, 'error');
+  }
+}
+function renderLog(data) {
+  const tbody = document.getElementById('logBody');
+  tbody.innerHTML = '';
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Nessuna operazione trovata</td></tr>';
+    return;
+  }
+  data.forEach(item => {
+    const row = tbody.insertRow();
+    const badgeOper = {
+      'CREAZIONE': 'badge-creazione',
+      'MODIFICA': 'badge-modifica',
+      'ELIMINAZIONE': 'badge-eliminazione'
+    }[item.operazione] || '';
+    row.insertCell(0).innerText = item.id;
+    row.insertCell(1).innerText = item.tabella;
+    row.insertCell(2).innerHTML = `<span class="badge ${badgeOper}">${item.operazione}</span>`;
+    row.insertCell(3).innerText = item.riga_id;
+    row.insertCell(4).innerText = formatDate(item.data_ora);
+    row.insertCell(5).innerText = item.utente_nome || item.utente_id;
+    row.insertCell(6).innerText = item.annullato ? '✅' : '❌';
+    const actions = row.insertCell(7);
+    actions.className = 'actions';
+    if (!item.annullato) {
+      const btn = document.createElement('button');
+      btn.textContent = '↩️ Annulla';
+      btn.className = 'btn btn-warning btn-sm';
+      btn.onclick = () => annullaOperazione(item.id);
+      actions.appendChild(btn);
+    } else {
+      actions.innerHTML = '<span style="color:#999;">Annullato</span>';
+    }
+  });
+}
+function resetFiltri() {
+  document.getElementById('filtroTabella').value = '';
+  document.getElementById('filtroOperazione').value = '';
+  document.getElementById('filtroRigaId').value = '';
+  caricaLog();
+}
+
+// ============================================================
+// ANNULLA OPERAZIONE
+// ============================================================
+async function annullaOperazione(auditId) {
+  if (!confirm('Sei sicuro di voler annullare questa operazione? Verranno gestite automaticamente le eventuali assegnazioni.')) return;
+  try {
+    const res = await apiFetch('/audit/annulla/' + auditId, { method: 'POST' });
+    if (res.success) {
+      showMessage(res.message, 'success');
+      caricaLog();
+    } else showMessage(res.message, 'error');
+  } catch(e) {
+    showMessage(e.message, 'error');
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.onload = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    document.body.innerHTML = '<div class="container"><h2>⛔ Accesso negato</h2><a href="Login.html">Login</a></div>';
+    return;
+  }
+  try {
+    const user = JSON.parse(localStorage.getItem('user'));
+    document.getElementById('loginInfo').innerHTML = '👤 ' + (user.nome_visualizzato || user.username) + ' (' + user.ruolo + ')';
+  } catch(e) { logout(); return; }
+  await caricaLog();
+};
+</script>
+</body>
+</html>
