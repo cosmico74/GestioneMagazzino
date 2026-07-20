@@ -236,6 +236,7 @@ let currentSigleDisponibili = [];
 let currentKitId = null;
 let formResetting = false;
 let isLoadingSci = false;
+let currentArticoloGiacenza = 0; // giacenza totale dell'articolo (sci) selezionato
 
 // Variabili per ordinamento tabella kit
 let kitSortColumn = 'descrizione';
@@ -297,17 +298,26 @@ async function caricaArticoliPerCategoria() {
 async function caricaSiglePerSci(sciId) {
   if (!sciId) {
     currentSigleDisponibili = [];
+    currentArticoloGiacenza = 0;
     return;
   }
   try {
     const articoliIds = articoliSciGroup[sciId] || [sciId];
     let allSigle = [];
+    let giacenzaTotale = 0;
+
+    // Recupera le sigle e la giacenza per ogni articolo del gruppo
     for (const id of articoliIds) {
       try {
         const sigle = await apiFetch('/articoli/' + id + '/sigle');
         allSigle = allSigle.concat(sigle);
+        const artRes = await apiFetch('/articoli/' + id);
+        if (artRes.success && artRes.data) {
+          giacenzaTotale += artRes.data.GIACENZA_REALE || 0;
+        }
       } catch(e) { console.warn('Errore per articolo', id, e); }
     }
+
     // Deduplica per id
     const seen = new Set();
     const sigleUniche = allSigle.filter(s => {
@@ -315,10 +325,14 @@ async function caricaSiglePerSci(sciId) {
       seen.add(s.id);
       return true;
     });
-    // Filtra solo per giacenza > 0
+
+    // Filtra per giacenza > 0 e memorizza la giacenza totale dell'articolo
     currentSigleDisponibili = sigleUniche.filter(s => s.giacenza > 0);
+    currentArticoloGiacenza = giacenzaTotale;
+    console.log('Giacenza articolo (totale):', currentArticoloGiacenza);
   } catch(e) {
     currentSigleDisponibili = [];
+    currentArticoloGiacenza = 0;
     console.error('Errore carica sigle:', e);
   }
 }
@@ -408,6 +422,7 @@ async function popolaSciDisponibili() {
       } else {
         kitSciSelect.value = '';
         currentSigleDisponibili = [];
+        currentArticoloGiacenza = 0;
       }
     } else if (currentSciId) {
       await caricaSiglePerSci(currentSciId);
@@ -458,6 +473,16 @@ function aggiungiRigaSigla() {
   qtyInput.value = 1;
   qtyInput.min = 1;
   qtyInput.style.width = '70px';
+  qtyInput.max = Math.min(1, currentArticoloGiacenza); // default
+  qtyInput.addEventListener('input', function() {
+    const max = parseInt(this.max) || 1;
+    if (parseInt(this.value) > max) {
+      this.value = max;
+    }
+    if (parseInt(this.value) < 1) {
+      this.value = 1;
+    }
+  });
   tdQta.appendChild(qtyInput);
 
   const tdAz = row.insertCell(4);
@@ -475,22 +500,96 @@ function aggiungiRigaSigla() {
 
 function popolaSelectSigle(select, selectedId = null) {
   select.innerHTML = '<option value="">Seleziona sigla</option>';
+  let totaleGiaSelezionato = 0;
+
+  // Calcola la quantità già selezionata in altre righe per lo stesso sci
+  // (per evitare di superare la giacenza totale)
+  const altreRighe = document.querySelectorAll('#sigleTbody tr');
+  altreRighe.forEach(row => {
+    const qtyInput = row.cells[3].querySelector('input');
+    if (qtyInput) {
+      totaleGiaSelezionato += parseInt(qtyInput.value) || 0;
+    }
+  });
+
+  const maxConsentito = Math.max(0, currentArticoloGiacenza - totaleGiaSelezionato);
+
   currentSigleDisponibili.forEach(s => {
+    // La quantità massima per questa sigla è il minimo tra la sua giacenza e quanto rimane disponibile
+    const maxPerSigla = Math.min(s.giacenza, maxConsentito);
+    if (maxPerSigla < 1) {
+      // Se non c'è abbastanza spazio, non mostrare la sigla
+      return;
+    }
     const label = s.sigla + (s.durezza ? ' - ' + s.durezza : '') + ' (disp: ' + s.giacenza + ')';
     const opt = new Option(label, s.id);
     if (selectedId && selectedId == s.id) opt.selected = true;
     select.appendChild(opt);
   });
-  if (currentSigleDisponibili.length === 1) {
-    select.value = currentSigleDisponibili[0].id;
+
+  // Se una sigla è selezionata, aggiorna il max dell'input
+  if (select.value) {
+    const riga = select.closest('tr');
+    const qtyInput = riga ? riga.cells[3].querySelector('input') : null;
+    if (qtyInput) {
+      const siglaSelezionata = currentSigleDisponibili.find(s => s.id == select.value);
+      if (siglaSelezionata) {
+        const maxPerSigla = Math.min(siglaSelezionata.giacenza, maxConsentito);
+        qtyInput.max = maxPerSigla;
+        if (parseInt(qtyInput.value) > maxPerSigla) {
+          qtyInput.value = maxPerSigla;
+        }
+      }
+    }
+  }
+
+  // Se c'è una sola sigla disponibile, selezionala automaticamente
+  const options = select.querySelectorAll('option');
+  if (options.length === 2 && options[1]) {
+    select.value = options[1].value;
+    // Trigger change per aggiornare il max
+    select.dispatchEvent(new Event('change'));
   }
 }
+
+// Aggiorna i max delle quantità quando cambia la sigla selezionata
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('sigla-select')) {
+    const select = e.target;
+    const riga = select.closest('tr');
+    const qtyInput = riga ? riga.cells[3].querySelector('input') : null;
+    if (!qtyInput) return;
+
+    // Calcola il totale già selezionato in altre righe
+    let totaleGiaSelezionato = 0;
+    document.querySelectorAll('#sigleTbody tr').forEach(row => {
+      if (row === riga) return;
+      const qty = row.cells[3].querySelector('input');
+      if (qty) {
+        totaleGiaSelezionato += parseInt(qty.value) || 0;
+      }
+    });
+    const maxConsentito = Math.max(0, currentArticoloGiacenza - totaleGiaSelezionato);
+
+    const siglaSelezionata = currentSigleDisponibili.find(s => s.id == select.value);
+    if (siglaSelezionata) {
+      const maxPerSigla = Math.min(siglaSelezionata.giacenza, maxConsentito);
+      qtyInput.max = maxPerSigla;
+      if (parseInt(qtyInput.value) > maxPerSigla) {
+        qtyInput.value = maxPerSigla;
+      }
+    } else {
+      qtyInput.max = 1;
+    }
+  }
+});
 
 function aggiornaTutteLeRighe() {
   document.querySelectorAll('#sigleTbody tr').forEach(row => {
     const siglaSelect = row.cells[0].querySelector('select');
     const attSelect = row.cells[1].querySelector('select');
     const skSelect = row.cells[2].querySelector('select');
+    const qtyInput = row.cells[3].querySelector('input');
 
     const curAtt = attSelect.value;
     attSelect.innerHTML = '<option value="">Seleziona attacco</option>';
@@ -514,6 +613,27 @@ function aggiornaTutteLeRighe() {
       popolaSelectSigle(siglaSelect, curSigla);
     } else {
       siglaSelect.innerHTML = '<option value="">Seleziona sigla</option>';
+    }
+
+    // Aggiorna il max della quantità
+    if (qtyInput && siglaSelect.value) {
+      const siglaSelezionata = currentSigleDisponibili.find(s => s.id == siglaSelect.value);
+      if (siglaSelezionata) {
+        let totaleGiaSelezionato = 0;
+        document.querySelectorAll('#sigleTbody tr').forEach(r => {
+          if (r === row) return;
+          const qty = r.cells[3].querySelector('input');
+          if (qty) {
+            totaleGiaSelezionato += parseInt(qty.value) || 0;
+          }
+        });
+        const maxConsentito = Math.max(0, currentArticoloGiacenza - totaleGiaSelezionato);
+        const maxPerSigla = Math.min(siglaSelezionata.giacenza, maxConsentito);
+        qtyInput.max = maxPerSigla;
+        if (parseInt(qtyInput.value) > maxPerSigla) {
+          qtyInput.value = maxPerSigla;
+        }
+      }
     }
   });
 }
@@ -618,6 +738,7 @@ async function salvaKit() {
 
   const righe = [];
   let hasErrors = false;
+  let totaleRichiesto = 0;
 
   document.querySelectorAll('#sigleTbody tr').forEach(row => {
     const siglaSelect = row.cells[0].querySelector('select');
@@ -634,6 +755,14 @@ async function salvaKit() {
     if (!attId) { hasErrors = true; return; }
     if (isNaN(quantita) || quantita < 1) { hasErrors = true; return; }
 
+    // Verifica che la sigla abbia giacenza sufficiente
+    const sigla = currentSigleDisponibili.find(s => s.id == siglaId);
+    if (sigla && sigla.giacenza < quantita) {
+      hasErrors = true;
+      showMessage(`Sigla "${sigla.sigla}" ha solo ${sigla.giacenza} unità disponibili`, 'error');
+      return;
+    }
+
     const attacco = articoliAttacchi.find(a => a.articolo_id == attId);
     if (attacco) {
       const giacenzaAtt = getGiacenzaArticolo(attacco);
@@ -643,6 +772,8 @@ async function salvaKit() {
         return;
       }
     }
+
+    totaleRichiesto += quantita;
 
     righe.push({
       sigla_id: parseInt(siglaId),
@@ -655,6 +786,12 @@ async function salvaKit() {
   if (hasErrors) return;
   if (!righe.length) {
     showMessage('Aggiungi almeno una configurazione', 'error');
+    return;
+  }
+
+  // Verifica che la quantità totale richiesta non superi la giacenza dell'articolo
+  if (totaleRichiesto > currentArticoloGiacenza) {
+    showMessage(`Quantità totale richiesta (${totaleRichiesto}) supera la giacenza disponibile (${currentArticoloGiacenza}) per lo sci`, 'error');
     return;
   }
 
