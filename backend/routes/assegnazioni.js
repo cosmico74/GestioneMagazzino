@@ -347,6 +347,7 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
 // DIVIDI E TRASFERISCI (quantità parziale)
 // ============================================================
 router.post('/dividi', verifyToken, async (req, res) => {
+  console.log('📋 [POST] /dividi - body:', req.body);
   const { 
     daTipo, daId, aTipo, aId, 
     tipoOggetto, oggettoId, siglaId, 
@@ -367,46 +368,65 @@ router.post('/dividi', verifyToken, async (req, res) => {
     // 1. Prendi username dell'operatore
     const [userRows] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = userRows.length ? userRows[0].username : 'sconosciuto';
+    console.log('📋 [POST] /dividi - operatore:', operatore);
 
     const now = db.now();
 
     // 2. Aggiorna la riga originale (riduci la quantità)
-    const [updateResult] = await connection.query(
-      `UPDATE carico_sintesi 
-       SET quantita = ? 
-       WHERE destinazione_tipo = ? AND destinazione_id = ? 
-         AND tipo_oggetto = ? AND oggetto_id = ? 
-         AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))`,
-      [quantitaRimanente, daTipo, daId, tipoOggetto, oggettoId, siglaId, siglaId]
-    );
+    let sqlUpdate = `
+      UPDATE carico_sintesi 
+      SET quantita = ? 
+      WHERE destinazione_tipo = ? AND destinazione_id = ? 
+        AND tipo_oggetto = ? AND oggetto_id = ? 
+    `;
+    const paramsUpdate = [quantitaRimanente, daTipo, daId, tipoOggetto, oggettoId];
+    
+    if (siglaId) {
+      sqlUpdate += ' AND sigla_id = ?';
+      paramsUpdate.push(siglaId);
+    } else {
+      sqlUpdate += ' AND sigla_id IS NULL';
+    }
+    
+    console.log('📋 [POST] /dividi - SQL UPDATE:', sqlUpdate, 'params:', paramsUpdate);
+    
+    const [updateResult] = await connection.query(sqlUpdate, paramsUpdate);
+    console.log('📋 [POST] /dividi - updateResult:', updateResult);
 
     if (updateResult.affectedRows === 0) {
       await connection.rollback();
-      return res.status(404).json({ success: false, message: 'Nessuna riga trovata da aggiornare' });
+      return res.status(404).json({ success: false, message: 'Nessuna riga trovata da aggiornare. Verifica che l\'oggetto esista ancora in carico al soggetto.' });
     }
 
     // 3. Crea la nuova riga per il destinatario
-    await connection.query(
-      `INSERT INTO carico_sintesi 
-       (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now]
-    );
+    const insertSql = `
+      INSERT INTO carico_sintesi 
+      (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const insertParams = [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now];
+    console.log('📋 [POST] /dividi - SQL INSERT:', insertSql, 'params:', insertParams);
+    
+    await connection.query(insertSql, insertParams);
 
     // 4. Registra movimento
-    await connection.query(
-      `INSERT INTO movimenti 
-       (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
-       VALUES (?, 'TRASFERIMENTO_PARZIALE', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
-      [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, operatore, note || null, siglaId || null]
-    );
+    const movSql = `
+      INSERT INTO movimenti 
+      (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
+      VALUES (?, 'TRASFERIMENTO_PARZIALE', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)
+    `;
+    const movParams = [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, operatore, note || null, siglaId || null];
+    console.log('📋 [POST] /dividi - SQL MOV:', movSql, 'params:', movParams);
+    
+    await connection.query(movSql, movParams);
 
     await connection.commit();
+    console.log('✅ [POST] /dividi - completato con successo');
     res.json({ success: true, message: 'Divisione e trasferimento completati' });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore /dividi:', err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('❌ [POST] /dividi - errore:', err);
+    res.status(500).json({ success: false, message: err.message, stack: err.stack });
   } finally {
     connection.release();
   }
