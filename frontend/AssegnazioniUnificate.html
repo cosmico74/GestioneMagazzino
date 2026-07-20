@@ -18,8 +18,6 @@
     .btn-secondary { background: #6c757d; }
     .btn-warning { background: #f39c12; color: white; }
     .btn-sm { padding: 2px 8px; font-size: 0.65rem; }
-    .btn-massive { background: #8b5cf6; color: white; font-weight: bold; padding: 6px 16px; border-radius: 8px; }
-    .btn-massive:hover { background: #7c3aed; }
     .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px; }
     .compact-bar {
       display: flex;
@@ -68,12 +66,16 @@
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; color: #2c3e50; }
     .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; }
+    .warning-badge { background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 8px; font-size: 0.65rem; margin-top: 4px; }
     .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
     .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
     .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
     .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
     .text-center { text-align: center; }
     .kit-row td { background: #fcf8e8; }
+    .btn-massive { background: #8b5cf6; color: white; font-weight: bold; padding: 6px 16px; border-radius: 8px; }
+    .btn-massive:hover { background: #7c3aed; }
+    .btn-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .spinner {
       display: inline-block;
       width: 30px;
@@ -279,17 +281,53 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiAssignModal()">Annulla</button><button class="btn btn-success" onclick="confermaAssegnazione()">Conferma</button></div>
 </div></div>
 
-<div id="editAssignmentModal" class="modal"><div class="modal-content"><h3>✏️ Modifica assegnazione</h3>
-  <div class="form-group"><label>Oggetto</label><input type="text" id="editOggetto" class="form-control" readonly></div>
-  <div class="form-group"><label>Sigla</label><input type="text" id="editSiglaDisplay" class="form-control" readonly></div>
-  <div class="form-group"><label>Quantità attuale</label><input type="number" id="editQuantitaAttuale" class="form-control" readonly></div>
-  <div class="form-group"><label>Nuova quantità</label><input type="number" id="editQuantitaNuova" class="form-control" min="1"></div>
-  <div class="form-group"><label>Nuova destinazione</label><select id="editDestTipo" class="form-control" onchange="caricaDestinazioniEdit()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
-  <div class="form-group"><label>Destinazione</label><select id="editDestId" class="form-control"></select></div>
-  <div class="form-group"><label>Note</label><input type="text" id="editNote" class="form-control"></div>
-  <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiEditModal()">Annulla</button><button class="btn btn-success" onclick="confermaModificaSingola()">Conferma</button></div>
-</div></div>
+<!-- ===== MODALE EDIT ASSEGNAZIONE (con sezione Dividi e Trasferisci) ===== -->
+<div id="editAssignmentModal" class="modal">
+  <div class="modal-content" style="max-width:600px;">
+    <h3>✏️ Modifica assegnazione</h3>
+    <div class="form-group"><label>Oggetto</label><input type="text" id="editOggetto" class="form-control" readonly></div>
+    <div class="form-group"><label>Sigla</label><input type="text" id="editSiglaDisplay" class="form-control" readonly></div>
+    <div class="form-group"><label>Quantità attuale</label><input type="number" id="editQuantitaAttuale" class="form-control" readonly></div>
+    <div class="form-group"><label>Nuova quantità</label><input type="number" id="editQuantitaNuova" class="form-control" min="1"></div>
+    <div class="form-group"><label>Nuova destinazione</label><select id="editDestTipo" class="form-control" onchange="caricaDestinazioniEdit()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
+    <div class="form-group"><label>Destinazione</label><select id="editDestId" class="form-control"></select></div>
+    <div class="form-group"><label>Note</label><input type="text" id="editNote" class="form-control"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="chiudiEditModal()">Annulla</button>
+      <button class="btn btn-success" onclick="confermaModificaSingola()">Conferma</button>
+    </div>
 
+    <hr style="margin: 15px 0;">
+
+    <h4>✂️ Dividi e trasferisci</h4>
+    <p class="warning-badge">⚠️ Questa operazione trasferisce una parte dell'oggetto a un altro soggetto.</p>
+    <div class="form-group">
+      <label>Quantità da trasferire</label>
+      <input type="number" id="dividiQuantita" class="form-control" min="1" value="1">
+      <small>Massimo: <span id="dividiMax"></span></small>
+    </div>
+    <div class="form-group">
+      <label>Destinazione tipo</label>
+      <select id="dividiDestTipo" class="form-control" onchange="caricaDestinazioniDividi()">
+        <option value="PROMOTER">Promoter</option>
+        <option value="NEGOZIO">Negozio</option>
+        <option value="CLIENTE">Cliente</option>
+        <option value="AGENTE">Agente</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Destinazione</label>
+      <select id="dividiDestId" class="form-control"></select>
+    </div>
+    <div class="form-group">
+      <label>Note per il trasferimento</label>
+      <input type="text" id="dividiNote" class="form-control">
+    </div>
+    <button type="button" class="btn btn-warning" onclick="confermaDividi()">✂️ Dividi e trasferisci</button>
+  </div>
+</div>
+
+<!-- ===== ALTRE MODALI ===== -->
 <div id="massiveModal" class="modal"><div class="modal-content"><h3>➡️ Trasferimento massivo</h3>
   <div id="massiveRiepilogo"></div>
   <div class="form-group"><label>Destinazione tipo</label><select id="massiveDestTipo" class="form-control" onchange="caricaDestinazioniMassive()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option><option value="MAGAZZINO">Magazzino (rientro)</option></select></div>
@@ -308,31 +346,11 @@
     <h3>📦 Crea Kit da carico</h3>
     <p>Gli articoli selezionati saranno rimossi dal carico del soggetto e trasformati in un kit.</p>
     <div id="riepilogoSelezione"></div>
-    <div class="form-group">
-      <label>Magazzino di destinazione *</label>
-      <select id="creaKitMagazzino" class="form-control"></select>
-    </div>
-    <div class="form-group">
-      <label>Destinatario tipo</label>
-      <select id="creaKitDestTipo" class="form-control" onchange="caricaDestinazioniCreaKit()">
-        <option value="PROMOTER">Promoter</option>
-        <option value="NEGOZIO">Negozio</option>
-        <option value="CLIENTE">Cliente</option>
-        <option value="AGENTE">Agente</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Destinatario</label>
-      <select id="creaKitDestId" class="form-control"></select>
-    </div>
-    <div class="form-group">
-      <label>Note (opzionali)</label>
-      <input type="text" id="creaKitNote" class="form-control">
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="chiudiModalCreaKit()">Annulla</button>
-      <button class="btn btn-success" onclick="confermaCreaKitDaCarico()">📦 Crea Kit</button>
-    </div>
+    <div class="form-group"><label>Magazzino di destinazione *</label><select id="creaKitMagazzino" class="form-control"></select></div>
+    <div class="form-group"><label>Destinatario tipo</label><select id="creaKitDestTipo" class="form-control" onchange="caricaDestinazioniCreaKit()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
+    <div class="form-group"><label>Destinatario</label><select id="creaKitDestId" class="form-control"></select></div>
+    <div class="form-group"><label>Note (opzionali)</label><input type="text" id="creaKitNote" class="form-control"></div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModalCreaKit()">Annulla</button><button class="btn btn-success" onclick="confermaCreaKitDaCarico()">📦 Crea Kit</button></div>
   </div>
 </div>
 
@@ -547,7 +565,7 @@ async function getKitDetails(kitId) {
 }
 
 // ============================================================
-// CARICAMENTO OGGETTI IN CARICO (con correzione per inviati)
+// CARICAMENTO OGGETTI IN CARICO
 // ============================================================
 async function getOggettiInCarico(tipo, id) {
   var body = { targetTipo: tipo, targetId: parseInt(id) };
@@ -758,7 +776,7 @@ async function caricaOggettiInCarico() {
 }
 
 // ============================================================
-// CARICAMENTO DAL MAGAZZINO (parallelizzato)
+// CARICAMENTO DAL MAGAZZINO
 // ============================================================
 async function caricaOggettiDaMagazzino() {
   showLoading();
@@ -1112,9 +1130,7 @@ async function apriModalAssegnazione(obj) {
     document.getElementById('assignQta').value = 1;
     await caricaDestinazioniAssegnazione();
     document.getElementById('assignModal').style.display = 'flex';
-  } catch(e) {
-    showMessage('Errore: ' + e.message, 'error');
-  }
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
 }
 async function caricaDestinazioniAssegnazione() {
   var tipo = document.getElementById('assignDestTipo').value;
@@ -1144,15 +1160,9 @@ async function confermaAssegnazione() {
     showMessage('Quantità non valida (max: ' + obj.totale + ')', 'error');
     return;
   }
-  if (!dT || !dId) {
-    showMessage('Seleziona una destinazione', 'error');
-    return;
-  }
+  if (!dT || !dId) { showMessage('Seleziona una destinazione', 'error'); return; }
   var magId = magazzinoSelect.value;
-  if (!magId) {
-    showMessage('Seleziona un magazzino di partenza', 'error');
-    return;
-  }
+  if (!magId) { showMessage('Seleziona un magazzino di partenza', 'error'); return; }
   var payload = {
     magazzinoId: parseInt(magId),
     destinazioneTipo: dT,
@@ -1171,7 +1181,7 @@ async function confermaAssegnazione() {
 }
 
 // ============================================================
-// MODALI – MODIFICA SINGOLA (in carico)
+// MODALI – MODIFICA SINGOLA (in carico) + DIVIDI E TRASFERISCI
 // ============================================================
 async function apriModificaSingola(obj) {
   try {
@@ -1186,6 +1196,16 @@ async function apriModificaSingola(obj) {
     await caricaDestinazioniEdit();
     var selId = document.getElementById('editDestId');
     if (obj.destinazioneId) selId.value = obj.destinazioneId;
+    
+    // Inizializza i campi "Dividi e trasferisci"
+    var maxTrasferibile = obj.totale - 1;
+    document.getElementById('dividiQuantita').value = 1;
+    document.getElementById('dividiQuantita').max = maxTrasferibile;
+    document.getElementById('dividiMax').innerText = maxTrasferibile;
+    document.getElementById('dividiDestTipo').value = 'PROMOTER';
+    document.getElementById('dividiNote').value = '';
+    caricaDestinazioniDividi();
+    
     document.getElementById('editAssignmentModal').style.display = 'flex';
   } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
 }
@@ -1212,25 +1232,16 @@ async function confermaModificaSingola() {
   var dT = document.getElementById('editDestTipo').value;
   var dId = document.getElementById('editDestId').value;
   var note = document.getElementById('editNote').value;
-  if (isNaN(nuovaQta) || nuovaQta < 1) {
-    showMessage('Quantità non valida', 'error');
-    return;
-  }
-  if (!dT || !dId) {
-    showMessage('Seleziona una destinazione', 'error');
-    return;
-  }
+  if (isNaN(nuovaQta) || nuovaQta < 1) { showMessage('Quantità non valida', 'error'); return; }
+  if (!dT || !dId) { showMessage('Seleziona una destinazione', 'error'); return; }
   var qta = obj.totale;
   if (nuovaQta !== qta) {
-    showMessage('La modifica della quantità richiede un rientro parziale. Funzionalità in sviluppo.', 'info');
+    showMessage('La modifica della quantità richiede un rientro parziale. Usa la sezione "Dividi e trasferisci" per trasferire una parte.', 'info');
     return;
   }
   var daTipo = obj.destinazioneTipo || 'PROMOTER';
   var daId = obj.destinazioneId || null;
-  if (!daId) {
-    showMessage('Provenienza non valida', 'error');
-    return;
-  }
+  if (!daId) { showMessage('Provenienza non valida', 'error'); return; }
   var payload = {
     daTipo: daTipo,
     daId: daId,
@@ -1248,6 +1259,74 @@ async function confermaModificaSingola() {
       caricaOggettiInCarico();
     } else { showMessage(r.message, 'error'); }
   } catch(e) { showMessage(e.message, 'error'); }
+}
+
+// ============================================================
+// DIVIDI E TRASFERISCI (funzioni)
+// ============================================================
+async function caricaDestinazioniDividi() {
+  var tipo = document.getElementById('dividiDestTipo').value;
+  var sel = document.getElementById('dividiDestId');
+  sel.innerHTML = '<option value="">Caricamento...</option>';
+  if (!tipo) return;
+  try {
+    var data = await apiFetch('/soggetti/tipo/' + tipo);
+    sel.innerHTML = '<option value="">Seleziona...</option>';
+    for (var item of data) {
+      var label = tipo === 'PROMOTER' ? (item.nome + ' ' + (item.cognome||'')).trim() : item.nome;
+      sel.appendChild(new Option(label, item.id));
+    }
+  } catch(e) {
+    sel.innerHTML = '<option value="">Errore caricamento</option>';
+  }
+}
+
+async function confermaDividi() {
+  var obj = currentEditObj;
+  if (!obj) return;
+  var qtaDaTrasferire = parseInt(document.getElementById('dividiQuantita').value);
+  var dT = document.getElementById('dividiDestTipo').value;
+  var dId = document.getElementById('dividiDestId').value;
+  var note = document.getElementById('dividiNote').value.trim();
+
+  if (isNaN(qtaDaTrasferire) || qtaDaTrasferire < 1) {
+    showMessage('Quantità da trasferire non valida', 'error');
+    return;
+  }
+  if (qtaDaTrasferire >= obj.totale) {
+    showMessage('La quantità da trasferire deve essere minore della quantità totale', 'error');
+    return;
+  }
+  if (!dT || !dId) {
+    showMessage('Seleziona una destinazione', 'error');
+    return;
+  }
+
+  var payload = {
+    daTipo: obj.destinazioneTipo || 'PROMOTER',
+    daId: obj.destinazioneId || null,
+    aTipo: dT,
+    aId: parseInt(dId),
+    tipoOggetto: obj.tipoOggetto,
+    oggettoId: obj.oggettoId,
+    siglaId: obj.siglaId || null,
+    quantitaDaTrasferire: qtaDaTrasferire,
+    quantitaRimanente: obj.totale - qtaDaTrasferire,
+    note: note
+  };
+
+  try {
+    var r = await apiFetch('/assegnazioni/dividi', { method: 'POST', body: JSON.stringify(payload) });
+    if (r.success) {
+      showMessage('Divisione completata! ' + qtaDaTrasferire + ' unità trasferite a ' + (destTipo) + ' ' + dId, 'success');
+      chiudiEditModal();
+      caricaOggettiInCarico();
+    } else {
+      showMessage(r.message, 'error');
+    }
+  } catch(e) {
+    showMessage('Errore: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
@@ -1313,10 +1392,7 @@ async function confermaMassive() {
   var dT = document.getElementById('massiveDestTipo').value;
   var dId = document.getElementById('massiveDestId').value;
   var note = document.getElementById('massiveNote').value;
-  if (!dT || !dId) {
-    showMessage('Seleziona una destinazione', 'error');
-    return;
-  }
+  if (!dT || !dId) { showMessage('Seleziona una destinazione', 'error'); return; }
   var isMag = radioMagazzino.checked;
   var endpoint = '', payload = { note: note };
   if (isMag) {
@@ -1379,36 +1455,20 @@ function apriModalCreaKitDaCarico() {
     var id = parseInt(cbs[i].dataset.rowId);
     if (!isNaN(id)) idx.push(id);
   }
-  if (idx.length === 0) {
-    showMessage('Seleziona almeno un elemento', 'error');
-    return;
-  }
-  // Verifica che ci sia almeno uno sci e un attacco
+  if (idx.length === 0) { showMessage('Seleziona almeno un elemento', 'error'); return; }
   var selezionati = idx.map(function(i) { return oggetti[i]; });
   var hasSci = false, hasAttacco = false;
   var magazzinoId = null;
   for (var o of selezionati) {
     if (o.categoriaNome && o.categoriaNome.toLowerCase() === 'sci') {
       hasSci = true;
-      // Prendi il magazzino dal primo sci trovato (se disponibile)
       if (!magazzinoId && o.magazzino) magazzinoId = o.magazzino;
     }
-    if (o.categoriaNome && o.categoriaNome.toLowerCase() === 'attacchi') {
-      hasAttacco = true;
-    }
+    if (o.categoriaNome && o.categoriaNome.toLowerCase() === 'attacchi') { hasAttacco = true; }
   }
-  if (!hasSci) {
-    showMessage('Devi selezionare almeno uno sci', 'error');
-    return;
-  }
-  if (!hasAttacco) {
-    showMessage('Devi selezionare almeno un attacco', 'error');
-    return;
-  }
-
+  if (!hasSci) { showMessage('Devi selezionare almeno uno sci', 'error'); return; }
+  if (!hasAttacco) { showMessage('Devi selezionare almeno un attacco', 'error'); return; }
   selectedPerKit = selezionati;
-
-  // Riepilogo
   var rip = '<strong>Elementi selezionati (' + selectedPerKit.length + '):</strong><ul>';
   for (var o of selectedPerKit) {
     var tipo = o.categoriaNome || 'ARTICOLO';
@@ -1416,8 +1476,6 @@ function apriModalCreaKitDaCarico() {
   }
   rip += '</ul>';
   document.getElementById('riepilogoSelezione').innerHTML = rip;
-
-  // Popola dropdown magazzini
   var selMag = document.getElementById('creaKitMagazzino');
   selMag.innerHTML = '<option value="">Seleziona magazzino</option>';
   for (var m of magazzini) {
@@ -1427,8 +1485,6 @@ function apriModalCreaKitDaCarico() {
     if (magazzinoId && m.id == magazzinoId) opt.selected = true;
     selMag.appendChild(opt);
   }
-
-  // Imposta destinatario predefinito: stesso soggetto in carico
   var selTipo = document.getElementById('creaKitDestTipo');
   var selId = document.getElementById('creaKitDestId');
   selTipo.value = sourceTipo.value || 'PROMOTER';
@@ -1442,15 +1498,12 @@ function apriModalCreaKitDaCarico() {
       }
     }
   }
-
   document.getElementById('modalCreaKitDaCarico').style.display = 'flex';
 }
-
 function chiudiModalCreaKit() {
   document.getElementById('modalCreaKitDaCarico').style.display = 'none';
   selectedPerKit = [];
 }
-
 async function caricaDestinazioniCreaKit() {
   var tipo = document.getElementById('creaKitDestTipo').value;
   var sel = document.getElementById('creaKitDestId');
@@ -1463,35 +1516,18 @@ async function caricaDestinazioniCreaKit() {
       var label = tipo === 'PROMOTER' ? (item.nome + ' ' + (item.cognome||'')).trim() : item.nome;
       sel.appendChild(new Option(label, item.id));
     }
-  } catch(e) {
-    sel.innerHTML = '<option value="">Errore caricamento</option>';
-  }
+  } catch(e) { sel.innerHTML = '<option value="">Errore caricamento</option>'; }
 }
-
 async function confermaCreaKitDaCarico() {
   var magazzinoId = document.getElementById('creaKitMagazzino').value;
   var destTipo = document.getElementById('creaKitDestTipo').value;
   var destId = document.getElementById('creaKitDestId').value;
   var note = document.getElementById('creaKitNote').value.trim();
-
-  if (!magazzinoId) {
-    showMessage('Seleziona un magazzino', 'error');
-    return;
-  }
-  if (!destTipo || !destId) {
-    showMessage('Seleziona un destinatario', 'error');
-    return;
-  }
-
+  if (!magazzinoId) { showMessage('Seleziona un magazzino', 'error'); return; }
+  if (!destTipo || !destId) { showMessage('Seleziona un destinatario', 'error'); return; }
   var oggettiPayload = selectedPerKit.map(function(o) {
-    return {
-      tipoOggetto: 'ARTICOLO',
-      oggettoId: o.oggettoId,
-      siglaId: o.siglaId || null,
-      quantita: o.totale
-    };
+    return { tipoOggetto: 'ARTICOLO', oggettoId: o.oggettoId, siglaId: o.siglaId || null, quantita: o.totale };
   });
-
   var payload = {
     soggettoTipo: sourceTipo.value,
     soggettoId: parseInt(sourceId.value),
@@ -1501,19 +1537,14 @@ async function confermaCreaKitDaCarico() {
     magazzinoId: parseInt(magazzinoId),
     note: note
   };
-
   try {
     var r = await apiFetch('/kit/da-carico', { method: 'POST', body: JSON.stringify(payload) });
     if (r.success) {
       showMessage('Kit creato con successo!', 'success');
       chiudiModalCreaKit();
       caricaOggetti();
-    } else {
-      showMessage(r.message, 'error');
-    }
-  } catch(e) {
-    showMessage('Errore: ' + e.message, 'error');
-  }
+    } else { showMessage(r.message, 'error'); }
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
 }
 
 // ============================================================
@@ -1521,10 +1552,7 @@ async function confermaCreaKitDaCarico() {
 // ============================================================
 function anteprimaPDF() {
   var data = oggetti;
-  if (!data || data.length === 0) {
-    showMessage('Nessun dato da esportare', 'error');
-    return;
-  }
+  if (!data || data.length === 0) { showMessage('Nessun dato da esportare', 'error'); return; }
   var destinatarioLabel = '';
   if (radioCarico.checked) {
     var sel = document.getElementById('sourceId');
@@ -1659,9 +1687,7 @@ function setup() {
         if (sourceId.value) caricaOggettiInCarico();
         else if (currentUser.riferimento_id) caricaOggettiInCarico();
         else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
-      } else {
-        oggetti = []; oggettiOriginali = []; popolaTabella();
-      }
+      } else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
     });
     if (currentUser.ruolo === 'promoter' && userLevel === 1) {
       radioMagazzino.disabled = false;
