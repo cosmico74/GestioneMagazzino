@@ -1,7 +1,6 @@
 const express = require('express');
 const { verifyToken } = require('../auth');
 const pool = require('../db');
-const db = require('../db');
 const { ricalcolaQuantitaTotale } = require('./articoli');
 
 const router = express.Router();
@@ -105,7 +104,7 @@ async function canPromoterAssignTo(connection, promoterId, targetSoggettoId) {
 }
 
 // ============================================================
-// HELPER: Aggiorna carico_sintesi (esportata per kit.js)
+// HELPER: Aggiorna carico_sintesi
 // ============================================================
 async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, quantita, provenienzaTipo, provenienzaId, dataAssegnazione) {
   if (quantita === 0) {
@@ -123,12 +122,12 @@ async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneI
        provenienza_tipo = VALUES(provenienza_tipo),
        provenienza_id = VALUES(provenienza_id),
        data_assegnazione = VALUES(data_assegnazione)`,
-    [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || db.now()]
+    [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || new Date()]
   );
 }
 
 // ============================================================
-// USCITA BATCH (dal magazzino) - CON PERMESSI PER PROMOTER LIVELLO 1
+// USCITA BATCH (dal magazzino)
 // ============================================================
 router.post('/uscita/batch', verifyToken, async (req, res) => {
   const { magazzinoId, destinazioneTipo, destinazioneId, note, oggetti } = req.body;
@@ -158,7 +157,7 @@ router.post('/uscita/batch', verifyToken, async (req, res) => {
 
     const [userInfo] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = userInfo[0].username;
-    const now = db.now();
+    const now = new Date();
 
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, siglaId, quantita } = item;
@@ -235,7 +234,7 @@ router.post('/rientro/batch', verifyToken, async (req, res) => {
 
     const [user] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = user[0].username;
-    const now = db.now();
+    const now = new Date();
 
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, siglaId, quantita, daTipo, daId } = item;
@@ -291,7 +290,7 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
 
     const [user] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = user[0].username;
-    const now = db.now();
+    const now = new Date();
 
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, siglaId, quantita } = item;
@@ -344,7 +343,70 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// OTTIENI OGGETTI IN CARICO (con categoria)
+// DIVIDI E TRASFERISCI (quantità parziale)
+// ============================================================
+router.post('/dividi', verifyToken, async (req, res) => {
+  const { 
+    daTipo, daId, aTipo, aId, 
+    tipoOggetto, oggettoId, siglaId, 
+    quantitaDaTrasferire, quantitaRimanente, note 
+  } = req.body;
+
+  if (!daTipo || !daId || !aTipo || !aId || !tipoOggetto || !oggettoId) {
+    return res.status(400).json({ success: false, message: 'Parametri mancanti' });
+  }
+  if (quantitaDaTrasferire <= 0 || quantitaRimanente <= 0) {
+    return res.status(400).json({ success: false, message: 'Le quantità devono essere positive' });
+  }
+
+  const connection = await pool.getConnection();
+  await connection.beginTransaction();
+  try {
+    const now = new Date();
+
+    // 1. Aggiorna la riga originale (riduci la quantità)
+    const [updateResult] = await connection.query(
+      `UPDATE carico_sintesi 
+       SET quantita = ? 
+       WHERE destinazione_tipo = ? AND destinazione_id = ? 
+         AND tipo_oggetto = ? AND oggetto_id = ? 
+         AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))`,
+      [quantitaRimanente, daTipo, daId, tipoOggetto, oggettoId, siglaId, siglaId]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      throw new Error('Nessuna riga trovata da aggiornare');
+    }
+
+    // 2. Crea la nuova riga per il destinatario
+    await connection.query(
+      `INSERT INTO carico_sintesi 
+       (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now]
+    );
+
+    // 3. Registra movimento
+    await connection.query(
+      `INSERT INTO movimenti 
+       (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
+       VALUES (?, 'TRASFERIMENTO_PARZIALE', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
+      [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, req.userId, note, siglaId || null]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Divisione e trasferimento completati' });
+  } catch (err) {
+    await connection.rollback();
+    console.error('Errore /dividi:', err);
+    res.status(500).json({ success: false, message: err.message });
+  } finally {
+    connection.release();
+  }
+});
+
+// ============================================================
+// OTTIENI OGGETTI IN CARICO
 // ============================================================
 router.post('/oggetti', verifyToken, async (req, res) => {
   try {
@@ -429,7 +491,7 @@ router.post('/oggetti', verifyToken, async (req, res) => {
           provenienzaTipo: row.provenienza_tipo,
           provenienzaId: row.provenienza_id,
           dataAssegnazione: row.data_assegnazione,
-          categoriaNome: row.categoria_nome || null // NUOVO
+          categoriaNome: row.categoria_nome || null
         });
       }
       return risultati;
@@ -500,18 +562,6 @@ router.get('/inviati', verifyToken, async (req, res) => {
   }
 });
 
-# Aggiungi il file modificato
-git add backend/routes/assegnazioni.js
-
-# Aggiungi anche il frontend se modificato
-git add frontend/AssegnazioniUnificate.html
-
-# Crea il commit
-git commit -m "Feat: divisione e trasferimento parziale di oggetti in carico"
-
-# Carica su GitHub
-git push origin main
-
 // ============================================================
 // VERIFICA SIGLA ASSEGNATA
 // ============================================================
@@ -554,7 +604,4 @@ router.get('/verifica-sigla', verifyToken, async (req, res) => {
   }
 });
 
-// ESPORTA UTILITÀ PER KIT.JS
 module.exports = router;
-module.exports.aggiornaCaricoSintesi = aggiornaCaricoSintesi;
-module.exports.getDisponibilitaSigla = getDisponibilitaSigla;
