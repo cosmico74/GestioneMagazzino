@@ -500,6 +500,18 @@ router.get('/inviati', verifyToken, async (req, res) => {
   }
 });
 
+# Aggiungi il file modificato
+git add backend/routes/assegnazioni.js
+
+# Aggiungi anche il frontend se modificato
+git add frontend/AssegnazioniUnificate.html
+
+# Crea il commit
+git commit -m "Feat: divisione e trasferimento parziale di oggetti in carico"
+
+# Carica su GitHub
+git push origin main
+
 // ============================================================
 // VERIFICA SIGLA ASSEGNATA
 // ============================================================
