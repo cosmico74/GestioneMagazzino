@@ -346,6 +346,9 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
 // ============================================================
 // DIVIDI E TRASFERISCI (quantità parziale)
 // ============================================================
+// ============================================================
+// DIVIDI E TRASFERISCI (quantità parziale)
+// ============================================================
 router.post('/dividi', verifyToken, async (req, res) => {
   console.log('📋 [POST] /dividi - body:', req.body);
   const { 
@@ -399,26 +402,20 @@ router.post('/dividi', verifyToken, async (req, res) => {
     }
 
     // 3. Crea la nuova riga per il destinatario
-    const insertSql = `
-      INSERT INTO carico_sintesi 
-      (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const insertParams = [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now];
-    console.log('📋 [POST] /dividi - SQL INSERT:', insertSql, 'params:', insertParams);
-    
-    await connection.query(insertSql, insertParams);
+    await connection.query(
+      `INSERT INTO carico_sintesi 
+       (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now]
+    );
 
-    // 4. Registra movimento (usando 'DIVISIONE' come tipo, più corto)
-    const movSql = `
-      INSERT INTO movimenti 
-      (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
-      VALUES (?, 'DIVISIONE', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)
-    `;
-    const movParams = [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, operatore, note || null, siglaId || null];
-    console.log('📋 [POST] /dividi - SQL MOV:', movSql, 'params:', movParams);
-    
-    await connection.query(movSql, movParams);
+    // 4. Registra movimento (usa 'DIVISIONE' perché 'TRASFERIMENTO_PARZIALE' è troppo lungo)
+    await connection.query(
+      `INSERT INTO movimenti 
+       (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
+       VALUES (?, 'DIVISIONE', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
+      [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, operatore, note || null, siglaId || null]
+    );
 
     await connection.commit();
     console.log('✅ [POST] /dividi - completato con successo');
