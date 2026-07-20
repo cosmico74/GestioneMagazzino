@@ -343,9 +343,7 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
   }
 });
 
-// ============================================================
-// DIVIDI E TRASFERISCI (quantità parziale)
-// ============================================================
+
 // ============================================================
 // DIVIDI E TRASFERISCI (quantità parziale)
 // ============================================================
@@ -368,11 +366,8 @@ router.post('/dividi', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // 1. Prendi username dell'operatore
     const [userRows] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = userRows.length ? userRows[0].username : 'sconosciuto';
-    console.log('📋 [POST] /dividi - operatore:', operatore);
-
     const now = db.now();
 
     // 2. Aggiorna la riga originale (riduci la quantità)
@@ -391,14 +386,11 @@ router.post('/dividi', verifyToken, async (req, res) => {
       sqlUpdate += ' AND sigla_id IS NULL';
     }
     
-    console.log('📋 [POST] /dividi - SQL UPDATE:', sqlUpdate, 'params:', paramsUpdate);
-    
     const [updateResult] = await connection.query(sqlUpdate, paramsUpdate);
-    console.log('📋 [POST] /dividi - updateResult:', updateResult);
 
     if (updateResult.affectedRows === 0) {
       await connection.rollback();
-      return res.status(404).json({ success: false, message: 'Nessuna riga trovata da aggiornare. Verifica che l\'oggetto esista ancora in carico al soggetto.' });
+      return res.status(404).json({ success: false, message: 'Nessuna riga trovata da aggiornare.' });
     }
 
     // 3. Crea la nuova riga per il destinatario
@@ -409,7 +401,7 @@ router.post('/dividi', verifyToken, async (req, res) => {
       [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now]
     );
 
-    // 4. Registra movimento (usa 'DIVISIONE' perché 'TRASFERIMENTO_PARZIALE' è troppo lungo)
+    // 4. Registra movimento con tipo breve
     await connection.query(
       `INSERT INTO movimenti 
        (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
@@ -418,7 +410,6 @@ router.post('/dividi', verifyToken, async (req, res) => {
     );
 
     await connection.commit();
-    console.log('✅ [POST] /dividi - completato con successo');
     res.json({ success: true, message: 'Divisione e trasferimento completati' });
   } catch (err) {
     await connection.rollback();
