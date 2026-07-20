@@ -370,7 +370,7 @@ router.post('/dividi', verifyToken, async (req, res) => {
     const operatore = userRows.length ? userRows[0].username : 'sconosciuto';
     const now = db.now();
 
-    // 2. Aggiorna la riga originale (riduci la quantità)
+    // 1. Aggiorna la riga originale (riduci la quantità)
     let sqlUpdate = `
       UPDATE carico_sintesi 
       SET quantita = ? 
@@ -393,7 +393,7 @@ router.post('/dividi', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Nessuna riga trovata da aggiornare.' });
     }
 
-    // 3. Crea la nuova riga per il destinatario
+    // 2. Crea la nuova riga per il destinatario
     await connection.query(
       `INSERT INTO carico_sintesi 
        (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
@@ -401,12 +401,16 @@ router.post('/dividi', verifyToken, async (req, res) => {
       [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now]
     );
 
-    // 4. Registra movimento con tipo breve
+    // 3. Registra movimento con tipo 'TRASFERIMENTO' e dettaglio nella nota
+    const notaCompleta = note 
+      ? `${note} - Divisione parziale (rimanente: ${quantitaRimanente}, trasferito: ${quantitaDaTrasferire})`
+      : `Divisione parziale (rimanente: ${quantitaRimanente}, trasferito: ${quantitaDaTrasferire})`;
+      
     await connection.query(
       `INSERT INTO movimenti 
        (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
-       VALUES (?, 'DIVISIONE', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
-      [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, operatore, note || null, siglaId || null]
+       VALUES (?, 'TRASFERIMENTO', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
+      [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, operatore, notaCompleta, siglaId || null]
     );
 
     await connection.commit();
@@ -419,7 +423,6 @@ router.post('/dividi', verifyToken, async (req, res) => {
     connection.release();
   }
 });
-
 // ============================================================
 // OTTIENI OGGETTI IN CARICO (con categoria)
 // ============================================================
