@@ -1,6 +1,7 @@
 const express = require('express');
 const { verifyToken } = require('../auth');
 const pool = require('../db');
+const db = require('../db');
 const { ricalcolaQuantitaTotale } = require('./articoli');
 
 const router = express.Router();
@@ -122,12 +123,12 @@ async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneI
        provenienza_tipo = VALUES(provenienza_tipo),
        provenienza_id = VALUES(provenienza_id),
        data_assegnazione = VALUES(data_assegnazione)`,
-    [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || new Date()]
+    [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || db.now()]
   );
 }
 
 // ============================================================
-// USCITA BATCH (dal magazzino)
+// USCITA BATCH (dal magazzino) - CON PERMESSI PER PROMOTER LIVELLO 1
 // ============================================================
 router.post('/uscita/batch', verifyToken, async (req, res) => {
   const { magazzinoId, destinazioneTipo, destinazioneId, note, oggetti } = req.body;
@@ -157,7 +158,7 @@ router.post('/uscita/batch', verifyToken, async (req, res) => {
 
     const [userInfo] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = userInfo[0].username;
-    const now = new Date();
+    const now = db.now();
 
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, siglaId, quantita } = item;
@@ -234,7 +235,7 @@ router.post('/rientro/batch', verifyToken, async (req, res) => {
 
     const [user] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = user[0].username;
-    const now = new Date();
+    const now = db.now();
 
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, siglaId, quantita, daTipo, daId } = item;
@@ -290,7 +291,7 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
 
     const [user] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = user[0].username;
-    const now = new Date();
+    const now = db.now();
 
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, siglaId, quantita } = item;
@@ -360,11 +361,16 @@ router.post('/dividi', verifyToken, async (req, res) => {
   }
 
   const connection = await pool.getConnection();
-  await connection.beginTransaction();
   try {
-    const now = new Date();
+    await connection.beginTransaction();
 
-    // 1. Aggiorna la riga originale (riduci la quantità)
+    // 1. Prendi username dell'operatore
+    const [userRows] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
+    const operatore = userRows.length ? userRows[0].username : 'sconosciuto';
+
+    const now = db.now();
+
+    // 2. Aggiorna la riga originale (riduci la quantità)
     const [updateResult] = await connection.query(
       `UPDATE carico_sintesi 
        SET quantita = ? 
@@ -375,10 +381,11 @@ router.post('/dividi', verifyToken, async (req, res) => {
     );
 
     if (updateResult.affectedRows === 0) {
-      throw new Error('Nessuna riga trovata da aggiornare');
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Nessuna riga trovata da aggiornare' });
     }
 
-    // 2. Crea la nuova riga per il destinatario
+    // 3. Crea la nuova riga per il destinatario
     await connection.query(
       `INSERT INTO carico_sintesi 
        (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
@@ -386,12 +393,12 @@ router.post('/dividi', verifyToken, async (req, res) => {
       [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now]
     );
 
-    // 3. Registra movimento
+    // 4. Registra movimento
     await connection.query(
       `INSERT INTO movimenti 
        (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
        VALUES (?, 'TRASFERIMENTO_PARZIALE', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
-      [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, req.userId, note, siglaId || null]
+      [now, `${daTipo}-${daId}`, `${aTipo}-${aId}`, oggettoId, tipoOggetto, quantitaDaTrasferire, operatore, note || null, siglaId || null]
     );
 
     await connection.commit();
@@ -406,7 +413,7 @@ router.post('/dividi', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// OTTIENI OGGETTI IN CARICO
+// OTTIENI OGGETTI IN CARICO (con categoria)
 // ============================================================
 router.post('/oggetti', verifyToken, async (req, res) => {
   try {
@@ -604,4 +611,7 @@ router.get('/verifica-sigla', verifyToken, async (req, res) => {
   }
 });
 
+// ESPORTA UTILITÀ PER KIT.JS
 module.exports = router;
+module.exports.aggiornaCaricoSintesi = aggiornaCaricoSintesi;
+module.exports.getDisponibilitaSigla = getDisponibilitaSigla;
