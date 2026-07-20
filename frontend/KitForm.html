@@ -36,15 +36,8 @@
     th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
     th { background: #f8f9fa; cursor: pointer; user-select: none; }
     th:hover { background: #e2e8f0; }
-    th .sort-arrow {
-      font-size: 0.6rem;
-      margin-left: 4px;
-      color: #999;
-    }
-    th .sort-arrow.active {
-      color: #1a73e8;
-      font-weight: bold;
-    }
+    th .sort-arrow { font-size: 0.6rem; margin-left: 4px; color: #999; }
+    th .sort-arrow.active { color: #1a73e8; font-weight: bold; }
     .sigle-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .sigle-table th, .sigle-table td { border: 1px solid #ddd; padding: 6px; }
     .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
@@ -54,44 +47,13 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .action-buttons { display: flex; gap: 4px; justify-content: center; }
     .text-center { text-align: center; }
-    .modal {
-      display: none;
-      position: fixed;
-      top:0; left:0;
-      width:100%; height:100%;
-      background: rgba(0,0,0,0.5);
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    .modal-content {
-      background: white;
-      border-radius: 16px;
-      width: 90%;
-      max-width: 500px;
-      max-height: 85vh;
-      overflow-y: auto;
-      padding: 20px;
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 10px;
-      margin-bottom: 15px;
-    }
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
     .modal-header h3 { margin: 0; }
     .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
     .close:hover { color: black; }
-    .modal-footer {
-      border-top: 1px solid #e2e8f0;
-      padding-top: 12px;
-      margin-top: 15px;
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-    }
+    .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
     .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; }
   </style>
 </head>
@@ -303,7 +265,6 @@ async function caricaSiglePerSci(sciId) {
   }
   try {
     // Recupera la giacenza dell'articolo (sci) selezionato
-    // Prendi il primo articolo del gruppo
     const articoliIds = articoliSciGroup[sciId] || [sciId];
     if (articoliIds.length > 0) {
       const firstId = articoliIds[0];
@@ -425,7 +386,6 @@ async function popolaSciDisponibili() {
       kitSciSelect.value = articoliSci[0].articolo_id;
       await caricaSiglePerSci(kitSciSelect.value);
     } else if (kitSciSelect.value) {
-      // Se c'è già una selezione, carica le sigle
       await caricaSiglePerSci(kitSciSelect.value);
     }
 
@@ -436,7 +396,7 @@ async function popolaSciDisponibili() {
 }
 
 // ============================================================
-// GESTIONE RIGHE SIGLE
+// GESTIONE RIGHE SIGLE (con limite alla giacenza articolo)
 // ============================================================
 function aggiungiRigaSigla() {
   const tbody = document.getElementById('sigleTbody');
@@ -492,16 +452,37 @@ function aggiungiRigaSigla() {
 function popolaSelectSigle(select, selectedId = null) {
   select.innerHTML = '<option value="">Seleziona sigla</option>';
   currentSigleDisponibili.forEach(s => {
-    // Limita la quantità massima al minimo tra giacenza sigla e giacenza articolo
-    const maxQta = Math.min(s.giacenza, currentArticoloGiacenza);
-    const label = s.sigla + (s.durezza ? ' - ' + s.durezza : '') + ' (disp: ' + s.giacenza + ')';
+    // La disponibilità reale per il kit è il minimo tra giacenza sigla e giacenza articolo
+    const disponibilitaReale = Math.min(s.giacenza, currentArticoloGiacenza);
+    const label = s.sigla + (s.durezza ? ' - ' + s.durezza : '') + ' (disp: ' + disponibilitaReale + ')';
     const opt = new Option(label, s.id);
     if (selectedId && selectedId == s.id) opt.selected = true;
+    // Memorizza la disponibilità reale come attributo per usarla dopo
+    opt.dataset.disponibilita = disponibilitaReale;
     select.appendChild(opt);
   });
   if (currentSigleDisponibili.length === 1) {
     select.value = currentSigleDisponibili[0].id;
   }
+  // Aggiorna il max della quantità dopo aver popolato
+  aggiornaMaxQuantitaRighe();
+}
+
+function aggiornaMaxQuantitaRighe() {
+  document.querySelectorAll('#sigleTbody tr').forEach(row => {
+    const siglaSelect = row.cells[0].querySelector('select');
+    const qtyInput = row.cells[3].querySelector('input');
+    if (siglaSelect && qtyInput) {
+      const selectedOption = siglaSelect.options[siglaSelect.selectedIndex];
+      if (selectedOption && selectedOption.dataset.disponibilita) {
+        const maxQta = parseInt(selectedOption.dataset.disponibilita);
+        qtyInput.max = maxQta;
+        if (parseInt(qtyInput.value) > maxQta) {
+          qtyInput.value = maxQta;
+        }
+      }
+    }
+  });
 }
 
 function aggiornaTutteLeRighe() {
@@ -535,6 +516,7 @@ function aggiornaTutteLeRighe() {
       siglaSelect.innerHTML = '<option value="">Seleziona sigla</option>';
     }
   });
+  aggiornaMaxQuantitaRighe();
 }
 
 // ============================================================
@@ -653,10 +635,10 @@ async function salvaKit() {
     if (!attId) { hasErrors = true; return; }
     if (isNaN(quantita) || quantita < 1) { hasErrors = true; return; }
 
-    // Verifica che la quantità non superi la giacenza della sigla
-    const siglaSelezionata = currentSigleDisponibili.find(s => s.id == siglaId);
-    if (siglaSelezionata) {
-      const maxQta = Math.min(siglaSelezionata.giacenza, currentArticoloGiacenza);
+    // Verifica che la quantità non superi la disponibilità reale
+    const selectedOption = siglaSelect.options[siglaSelect.selectedIndex];
+    if (selectedOption && selectedOption.dataset.disponibilita) {
+      const maxQta = parseInt(selectedOption.dataset.disponibilita);
       if (quantita > maxQta) {
         hasErrors = true;
         showMessage('Quantità richiesta (' + quantita + ') supera la disponibilità (' + maxQta + ') per questa sigla', 'error');
