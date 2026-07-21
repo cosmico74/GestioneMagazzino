@@ -478,7 +478,9 @@ router.post('/da-carico', verifyToken, async (req, res) => {
   }
 });
 
-// Helper per livello utente
+// ============================================================
+// HELPER: livello utente per permessi (usato in /da-carico)
+// ============================================================
 async function getUserLevel(userId) {
   const [user] = await db.query('SELECT riferimento_id FROM utenti WHERE id = ?', [userId]);
   if (!user.length || !user[0].riferimento_id) return 0;
@@ -616,7 +618,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/kit/:id/note - Aggiorna solo la nota del kit (AUDIT AGGIUNTO)
+// PATCH /api/kit/:id/note - Aggiorna solo la nota del kit
 // ============================================================
 router.patch('/:id/note', verifyToken, async (req, res) => {
   const { note } = req.body;
@@ -674,3 +676,8 @@ router.delete('/:id', verifyToken, async (req, res) => {
 });
 
 module.exports = router;
+
+// === ESPORTAZIONE PER AUDIT ===
+module.exports.ricalcolaQuantitaInKit = ricalcolaQuantitaInKit;
+module.exports.aggiungiInKit = aggiungiInKit;
+module.exports.rimuoviDaKit = rimuoviDaKit;

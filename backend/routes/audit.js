@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { verifyToken } = require('../auth');
+const { ricalcolaQuantitaTotale } = require('./articoli');
+const { rimuoviDaKit, aggiungiInKit } = require('./kit');
 
 // ============================================================
 // GET /api/audit/log - Elenco operazioni con filtri
@@ -37,7 +39,6 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // 1. Recupera il record di audit
     const [log] = await connection.query('SELECT * FROM audit_log WHERE id = ?', [req.params.id]);
     if (!log.length) {
       await connection.rollback();
@@ -49,7 +50,7 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Operazione già annullata' });
     }
 
-    // 2. Gestione assegnazioni successive (per articoli o kit)
+    // Gestione assegnazioni successive (per articoli o kit)
     const tipoOggetto = entry.tabella === 'articoli' ? 'ARTICOLO' : 'KIT';
     const [assegnazioni] = await connection.query(
       `SELECT * FROM carico_sintesi 
@@ -58,10 +59,8 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       [tipoOggetto, entry.riga_id, entry.data_ora]
     );
 
-    // Se ci sono assegnazioni successive, le rientriamo (cancellazione da carico_sintesi)
     if (assegnazioni.length > 0) {
       for (const ass of assegnazioni) {
-        // Rimuovi la riga da carico_sintesi
         await connection.query(
           `DELETE FROM carico_sintesi 
            WHERE destinazione_tipo = ? AND destinazione_id = ? 
@@ -69,7 +68,6 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
              AND sigla_id <=> ? AND data_assegnazione = ?`,
           [ass.destinazione_tipo, ass.destinazione_id, ass.tipo_oggetto, ass.oggetto_id, ass.sigla_id, ass.data_assegnazione]
         );
-        // Registra il rientro nei movimenti
         await connection.query(
           `INSERT INTO movimenti (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato)
            VALUES (NOW(), 'RIENTRO', CONCAT(?, '-', ?), NULL, ?, ?, ?, ?, 'Annullamento automatico', 'COMPLETATO')`,
@@ -78,7 +76,6 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       }
     }
 
-    // 3. Esegui il rollback in base al tipo di tabella e operazione
     switch (entry.tabella) {
       case 'articoli':
         await rollbackArticolo(connection, entry, req.userId);
@@ -97,7 +94,6 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Tabella non supportata per annullamento' });
     }
 
-    // 4. Segna il record di audit come annullato
     await connection.query('UPDATE audit_log SET annullato = 1 WHERE id = ?', [req.params.id]);
 
     await connection.commit();
@@ -119,7 +115,6 @@ async function rollbackArticolo(connection, entry, userId) {
   const id = entry.riga_id;
   switch (entry.operazione) {
     case 'CREAZIONE':
-      // Elimina l'articolo e le sue sigle
       await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [id]);
       await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [id]);
       break;
@@ -145,69 +140,134 @@ async function rollbackArticolo(connection, entry, userId) {
 async function rollbackKit(connection, entry, userId) {
   const id = entry.riga_id;
   switch (entry.operazione) {
-    case 'CREAZIONE':
-      // Elimina il kit e i dettagli
+    case 'CREAZIONE': {
+      // Recupera i dettagli del kit
+      const [dettagli] = await connection.query('SELECT * FROM kit_dettaglio WHERE kit_id = ?', [id]);
+      
+      // Sottrai le quantità in kit dagli articoli componenti
+      for (const det of dettagli) {
+        await rimuoviDaKit(connection, det.articolo_id, det.quantita);
+      }
+
+      // Verifica se il kit è stato creato da carico (movimento KIT_DA_CARICO)
+      const [movCarico] = await connection.query(
+        `SELECT * FROM movimenti 
+         WHERE tipo = 'KIT_DA_CARICO' AND id_articolo_kit = ? AND tipo_oggetto = 'KIT'`,
+        [id]
+      );
+
+      if (movCarico.length > 0) {
+        // Creato da carico: ripristina gli articoli nel carico del soggetto
+        const daMagazzino = movCarico[0].da_magazzino; // es. "PROMOTER-123"
+        const [tipo, soggettoId] = daMagazzino.split('-');
+        for (const det of dettagli) {
+          await connection.query(
+            `INSERT INTO carico_sintesi 
+             (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
+             VALUES (?, ?, 'ARTICOLO', ?, ?, ?, 'MAGAZZINO', NULL, ?)`,
+            [tipo, parseInt(soggettoId), det.articolo_id, det.sigla_id, det.quantita, new Date()]
+          );
+        }
+      } else {
+        // Creato da magazzino: ripristina le quantità delle sigle
+        for (const det of dettagli) {
+          await connection.query(
+            'UPDATE sigle_articoli SET quantita = quantita + ? WHERE id = ?',
+            [det.quantita, det.sigla_id]
+          );
+          await ricalcolaQuantitaTotale(connection, det.articolo_id);
+        }
+      }
+
+      // Elimina kit e dettagli
       await connection.query('DELETE FROM kit_dettaglio WHERE kit_id = ?', [id]);
       await connection.query('DELETE FROM kit WHERE id = ?', [id]);
       break;
-    case 'MODIFICA':
+    }
+
+    case 'MODIFICA': {
       const prima = JSON.parse(entry.dati_prima);
       delete prima.id;
       delete prima.data_creazione;
       delete prima.data_modifica;
-      const setClauseKit = Object.keys(prima).map(k => `${k} = ?`).join(', ');
-      const valuesKit = Object.values(prima);
-      await connection.query(`UPDATE kit SET ${setClauseKit} WHERE id = ?`, [...valuesKit, id]);
+      const setClause = Object.keys(prima).map(k => `${k} = ?`).join(', ');
+      const values = Object.values(prima);
+      await connection.query(`UPDATE kit SET ${setClause} WHERE id = ?`, [...values, id]);
       break;
-    case 'ELIMINAZIONE':
+    }
+
+    case 'ELIMINAZIONE': {
       const dati = JSON.parse(entry.dati_prima);
       delete dati.id;
       delete dati.data_creazione;
       delete dati.data_modifica;
       await connection.query(`INSERT INTO kit SET ?`, [dati]);
       break;
-  }
-}
-
-async function rollbackSigla(connection, entry, userId) {
-  const id = entry.riga_id;
-  switch (entry.operazione) {
-    case 'CREAZIONE':
-      await connection.query('DELETE FROM sigle_articoli WHERE id = ?', [id]);
-      break;
-    case 'MODIFICA':
-      const prima = JSON.parse(entry.dati_prima);
-      delete prima.id;
-      delete prima.articolo_id; // non modificare l'articolo_id
-      const setClauseSig = Object.keys(prima).map(k => `${k} = ?`).join(', ');
-      const valuesSig = Object.values(prima);
-      await connection.query(`UPDATE sigle_articoli SET ${setClauseSig} WHERE id = ?`, [...valuesSig, id]);
-      break;
-    case 'ELIMINAZIONE':
-      const dati = JSON.parse(entry.dati_prima);
-      await connection.query(`INSERT INTO sigle_articoli SET ?`, [dati]);
-      break;
+    }
   }
 }
 
 async function rollbackKitDettaglio(connection, entry, userId) {
   const id = entry.riga_id;
   switch (entry.operazione) {
-    case 'CREAZIONE':
+    case 'CREAZIONE': {
+      const [det] = await connection.query('SELECT * FROM kit_dettaglio WHERE id = ?', [id]);
+      if (det.length) {
+        await rimuoviDaKit(connection, det[0].articolo_id, det[0].quantita);
+      }
       await connection.query('DELETE FROM kit_dettaglio WHERE id = ?', [id]);
       break;
-    case 'MODIFICA':
+    }
+
+    case 'MODIFICA': {
       const prima = JSON.parse(entry.dati_prima);
       delete prima.id;
       delete prima.kit_id;
-      const setClauseDet = Object.keys(prima).map(k => `${k} = ?`).join(', ');
-      const valuesDet = Object.values(prima);
-      await connection.query(`UPDATE kit_dettaglio SET ${setClauseDet} WHERE id = ?`, [...valuesDet, id]);
+      const setClause = Object.keys(prima).map(k => `${k} = ?`).join(', ');
+      const values = Object.values(prima);
+      await connection.query(`UPDATE kit_dettaglio SET ${setClause} WHERE id = ?`, [...values, id]);
       break;
-    case 'ELIMINAZIONE':
+    }
+
+    case 'ELIMINAZIONE': {
       const dati = JSON.parse(entry.dati_prima);
       await connection.query(`INSERT INTO kit_dettaglio SET ?`, [dati]);
+      // Aggiorna la quantità in kit per l'articolo
+      await aggiungiInKit(connection, dati.articolo_id, dati.quantita);
       break;
+    }
+  }
+}
+
+async function rollbackSigla(connection, entry, userId) {
+  const id = entry.riga_id;
+  let articoloId;
+  switch (entry.operazione) {
+    case 'CREAZIONE': {
+      const [sigla] = await connection.query('SELECT articolo_id FROM sigle_articoli WHERE id = ?', [id]);
+      if (sigla.length) articoloId = sigla[0].articolo_id;
+      await connection.query('DELETE FROM sigle_articoli WHERE id = ?', [id]);
+      break;
+    }
+    case 'MODIFICA': {
+      const prima = JSON.parse(entry.dati_prima);
+      articoloId = prima.articolo_id;
+      delete prima.id;
+      delete prima.articolo_id;
+      const setClause = Object.keys(prima).map(k => `${k} = ?`).join(', ');
+      const values = Object.values(prima);
+      await connection.query(`UPDATE sigle_articoli SET ${setClause} WHERE id = ?`, [...values, id]);
+      break;
+    }
+    case 'ELIMINAZIONE': {
+      const dati = JSON.parse(entry.dati_prima);
+      articoloId = dati.articolo_id;
+      await connection.query(`INSERT INTO sigle_articoli SET ?`, [dati]);
+      break;
+    }
+  }
+  if (articoloId) {
+    await ricalcolaQuantitaTotale(connection, articoloId);
   }
 }
 

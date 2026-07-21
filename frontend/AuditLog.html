@@ -98,13 +98,15 @@
           <th>Tabella</th>
           <th>Operazione</th>
           <th>ID Riga</th>
+          <th>Oggetto</th>
+          <th>Dettagli</th>
           <th>Data</th>
           <th>Utente</th>
           <th>Annullato</th>
           <th>Azioni</th>
         </tr>
       </thead>
-      <tbody id="logBody"><tr><td colspan="8" class="text-center">Caricamento...</td></tr></tbody>
+      <tbody id="logBody"><tr><td colspan="10" class="text-center">Caricamento...</td></tr></tbody>
     </table>
   </div>
   <div class="pagination">
@@ -177,11 +179,12 @@ async function caricaLog(page = 1) {
     showMessage(e.message, 'error');
   }
 }
+
 function renderLog(data) {
   const tbody = document.getElementById('logBody');
   tbody.innerHTML = '';
   if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Nessuna operazione trovata</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessuna operazione trovata</td></tr>';
     return;
   }
   data.forEach(item => {
@@ -191,14 +194,41 @@ function renderLog(data) {
       'MODIFICA': 'badge-modifica',
       'ELIMINAZIONE': 'badge-eliminazione'
     }[item.operazione] || '';
+
+    let oggetto = '';
+    let dettagli = '';
+    try {
+      const prima = item.dati_prima ? JSON.parse(item.dati_prima) : null;
+      const dopo = item.dati_dopo ? JSON.parse(item.dati_dopo) : null;
+      const dati = dopo || prima || {};
+      
+      if (item.tabella === 'articoli') {
+        oggetto = dati.descrizione || '';
+        dettagli = dati.lunghezza ? 'Lunghezza: ' + dati.lunghezza + ' cm' : '';
+      } else if (item.tabella === 'sigle_articoli') {
+        oggetto = 'Sigla: ' + (dati.sigla || '');
+        dettagli = 'Qtà: ' + (dati.quantita || 0) + (dati.quantita_austria ? ' (AU: ' + dati.quantita_austria + ')' : '');
+      } else if (item.tabella === 'kit') {
+        oggetto = dati.descrizione || '';
+        dettagli = 'Codice: ' + (dati.codice_kit || '');
+      } else if (item.tabella === 'kit_dettaglio') {
+        oggetto = 'Tipo: ' + (dati.tipo_articolo || '');
+        dettagli = 'Articolo ID: ' + (dati.articolo_id || '') + ' Qtà: ' + (dati.quantita || 0);
+      }
+    } catch(e) {
+      oggetto = 'Errore parsing';
+    }
+
     row.insertCell(0).innerText = item.id;
     row.insertCell(1).innerText = item.tabella;
     row.insertCell(2).innerHTML = `<span class="badge ${badgeOper}">${item.operazione}</span>`;
     row.insertCell(3).innerText = item.riga_id;
-    row.insertCell(4).innerText = formatDate(item.data_ora);
-    row.insertCell(5).innerText = item.utente_nome || item.utente_id;
-    row.insertCell(6).innerText = item.annullato ? '✅' : '❌';
-    const actions = row.insertCell(7);
+    row.insertCell(4).innerText = oggetto;
+    row.insertCell(5).innerText = dettagli;
+    row.insertCell(6).innerText = formatDate(item.data_ora);
+    row.insertCell(7).innerText = item.utente_nome || item.utente_id;
+    row.insertCell(8).innerText = item.annullato ? '✅' : '❌';
+    const actions = row.insertCell(9);
     actions.className = 'actions';
     if (!item.annullato) {
       const btn = document.createElement('button');
@@ -211,6 +241,7 @@ function renderLog(data) {
     }
   });
 }
+
 function resetFiltri() {
   document.getElementById('filtroTabella').value = '';
   document.getElementById('filtroOperazione').value = '';
