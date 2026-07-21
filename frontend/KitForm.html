@@ -139,11 +139,12 @@
           <th data-sort="lunghezza_sci">Lunghezza <span class="sort-arrow sort-asc" data-col="lunghezza_sci">▲</span><span class="sort-arrow sort-desc" data-col="lunghezza_sci">▼</span></th>
           <th data-sort="quantita">Qtà <span class="sort-arrow sort-asc" data-col="quantita">▲</span><span class="sort-arrow sort-desc" data-col="quantita">▼</span></th>
           <th data-sort="magazzino">Magazzino <span class="sort-arrow sort-asc" data-col="magazzino">▲</span><span class="sort-arrow sort-desc" data-col="magazzino">▼</span></th>
+          <th data-sort="assegnato_a">Assegnato a <span class="sort-arrow sort-asc" data-col="assegnato_a">▲</span><span class="sort-arrow sort-desc" data-col="assegnato_a">▼</span></th>
           <th data-sort="data_creazione">Creato <span class="sort-arrow sort-asc" data-col="data_creazione">▲</span><span class="sort-arrow sort-desc" data-col="data_creazione">▼</span></th>
           <th>Azioni</th>
         </tr>
       </thead>
-      <tbody id="tabellaBody"><tr><td colspan="9" class="text-center">Caricamento...</td></tr></tbody>
+      <tbody id="tabellaBody"><tr><td colspan="10" class="text-center">Caricamento...</td></tr></tbody>
     </table>
     <div id="loadingOverlay"><div class="spinner"></div><span>Caricamento in corso...</span></div>
     <div class="pagination-bar">
@@ -316,7 +317,6 @@ async function caricaMagazzini() {
     var sel2 = document.getElementById('kitMagazzino');
     sel2.innerHTML = '<option value="">Seleziona...</option>';
     magazzini.forEach(function(m) { sel2.appendChild(new Option(m.nome, m.id)); });
-    // Preseleziona 'Race' se esiste
     var race = magazzini.find(function(m) { return m.nome.toLowerCase() === 'race'; });
     if (race) sel2.value = race.id;
   } catch(e) { console.error('Errore magazzini', e); }
@@ -324,13 +324,10 @@ async function caricaMagazzini() {
 
 async function caricaArticoli() {
   try {
-    // Sci
     var r = await apiFetch('/articoli?categoria=sci&min_giacenza=1');
     articoliSci = r.success ? r.data : [];
-    // Attacchi
     r = await apiFetch('/articoli?categoria=attacchi&min_giacenza=1');
     articoliAttacchi = r.success ? r.data : [];
-    // Skistoppers
     r = await apiFetch('/articoli?categoria=skistoppers&min_giacenza=1');
     articoliSkistoppers = r.success ? r.data : [];
   } catch(e) { console.error('Errore articoli', e); }
@@ -355,7 +352,8 @@ async function caricaKit() {
     if (fRic) kits = kits.filter(function(k) {
       return (k.codice_kit || '').toLowerCase().includes(fRic) ||
              (k.descrizione || '').toLowerCase().includes(fRic) ||
-             (k.sigla_sci || '').toLowerCase().includes(fRic);
+             (k.sigla_sci || '').toLowerCase().includes(fRic) ||
+             (k.assegnato_a || '').toLowerCase().includes(fRic);
     });
     sortOggetti();
     paginaCorrente = 1;
@@ -413,7 +411,7 @@ function popolaTabella() {
   tbody.innerHTML = '';
   var totali = kits.length;
   if (totali === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nessun kit disponibile</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun kit disponibile</td></tr>';
     updatePagination(0,0,0);
     return;
   }
@@ -438,8 +436,10 @@ function popolaTabella() {
     var found = magazzini.find(function(m) { return m.id == k.magazzino; });
     if (found) magNome = found.nome;
     row.insertCell(6).innerText = magNome;
-    row.insertCell(7).innerText = formatDate(k.data_creazione);
-    var cellaAzioni = row.insertCell(8);
+    // Colonna Assegnato a
+    row.insertCell(7).innerText = k.assegnato_a || 'In magazzino';
+    row.insertCell(8).innerText = formatDate(k.data_creazione);
+    var cellaAzioni = row.insertCell(9);
     var btnDettaglio = document.createElement('button');
     btnDettaglio.textContent = '🔍';
     btnDettaglio.className = 'btn btn-secondary btn-sm';
@@ -518,9 +518,7 @@ async function apriModalModificaKit(id) {
     document.getElementById('kitEditId').value = id;
     document.getElementById('kitNote').value = kit.note || '';
     document.getElementById('kitQuantita').value = kit.quantita || 1;
-    // Carica dropdown
     await popolaDropdownKit();
-    // Seleziona i valori correnti
     var sci = kit.dettagli.find(function(d) { return d.tipo_articolo === 'SCI'; });
     var attacco = kit.dettagli.find(function(d) { return d.tipo_articolo === 'ATTACCHI'; });
     var skistopper = kit.dettagli.find(function(d) { return d.tipo_articolo === 'SKISTOPPER'; });
@@ -565,7 +563,6 @@ async function popolaDropdownKit() {
   articoliSkistoppers.forEach(function(a) {
     selSk.appendChild(new Option(a.descrizione, a.articolo_id));
   });
-  // Carica magazzino già fatto
   caricaSigleSci();
   caricaSigleAttacco();
 }
@@ -716,6 +713,7 @@ function anteprimaPDF() {
       lunghezza: k.lunghezza_sci || '-',
       quantita: k.quantita || 0,
       magazzino: magazzini.find(function(m) { return m.id == k.magazzino; })?.nome || k.magazzino,
+      assegnato: k.assegnato_a || 'In magazzino',
       data: formatDate(k.data_creazione)
     };
   });
@@ -727,9 +725,10 @@ function anteprimaPDF() {
     { header: 'Lunghezza', dataKey: 'lunghezza' },
     { header: 'Qtà', dataKey: 'quantita' },
     { header: 'Magazzino', dataKey: 'magazzino' },
+    { header: 'Assegnato a', dataKey: 'assegnato' },
     { header: 'Data', dataKey: 'data' }
   ];
-  var doc = new jspdf.jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  var doc = new jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   var pageWidth = doc.internal.pageSize.getWidth();
   var logoImg = document.querySelector('.logo img');
   if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
@@ -760,6 +759,7 @@ function anteprimaPDF() {
     styles: { fontSize: 8 },
     headStyles: { fillColor: [26, 115, 232] },
     margin: { left: 20, right: 20 },
+    tableWidth: 'auto',
     columnStyles: {
       index: { cellWidth: 25 },
       codice: { cellWidth: 70 },
@@ -768,6 +768,7 @@ function anteprimaPDF() {
       lunghezza: { cellWidth: 50 },
       quantita: { cellWidth: 35 },
       magazzino: { cellWidth: 60 },
+      assegnato: { cellWidth: 100 },
       data: { cellWidth: 55 }
     }
   });
