@@ -73,7 +73,6 @@ router.get('/', verifyToken, async (req, res) => {
     let sql = `
       SELECT a.*,
         (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE,
-        -- Calcolo dinamico dello stato in base alla giacenza reale
         CASE 
           WHEN (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) <= 0 THEN 'Esaurito'
           ELSE 'Disponibile'
@@ -189,6 +188,7 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
       [req.params.id, sigla]
     );
 
+    let siglaId;
     if (existing.length > 0) {
       if (existing[0].attivo === 1) {
         await connection.rollback();
@@ -200,6 +200,7 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
            WHERE id = ?`,
           [lunghezza || null, durezza || null, codice_modello || null, note || null, quantitaVal, quantitaVal, existing[0].id]
         );
+        siglaId = existing[0].id;
         console.log('♻️ Sigla riattivata:', { articolo_id: req.params.id, sigla, id: existing[0].id });
       }
     } else {
@@ -209,14 +210,20 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
         quantita: quantitaVal,
         quantita_austria: quantitaVal
       });
-      await connection.query(
+      const [result] = await connection.query(
         `INSERT INTO sigle_articoli (articolo_id, sigla, lunghezza, durezza, codice_modello, note, quantita, quantita_austria, attivo)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
         [req.params.id, sigla, lunghezza || null, durezza || null, codice_modello || null, note || null, quantitaVal, quantitaVal]
       );
+      siglaId = result.insertId;
     }
 
     await ricalcolaQuantitaTotale(connection, req.params.id);
+
+    // Audit per la sigla creata/riattivata
+    const [newSigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [siglaId]);
+    await registraAudit(connection, 'sigle_articoli', 'CREAZIONE', siglaId, null, newSigla[0], req.userId);
+
     await connection.commit();
 
     res.json({ success: true, message: 'Sigla aggiunta con successo' });
@@ -229,6 +236,9 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// PUT /sigle/:id - MODIFICA GENERICA (con AUDIT)
+// ============================================================
 router.put('/sigle/:id', verifyToken, async (req, res) => {
   const { sigla, note, quantita_austria } = req.body;
   let updateFields = [];
@@ -250,17 +260,37 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
   }
   values.push(req.params.id);
   const sql = `UPDATE sigle_articoli SET ${updateFields.join(', ')} WHERE id = ?`;
+
+  const connection = await db.getConnection();
   try {
-    await db.query(sql, values);
+    await connection.beginTransaction();
+    // Recupera i vecchi dati
+    const [oldRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
+    if (!oldRows.length) throw new Error('Sigla non trovata');
+    const oldData = oldRows[0];
+
+    await connection.query(sql, values);
+
+    // Recupera i nuovi dati
+    const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
+    const newData = newRows[0];
+
+    // Audit
+    await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
+
+    await connection.commit();
     res.json({ success: true, message: 'Sigla aggiornata' });
   } catch (err) {
+    await connection.rollback();
     console.error('❌ Errore PUT /sigle/:id:', err);
     res.status(500).json({ error: err.message });
+  } finally {
+    connection.release();
   }
 });
 
 // ============================================================
-// PUT /sigle/:id/quantita - CON CONTROLLO RIDUZIONE E LOG
+// PUT /sigle/:id/quantita - MODIFICA QUANTITA' (con AUDIT)
 // ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   console.log('🔍 PUT /sigle/:id/quantita - body ricevuto:', req.body);
@@ -279,24 +309,23 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // Recupera l'articolo_id della sigla
-    const [sigla] = await connection.query('SELECT articolo_id FROM sigle_articoli WHERE id = ?', [req.params.id]);
-    if (!sigla.length) throw new Error('Sigla non trovata');
-    const articoloId = sigla[0].articolo_id;
+    // Recupera i vecchi dati
+    const [oldRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
+    if (!oldRows.length) throw new Error('Sigla non trovata');
+    const oldData = oldRows[0];
+    const articoloId = oldData.articolo_id;
 
-    // Calcola quanto è già usato nei kit
+    // Calcola impegnato
     const [usedInKit] = await connection.query(
       'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
       [req.params.id]
     );
-    // Calcola quanto è già assegnato (carico_sintesi)
     const [assegnato] = await connection.query(
       'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
       [req.params.id, 'ARTICOLO']
     );
     const impegnato = usedInKit[0].totale + assegnato[0].totale;
 
-    // Se la nuova quantità è inferiore all'impegnato, blocca
     if (quantitaNum < impegnato) {
       await connection.rollback();
       return res.status(400).json({
@@ -304,8 +333,14 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       });
     }
 
-    // Aggiorna la quantità
     await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantitaNum, req.params.id]);
+
+    // Recupera i nuovi dati
+    const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
+    const newData = newRows[0];
+
+    // Audit
+    await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
 
     // Ricalcola la quantita_totale dell'articolo
     await ricalcolaQuantitaTotale(connection, articoloId);
@@ -321,28 +356,57 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// PUT /sigle/:id/austria - MODIFICA QUANTITA' AUSTRIA (con AUDIT)
+// ============================================================
 router.put('/sigle/:id/austria', verifyToken, async (req, res) => {
   const { quantita_austria } = req.body;
   if (quantita_austria === undefined || quantita_austria < 0) {
     return res.status(400).json({ error: 'Quantità Austria non valida' });
   }
+
+  const connection = await db.getConnection();
   try {
-    await db.query('UPDATE sigle_articoli SET quantita_austria = ? WHERE id = ?', [quantita_austria, req.params.id]);
+    await connection.beginTransaction();
+
+    const [oldRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
+    if (!oldRows.length) throw new Error('Sigla non trovata');
+    const oldData = oldRows[0];
+
+    await connection.query('UPDATE sigle_articoli SET quantita_austria = ? WHERE id = ?', [quantita_austria, req.params.id]);
+
+    const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
+    const newData = newRows[0];
+
+    await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
+
+    await connection.commit();
     res.json({ success: true, message: 'Quantità Austria aggiornata' });
   } catch (err) {
+    await connection.rollback();
     console.error('❌ Errore PUT /sigle/austria:', err);
     res.status(500).json({ error: err.message });
+  } finally {
+    connection.release();
   }
 });
 
+// ============================================================
+// DELETE /sigle/:id - ELIMINA SIGLA (con AUDIT)
+// ============================================================
 router.delete('/sigle/:id', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const [sigla] = await connection.query('SELECT articolo_id FROM sigle_articoli WHERE id = ?', [req.params.id]);
+    const [sigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     if (!sigla.length) throw new Error('Sigla non trovata');
+    
     const [count] = await connection.query('SELECT COUNT(*) as cnt FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1', [sigla[0].articolo_id]);
     if (count[0].cnt === 1) throw new Error('Impossibile eliminare l\'unica sigla dell\'articolo');
+    
+    // Audit prima dell'eliminazione
+    await registraAudit(connection, 'sigle_articoli', 'ELIMINAZIONE', req.params.id, sigla[0], null, req.userId);
+    
     await connection.query('UPDATE sigle_articoli SET attivo = 0 WHERE id = ?', [req.params.id]);
     await ricalcolaQuantitaTotale(connection, sigla[0].articolo_id);
     await connection.commit();
@@ -388,7 +452,7 @@ router.post('/', verifyToken, async (req, res) => {
       lunghezza || '', durezza || '',
       quantita || 0,
       versione || '1.0',
-      'Disponibile', // verrà sovrascritto dal calcolo dinamico
+      'Disponibile',
       now, now,
       note || '',
       codiceModello || null,
@@ -397,16 +461,21 @@ router.post('/', verifyToken, async (req, res) => {
       req.userId
     ]);
 
-    await connection.query(
+    const [siglaResult] = await connection.query(
       'INSERT INTO sigle_articoli (articolo_id, sigla, quantita, quantita_austria) VALUES (?, \'NA\', ?, ?)',
       [newId, quantita || 0, quantita || 0]
     );
+    const siglaId = siglaResult.insertId;
 
     await ricalcolaQuantitaTotale(connection, newId);
 
-    // Audit
+    // Audit per l'articolo
     const [newRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [newId]);
     await registraAudit(connection, 'articoli', 'CREAZIONE', newId, null, newRow[0], req.userId);
+
+    // Audit per la sigla NA
+    const [newSigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [siglaId]);
+    await registraAudit(connection, 'sigle_articoli', 'CREAZIONE', siglaId, null, newSigla[0], req.userId);
 
     await connection.commit();
 
@@ -449,6 +518,10 @@ router.put('/:id', verifyToken, async (req, res) => {
           'UPDATE sigle_articoli SET quantita = ?, quantita_austria = ? WHERE id = ?',
           [quantita_totale, quantita_totale, sigle[0].id]
         );
+        // Audit per la sigla NA
+        const [oldSigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [sigle[0].id]);
+        const [newSigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [sigle[0].id]);
+        await registraAudit(connection, 'sigle_articoli', 'MODIFICA', sigle[0].id, oldSigla[0], newSigla[0], req.userId);
         await ricalcolaQuantitaTotale(connection, id);
       }
     }

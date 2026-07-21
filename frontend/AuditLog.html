@@ -42,6 +42,9 @@
     .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 15px; align-items: center; }
     .pagination button { padding: 4px 12px; }
     .btn-sm { padding: 2px 8px; font-size: 0.7rem; }
+    .change-old { color: #dc3545; text-decoration: line-through; }
+    .change-new { color: #28a745; font-weight: bold; }
+    .change-arrow { color: #6c757d; margin: 0 4px; }
   </style>
 </head>
 <body>
@@ -180,6 +183,9 @@ async function caricaLog(page = 1) {
   }
 }
 
+// ============================================================
+// RENDER LOG CON DETTAGLI PER SIGLE
+// ============================================================
 function renderLog(data) {
   const tbody = document.getElementById('logBody');
   tbody.innerHTML = '';
@@ -200,23 +206,61 @@ function renderLog(data) {
     try {
       const prima = item.dati_prima ? JSON.parse(item.dati_prima) : null;
       const dopo = item.dati_dopo ? JSON.parse(item.dati_dopo) : null;
-      const dati = dopo || prima || {};
       
       if (item.tabella === 'articoli') {
-        oggetto = dati.descrizione || '';
-        dettagli = dati.lunghezza ? 'Lunghezza: ' + dati.lunghezza + ' cm' : '';
+        oggetto = dopo?.descrizione || prima?.descrizione || '';
+        dettagli = dopo?.lunghezza ? 'Lunghezza: ' + dopo.lunghezza + ' cm' : (prima?.lunghezza ? 'Lunghezza: ' + prima.lunghezza + ' cm' : '');
+        if (dopo?.codice_modello) dettagli += ' | Modello: ' + dopo.codice_modello;
       } else if (item.tabella === 'sigle_articoli') {
-        oggetto = 'Sigla: ' + (dati.sigla || '');
-        dettagli = 'Qtà: ' + (dati.quantita || 0) + (dati.quantita_austria ? ' (AU: ' + dati.quantita_austria + ')' : '');
+        const sigla = dopo?.sigla || prima?.sigla || '';
+        oggetto = '🔖 Sigla: ' + sigla;
+        
+        let changes = [];
+        if (prima && dopo) {
+          if (prima.quantita !== dopo.quantita) {
+            changes.push('Qtà: <span class="change-old">' + prima.quantita + '</span><span class="change-arrow">→</span><span class="change-new">' + dopo.quantita + '</span>');
+          }
+          if (prima.quantita_austria !== dopo.quantita_austria) {
+            changes.push('Qtà AU: <span class="change-old">' + prima.quantita_austria + '</span><span class="change-arrow">→</span><span class="change-new">' + dopo.quantita_austria + '</span>');
+          }
+          if (prima.sigla !== dopo.sigla) {
+            changes.push('Sigla: <span class="change-old">' + prima.sigla + '</span><span class="change-arrow">→</span><span class="change-new">' + dopo.sigla + '</span>');
+          }
+          if (prima.durezza !== dopo.durezza) {
+            changes.push('Durezza: <span class="change-old">' + (prima.durezza || '-') + '</span><span class="change-arrow">→</span><span class="change-new">' + (dopo.durezza || '-') + '</span>');
+          }
+          if (prima.codice_modello !== dopo.codice_modello) {
+            changes.push('Modello: <span class="change-old">' + (prima.codice_modello || '-') + '</span><span class="change-arrow">→</span><span class="change-new">' + (dopo.codice_modello || '-') + '</span>');
+          }
+          if (prima.note !== dopo.note) {
+            changes.push('Nota: <span class="change-old">' + (prima.note || '-') + '</span><span class="change-arrow">→</span><span class="change-new">' + (dopo.note || '-') + '</span>');
+          }
+        }
+        dettagli = changes.length ? changes.join('; ') : (prima ? 'Qtà=' + prima.quantita + ', AU=' + prima.quantita_austria : '');
+        if (!dettagli && dopo) {
+          dettagli = 'Qtà=' + dopo.quantita + ', AU=' + dopo.quantita_austria;
+        }
       } else if (item.tabella === 'kit') {
-        oggetto = dati.descrizione || '';
-        dettagli = 'Codice: ' + (dati.codice_kit || '');
+        oggetto = dopo?.descrizione || prima?.descrizione || '';
+        dettagli = 'Codice: ' + (dopo?.codice_kit || prima?.codice_kit || '');
+        if (dopo?.quantita) dettagli += ' | Qtà: ' + dopo.quantita;
       } else if (item.tabella === 'kit_dettaglio') {
-        oggetto = 'Tipo: ' + (dati.tipo_articolo || '');
-        dettagli = 'Articolo ID: ' + (dati.articolo_id || '') + ' Qtà: ' + (dati.quantita || 0);
+        const tipo = dopo?.tipo_articolo || prima?.tipo_articolo || '';
+        oggetto = '📦 ' + tipo;
+        let changes = [];
+        if (prima && dopo) {
+          if (prima.quantita !== dopo.quantita) {
+            changes.push('Qtà: <span class="change-old">' + prima.quantita + '</span><span class="change-arrow">→</span><span class="change-new">' + dopo.quantita + '</span>');
+          }
+          if (prima.articolo_id !== dopo.articolo_id) {
+            changes.push('Articolo ID: <span class="change-old">' + prima.articolo_id + '</span><span class="change-arrow">→</span><span class="change-new">' + dopo.articolo_id + '</span>');
+          }
+        }
+        dettagli = changes.length ? changes.join('; ') : 'Articolo ID: ' + (dopo?.articolo_id || prima?.articolo_id || '') + ' | Qtà: ' + (dopo?.quantita || prima?.quantita || 0);
       }
     } catch(e) {
-      oggetto = 'Errore parsing';
+      oggetto = '⚠️ Errore parsing';
+      dettagli = '';
     }
 
     row.insertCell(0).innerText = item.id;
@@ -224,7 +268,7 @@ function renderLog(data) {
     row.insertCell(2).innerHTML = `<span class="badge ${badgeOper}">${item.operazione}</span>`;
     row.insertCell(3).innerText = item.riga_id;
     row.insertCell(4).innerText = oggetto;
-    row.insertCell(5).innerText = dettagli;
+    row.insertCell(5).innerHTML = dettagli;
     row.insertCell(6).innerText = formatDate(item.data_ora);
     row.insertCell(7).innerText = item.utente_nome || item.utente_id;
     row.insertCell(8).innerText = item.annullato ? '✅' : '❌';
