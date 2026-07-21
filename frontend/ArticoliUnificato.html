@@ -690,7 +690,8 @@ function renderTabellaPaginata() {
     btnSigle.className = 'btn';
     btnSigle.style.background = '#6c757d';
     btnSigle.style.padding = '2px 6px';
-    btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione);
+    // MODIFICA: passo anche a.lunghezza
+    btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione, a.lunghezza);
     tdSigle.appendChild(btnSigle);
     const actions = row.insertCell(15);
     actions.className = 'action-buttons';
@@ -895,9 +896,11 @@ async function eliminaArticolo(id) {
 // ============================================================
 // GESTIONE SIGLE (con log e gestione errori)
 // ============================================================
-async function apriGestioneSigle(articoloId, descrizione) {
+// MODIFICA: accetto anche il parametro lunghezza
+async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
-  document.getElementById('sigleArticoloDesc').innerText = descrizione;
+  const displayText = descrizione + (lunghezza ? ' (' + lunghezza + ' cm)' : '');
+  document.getElementById('sigleArticoloDesc').innerText = displayText;
   await caricaSigleArticolo(articoloId);
   document.getElementById('modalSigle').style.display = 'flex';
 }
