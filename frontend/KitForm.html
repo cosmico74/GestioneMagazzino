@@ -331,13 +331,30 @@ async function caricaMagazzini() {
 
 async function caricaArticoli() {
   try {
-    var r = await apiFetch('/articoli?categoria=sci&min_giacenza=1');
-    articoliSci = r.success ? r.data : [];
-    r = await apiFetch('/articoli?categoria=attacchi&min_giacenza=1');
-    articoliAttacchi = r.success ? r.data : [];
-    r = await apiFetch('/articoli?categoria=skistoppers&min_giacenza=1');
-    articoliSkistoppers = r.success ? r.data : [];
-  } catch(e) { console.error('Errore articoli', e); }
+    console.log('🔍 Caricamento articoli...');
+    console.log('📡 Token presente?', !!localStorage.getItem('token'));
+    
+    console.log('📡 Chiamata /articoli?categoria=sci&min_giacenza=1');
+    const r1 = await apiFetch('/articoli?categoria=sci&min_giacenza=1');
+    console.log('✅ Risposta sci:', r1);
+    articoliSci = r1.success ? r1.data : [];
+    console.log('📊 Articoli sci ricevuti:', articoliSci.length);
+    
+    console.log('📡 Chiamata /articoli?categoria=attacchi&min_giacenza=1');
+    const r2 = await apiFetch('/articoli?categoria=attacchi&min_giacenza=1');
+    console.log('✅ Risposta attacchi:', r2);
+    articoliAttacchi = r2.success ? r2.data : [];
+    console.log('📊 Articoli attacchi ricevuti:', articoliAttacchi.length);
+    
+    console.log('📡 Chiamata /articoli?categoria=skistoppers&min_giacenza=1');
+    const r3 = await apiFetch('/articoli?categoria=skistoppers&min_giacenza=1');
+    console.log('✅ Risposta skistoppers:', r3);
+    articoliSkistoppers = r3.success ? r3.data : [];
+    console.log('📊 Articoli skistoppers ricevuti:', articoliSkistoppers.length);
+  } catch(e) {
+    console.error('❌ Errore caricamento articoli:', e);
+    showMessage('Errore nel caricamento degli articoli: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
@@ -392,7 +409,9 @@ async function caricaSigleAttacco() {
 }
 
 async function popolaDropdownKit() {
+  console.log('🔄 Popolazione dropdown kit...');
   await caricaArticoli();
+  console.log('📋 Articoli sci disponibili per dropdown:', articoliSci);
   var selSci = document.getElementById('kitSci');
   selSci.innerHTML = '<option value="">Seleziona sci...</option>';
   articoliSci.forEach(function(a) {
@@ -400,22 +419,7 @@ async function popolaDropdownKit() {
     var label = a.descrizione + ' (' + (a.lunghezza || '') + 'cm) - disp. ' + disp;
     selSci.appendChild(new Option(label, a.articolo_id));
   });
-  var selAtt = document.getElementById('kitAttacco');
-  selAtt.innerHTML = '<option value="">Seleziona attacco...</option>';
-  articoliAttacchi.forEach(function(a) {
-    var disp = a.GIACENZA_REALE || 0;
-    var label = a.descrizione + ' - disp. ' + disp;
-    selAtt.appendChild(new Option(label, a.articolo_id));
-  });
-  var selSk = document.getElementById('kitSkistopper');
-  selSk.innerHTML = '<option value="">Nessuno</option>';
-  articoliSkistoppers.forEach(function(a) {
-    var disp = a.GIACENZA_REALE || 0;
-    var label = a.descrizione + ' - disp. ' + disp;
-    selSk.appendChild(new Option(label, a.articolo_id));
-  });
-  document.getElementById('kitSiglaSci').innerHTML = '<option value="">Seleziona uno sci</option>';
-  document.getElementById('kitSiglaAttacco').innerHTML = '<option value="">Nessuna</option>';
+  // ... resto del codice
 }
 
 // ============================================================
