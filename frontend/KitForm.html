@@ -89,6 +89,43 @@
     #loadingOverlay.show { display: flex; }
     #loadingOverlay span { font-size: 0.9rem; color: #1a73e8; }
     .riga-kit { background: #fcf8e8; }
+    .modal {
+      display: none;
+      position: fixed;
+      top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      max-width: 600px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 20px;
+      width: 90%;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+    .modal-header h3 { margin: 0; }
+    .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
+    .close:hover { color: black; }
+    .modal-footer {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 12px;
+      margin-top: 15px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
     @media (max-width: 768px) {
       .filter-bar { flex-direction: column; align-items: stretch; }
       .form-kit .form-row { flex-direction: column; align-items: stretch; }
@@ -224,25 +261,20 @@
 </div>
 
 <!-- ===== MODALE DETTAGLIO KIT ===== -->
-<div id="detailModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
-  <div class="modal-content" style="background:white; border-radius:16px; max-width:600px; max-height:85vh; overflow-y:auto; padding:20px; width:90%;">
-    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:10px; margin-bottom:15px;">
-      <h3>🔍 Dettaglio Kit</h3>
-      <span class="close" style="font-size:1.5rem; font-weight:bold; cursor:pointer; color:#aaa;" onclick="chiudiDetailModal()">&times;</span>
-    </div>
+<div id="detailModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header"><h3>🔍 Dettaglio Kit</h3><span class="close" onclick="chiudiDetailModal()">&times;</span></div>
     <div id="detailBody"></div>
-    <div class="modal-footer" style="border-top:1px solid #e2e8f0; padding-top:12px; margin-top:15px; display:flex; justify-content:flex-end;">
-      <button class="btn btn-secondary" onclick="chiudiDetailModal()">Chiudi</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiDetailModal()">Chiudi</button></div>
   </div>
 </div>
 
 <!-- ===== MODALE CONFERMA ELIMINAZIONE ===== -->
-<div id="confirmModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
-  <div class="modal-content" style="background:white; border-radius:16px; max-width:400px; padding:20px; width:90%;">
+<div id="confirmModal" class="modal">
+  <div class="modal-content">
     <h3>⚠️ Conferma eliminazione</h3>
     <p id="confirmMessage">Sei sicuro di voler eliminare questo kit?</p>
-    <div class="modal-footer" style="border-top:1px solid #e2e8f0; padding-top:12px; margin-top:15px; display:flex; justify-content:flex-end; gap:10px;">
+    <div class="modal-footer">
       <button class="btn btn-secondary" onclick="chiudiConfirmModal()">Annulla</button>
       <button class="btn btn-danger" id="confirmDeleteBtn" onclick="confermaElimina()">🗑️ Elimina</button>
     </div>
@@ -329,28 +361,40 @@ async function caricaMagazzini() {
   } catch(e) { console.error('Errore magazzini', e); }
 }
 
+// 🔧 CORREZIONE: chiamate senza min_giacenza
 async function caricaArticoli() {
   try {
     console.log('🔍 Caricamento articoli...');
     console.log('📡 Token presente?', !!localStorage.getItem('token'));
     
-    console.log('📡 Chiamata /articoli?categoria=sci&min_giacenza=1');
-    const r1 = await apiFetch('/articoli?categoria=sci&min_giacenza=1');
+    // Rimuoviamo &min_giacenza=1 per vedere TUTTI gli articoli
+    const r1 = await apiFetch('/articoli?categoria=sci');
     console.log('✅ Risposta sci:', r1);
     articoliSci = r1.success ? r1.data : [];
     console.log('📊 Articoli sci ricevuti:', articoliSci.length);
     
-    console.log('📡 Chiamata /articoli?categoria=attacchi&min_giacenza=1');
-    const r2 = await apiFetch('/articoli?categoria=attacchi&min_giacenza=1');
+    const r2 = await apiFetch('/articoli?categoria=attacchi');
     console.log('✅ Risposta attacchi:', r2);
     articoliAttacchi = r2.success ? r2.data : [];
     console.log('📊 Articoli attacchi ricevuti:', articoliAttacchi.length);
     
-    console.log('📡 Chiamata /articoli?categoria=skistoppers&min_giacenza=1');
-    const r3 = await apiFetch('/articoli?categoria=skistoppers&min_giacenza=1');
+    const r3 = await apiFetch('/articoli?categoria=skistoppers');
     console.log('✅ Risposta skistoppers:', r3);
     articoliSkistoppers = r3.success ? r3.data : [];
     console.log('📊 Articoli skistoppers ricevuti:', articoliSkistoppers.length);
+    
+    // Se ancora non ci sono dati, proviamo senza filtro categoria
+    if (articoliSci.length === 0 && articoliAttacchi.length === 0 && articoliSkistoppers.length === 0) {
+      console.log('⚠️ Nessun articolo con filtro categoria, provo senza filtro...');
+      const rAll = await apiFetch('/articoli');
+      if (rAll.success) {
+        var tutti = rAll.data;
+        articoliSci = tutti.filter(a => a.categoria && a.categoria.toLowerCase() === 'sci');
+        articoliAttacchi = tutti.filter(a => a.categoria && a.categoria.toLowerCase() === 'attacchi');
+        articoliSkistoppers = tutti.filter(a => a.categoria && a.categoria.toLowerCase() === 'skistoppers');
+        console.log('📊 Dopo fallback - sci:', articoliSci.length, 'attacchi:', articoliAttacchi.length, 'skistoppers:', articoliSkistoppers.length);
+      }
+    }
   } catch(e) {
     console.error('❌ Errore caricamento articoli:', e);
     showMessage('Errore nel caricamento degli articoli: ' + e.message, 'error');
@@ -419,7 +463,22 @@ async function popolaDropdownKit() {
     var label = a.descrizione + ' (' + (a.lunghezza || '') + 'cm) - disp. ' + disp;
     selSci.appendChild(new Option(label, a.articolo_id));
   });
-  // ... resto del codice
+  var selAtt = document.getElementById('kitAttacco');
+  selAtt.innerHTML = '<option value="">Seleziona attacco...</option>';
+  articoliAttacchi.forEach(function(a) {
+    var disp = a.GIACENZA_REALE || 0;
+    var label = a.descrizione + ' - disp. ' + disp;
+    selAtt.appendChild(new Option(label, a.articolo_id));
+  });
+  var selSk = document.getElementById('kitSkistopper');
+  selSk.innerHTML = '<option value="">Nessuno</option>';
+  articoliSkistoppers.forEach(function(a) {
+    var disp = a.GIACENZA_REALE || 0;
+    var label = a.descrizione + ' - disp. ' + disp;
+    selSk.appendChild(new Option(label, a.articolo_id));
+  });
+  document.getElementById('kitSiglaSci').innerHTML = '<option value="">Seleziona uno sci</option>';
+  document.getElementById('kitSiglaAttacco').innerHTML = '<option value="">Nessuna</option>';
 }
 
 // ============================================================
@@ -617,10 +676,8 @@ async function caricaKitPerModifica(id) {
     document.getElementById('kitSaveBtn').textContent = '💾 Aggiorna';
     document.getElementById('kitCancelBtn').style.display = 'inline-block';
     
-    // Carica dropdown
     await popolaDropdownKit();
     
-    // Seleziona i valori correnti
     var sci = kit.dettagli.find(function(d) { return d.tipo_articolo === 'SCI'; });
     var attacco = kit.dettagli.find(function(d) { return d.tipo_articolo === 'ATTACCHI'; });
     var skistopper = kit.dettagli.find(function(d) { return d.tipo_articolo === 'SKISTOPPER'; });
@@ -639,7 +696,6 @@ async function caricaKitPerModifica(id) {
       document.getElementById('kitSkistopper').value = skistopper.articolo_id;
     }
     
-    // Scroll al form
     document.getElementById('kitForm').scrollIntoView({ behavior: 'smooth' });
   } catch(e) {
     showMessage('Errore caricamento kit: ' + e.message, 'error');
