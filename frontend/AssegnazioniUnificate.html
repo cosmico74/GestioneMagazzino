@@ -1469,6 +1469,91 @@ function apriModalCreaKitDaCarico() {
   }
   var selezionati = idx.map(function(i) { return oggetti[i]; });
   
+  // Funzioni helper per riconoscere sci/attacco anche senza categoria
+  function isSci(o) {
+    if (o.categoriaNome) return o.categoriaNome.toLowerCase() === 'sci';
+    // Fallback: cerca nella descrizione o nel codice
+    var desc = (o.descrizione || '').toLowerCase();
+    var codice = (o.codice_sigla || '').toLowerCase();
+    return desc.includes('sci') || codice.includes('sci');
+  }
+  function isAttacco(o) {
+    if (o.categoriaNome) return o.categoriaNome.toLowerCase() === 'attacchi';
+    var desc = (o.descrizione || '').toLowerCase();
+    var codice = (o.codice_sigla || '').toLowerCase();
+    return desc.includes('attacco') || codice.includes('attacco');
+  }
+  
+  var hasSci = selezionati.some(isSci);
+  var hasAttacco = selezionati.some(isAttacco);
+  
+  if (!hasSci || !hasAttacco) {
+    showMessage('Devi selezionare almeno uno sci e un attacco (riconosciuti da categoria, descrizione o codice)', 'error');
+    return;
+  }
+
+  // Memorizza la lista per l'uso successivo
+  selectedPerKit = selezionati;
+
+  // Genera la tabella con le quantità
+  var container = document.getElementById('riepilogoSelezione');
+  var html = '<table class="kit-quantita-table"><thead><tr><th>Tipo</th><th>Descrizione</th><th>Disponibile</th><th>Quantità da usare</th></tr></thead><tbody>';
+  for (var j = 0; j < selezionati.length; j++) {
+    var o = selezionati[j];
+    var tipoArticolo = o.categoriaNome || (isSci(o) ? 'SCI' : (isAttacco(o) ? 'ATTACCO' : 'Articolo'));
+    var desc = o.codice_sigla + ' - ' + o.descrizione;
+    var disponibile = o.totale || 0;
+    var inputId = 'qty_' + j;
+    html += '<tr>';
+    html += '<td><strong>' + tipoArticolo + '</strong></td>';
+    html += '<td>' + desc + '</td>';
+    html += '<td class="quantita-disponibile">' + disponibile + '</td>';
+    html += '<td><input type="number" id="' + inputId + '" class="form-control" min="0" max="' + disponibile + '" value="' + disponibile + '" style="width:70px;"></td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  html += '<div style="margin-top:8px; font-size:0.75rem; color:#2c3e50;">⚠️ Inserisci 0 per escludere un articolo dal kit. Devono rimanere almeno uno sci e un attacco con quantità > 0.</div>';
+  container.innerHTML = html;
+
+  // Carica magazzini e destinazioni
+  var selMag = document.getElementById('creaKitMagazzino');
+  selMag.innerHTML = '<option value="">Seleziona magazzino</option>';
+  for (var m of magazzini) {
+    var opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.nome;
+    if (m.nome.toLowerCase() === 'race') opt.selected = true;
+    selMag.appendChild(opt);
+  }
+  // Destinazione: usiamo lo stesso soggetto selezionato nella vista in carico
+  var selTipo = document.getElementById('creaKitDestTipo');
+  var selId = document.getElementById('creaKitDestId');
+  selTipo.value = sourceTipo.value || 'PROMOTER';
+  caricaDestinazioniCreaKit();
+  if (sourceId.value) {
+    var options = selId.options;
+    for (var k = 0; k < options.length; k++) {
+      if (options[k].value == sourceId.value) {
+        selId.value = sourceId.value;
+        break;
+      }
+    }
+  }
+  document.getElementById('modalCreaKitDaCarico').style.display = 'flex';
+}
+  // Raccogli gli elementi selezionati
+  var idx = [];
+  var cbs = document.querySelectorAll('.row-checkbox:checked');
+  for (var i = 0; i < cbs.length; i++) {
+    var id = parseInt(cbs[i].dataset.rowId);
+    if (!isNaN(id)) idx.push(id);
+  }
+  if (idx.length === 0) {
+    showMessage('Seleziona almeno un elemento', 'error');
+    return;
+  }
+  var selezionati = idx.map(function(i) { return oggetti[i]; });
+  
   // Verifica che ci sia almeno uno sci e un attacco (basato sulla categoria)
   var hasSci = selezionati.some(function(o) { return o.categoriaNome && o.categoriaNome.toLowerCase() === 'sci'; });
   var hasAttacco = selezionati.some(function(o) { return o.categoriaNome && o.categoriaNome.toLowerCase() === 'attacchi'; });
@@ -1552,6 +1637,20 @@ async function caricaDestinazioniCreaKit() {
 }
 
 async function confermaCreaKitDaCarico() {
+  // Funzioni helper per riconoscere sci/attacco (stesse di sopra)
+  function isSci(o) {
+    if (o.categoriaNome) return o.categoriaNome.toLowerCase() === 'sci';
+    var desc = (o.descrizione || '').toLowerCase();
+    var codice = (o.codice_sigla || '').toLowerCase();
+    return desc.includes('sci') || codice.includes('sci');
+  }
+  function isAttacco(o) {
+    if (o.categoriaNome) return o.categoriaNome.toLowerCase() === 'attacchi';
+    var desc = (o.descrizione || '').toLowerCase();
+    var codice = (o.codice_sigla || '').toLowerCase();
+    return desc.includes('attacco') || codice.includes('attacco');
+  }
+
   // Leggi le quantità dalla tabella
   var quantitaDaUsare = [];
   var hasSci = false, hasAttacco = false;
@@ -1560,20 +1659,16 @@ async function confermaCreaKitDaCarico() {
     if (!input) continue;
     var qty = parseInt(input.value);
     if (isNaN(qty) || qty < 0) qty = 0;
-    // Verifica che non superi il massimo
     var max = parseInt(input.max);
     if (qty > max) qty = max;
     quantitaDaUsare.push(qty);
-    // Aggiorna la categoria per il controllo
     var o = selectedPerKit[i];
-    var tipoCat = o.categoriaNome ? o.categoriaNome.toLowerCase() : '';
     if (qty > 0) {
-      if (tipoCat === 'sci') hasSci = true;
-      if (tipoCat === 'attacchi') hasAttacco = true;
+      if (isSci(o)) hasSci = true;
+      if (isAttacco(o)) hasAttacco = true;
     }
   }
 
-  // Controlli
   if (!hasSci || !hasAttacco) {
     showMessage('Devi avere almeno uno sci e un attacco con quantità > 0.', 'error');
     return;
