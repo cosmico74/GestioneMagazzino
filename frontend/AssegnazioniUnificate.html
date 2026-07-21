@@ -96,15 +96,15 @@
     }
     #loadingOverlay.show { display: flex; }
     #loadingOverlay span { font-size: 0.9rem; color: #1a73e8; }
-    @media (max-width: 768px) {
-      .filter-bar { flex-direction: column; align-items: stretch; }
-      .radio-group { flex-direction: column; gap: 5px; }
-    }
     .kit-quantita-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .kit-quantita-table th { background: #f1f5f9; font-size: 0.7rem; padding: 4px 6px; text-align: left; position: static; }
     .kit-quantita-table td { padding: 4px 6px; font-size: 0.7rem; vertical-align: middle; }
     .kit-quantita-table input[type="number"] { width: 70px; padding: 2px 4px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.75rem; }
     .kit-quantita-table .quantita-disponibile { font-weight: normal; color: #2c3e50; }
+    @media (max-width: 768px) {
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .radio-group { flex-direction: column; gap: 5px; }
+    }
   </style>
 </head>
 <body>
@@ -135,28 +135,37 @@
   </div>
 
   <!-- Filtri "In carico" -->
-  <div id="caricoSection" class="filter-bar">
-    <div class="filter-group">
-      <label>Soggetto tipo</label>
-      <select id="sourceTipo" onchange="onTipoSoggettoChanged()">
-        <option value="PROMOTER">Promoter</option>
-        <option value="NEGOZIO">Negozio</option>
-        <option value="CLIENTE">Cliente</option>
-        <option value="AGENTE">Agente</option>
-      </select>
+  <div id="caricoSection" class="filter-bar" style="flex-direction:column; align-items:stretch;">
+    <div style="display:flex; flex-wrap:wrap; gap:10px; width:100%;">
+      <div class="filter-group">
+        <label>Soggetto tipo</label>
+        <select id="sourceTipo" onchange="onTipoSoggettoChanged()">
+          <option value="PROMOTER">Promoter</option>
+          <option value="NEGOZIO">Negozio</option>
+          <option value="CLIENTE">Cliente</option>
+          <option value="AGENTE">Agente</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Seleziona soggetto</label>
+        <select id="sourceId" onchange="onSoggettoChanged()"><option value="">Seleziona...</option></select>
+      </div>
+      <div class="filter-group" id="filtroDestinatarioContainer" style="display:none; min-width:150px;">
+        <label>🎯 Destinatario</label>
+        <select id="filtroDestinatario"><option value="">Tutti</option></select>
+      </div>
     </div>
-    <div class="filter-group">
-      <label>Seleziona soggetto</label>
-      <select id="sourceId" onchange="onSoggettoChanged()"><option value="">Seleziona...</option></select>
-    </div>
-    <div class="radio-group" style="flex:1; gap:15px; margin:0;">
-      <label><input type="radio" name="caricoMode" id="modeInCarico" value="incarico" checked> 📦 In possesso</label>
-      <label><input type="radio" name="caricoMode" id="modeAssegnati" value="assegnati"> 📤 Inviato ad altri</label>
-      <label><input type="radio" name="caricoMode" id="modeEntrambi" value="entrambi"> 🔄 Tutti</label>
-    </div>
-    <div class="filter-group" id="filtroDestinatarioContainer" style="display:none; min-width:150px;">
-      <label>🎯 Destinatario</label>
-      <select id="filtroDestinatario"><option value="">Tutti</option></select>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; width:100%; border-top:1px solid #e2e8f0; padding-top:5px; margin-top:5px;">
+      <div class="radio-group" style="flex:1; gap:15px; margin:0;">
+        <label><input type="radio" name="caricoMode" id="modeInCarico" value="incarico" checked> 📦 In possesso</label>
+        <label><input type="radio" name="caricoMode" id="modeAssegnati" value="assegnati"> 📤 Inviato ad altri</label>
+        <label><input type="radio" name="caricoMode" id="modeEntrambi" value="entrambi"> 🔄 Tutti</label>
+      </div>
+      <div class="radio-group" style="flex:1; gap:15px; margin:0; border-left:1px solid #e2e8f0; padding-left:15px;">
+        <label><input type="radio" name="tipoOggetto" id="tipoArticoli" value="ARTICOLO" checked> 📦 Articoli</label>
+        <label><input type="radio" name="tipoOggetto" id="tipoKit" value="KIT"> 📦 Kit</label>
+        <label><input type="radio" name="tipoOggetto" id="tipoEntrambi" value="ENTRAMBI"> 🔄 Entrambi</label>
+      </div>
     </div>
   </div>
 
@@ -265,13 +274,14 @@
     </div>
   </div>
 
+  <!-- PULSANTI AZIONI -->
   <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px; flex-wrap:wrap;">
     <button class="btn btn-massive" id="btnTrasferisciMassivo" onclick="apriModalTrasferimentoMassivo()">➡️ Trasferisci selezionati</button>
     <button class="btn btn-success" id="btnCreaKitDaCarico" onclick="apriModalCreaKitDaCarico()">📦 Crea Kit da selezionati</button>
   </div>
 </div>
 
-<!-- MODALI -->
+<!-- ===== MODALI ===== -->
 <div id="assignModal" class="modal"><div class="modal-content"><h3>📤 Assegna oggetto</h3>
   <div class="form-group"><label>Oggetto</label><input type="text" id="assignOggetto" class="form-control" readonly></div>
   <div class="form-group"><label>Sigla</label><input type="text" id="assignSiglaDisplay" class="form-control" readonly></div>
@@ -283,6 +293,7 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiAssignModal()">Annulla</button><button class="btn btn-success" onclick="confermaAssegnazione()">Conferma</button></div>
 </div></div>
 
+<!-- ===== MODALE EDIT ASSEGNAZIONE (con sezione Dividi e Trasferisci) ===== -->
 <div id="editAssignmentModal" class="modal">
   <div class="modal-content" style="max-width:600px;">
     <h3>✏️ Modifica assegnazione</h3>
@@ -297,7 +308,9 @@
       <button class="btn btn-secondary" onclick="chiudiEditModal()">Annulla</button>
       <button class="btn btn-success" onclick="confermaModificaSingola()">Conferma</button>
     </div>
+
     <hr style="margin: 15px 0;">
+
     <h4>✂️ Dividi e trasferisci</h4>
     <p class="warning-badge">⚠️ Questa operazione trasferisce una parte dell'oggetto a un altro soggetto.</p>
     <div class="form-group">
@@ -326,6 +339,7 @@
   </div>
 </div>
 
+<!-- ===== ALTRE MODALI ===== -->
 <div id="massiveModal" class="modal"><div class="modal-content"><h3>➡️ Trasferimento massivo</h3>
   <div id="massiveRiepilogo"></div>
   <div class="form-group"><label>Destinazione tipo</label><select id="massiveDestTipo" class="form-control" onchange="caricaDestinazioniMassive()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option><option value="MAGAZZINO">Magazzino (rientro)</option></select></div>
@@ -338,7 +352,7 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiConfirmModal()">Annulla</button><button class="btn btn-danger" id="confirmActionBtn" onclick="eseguiConferma()">Conferma</button></div>
 </div></div>
 
-<!-- MODALE CREA KIT DA CARICO (con quantità) -->
+<!-- ===== MODALE CREA KIT DA CARICO (con quantità) ===== -->
 <div id="modalCreaKitDaCarico" class="modal">
   <div class="modal-content" style="max-width:700px;">
     <h3>📦 Crea Kit da carico</h3>
@@ -422,6 +436,9 @@ var sourceId = document.getElementById('sourceId');
 var modeInCarico = document.getElementById('modeInCarico');
 var modeAssegnati = document.getElementById('modeAssegnati');
 var modeEntrambi = document.getElementById('modeEntrambi');
+var tipoArticoli = document.getElementById('tipoArticoli');
+var tipoKit = document.getElementById('tipoKit');
+var tipoEntrambi = document.getElementById('tipoEntrambi');
 var magazzinoSelect = document.getElementById('magazzinoSelect');
 var tipoOggettoMagazzino = document.getElementById('tipoOggettoMagazzino');
 var filtroSigla = document.getElementById('filtroSigla');
@@ -501,7 +518,7 @@ async function caricaSoggettiPerTipo() {
     if (sel.options.length > 1 && !sel.value) sel.selectedIndex = 1;
     if (radioCarico.checked) {
       if (sel.value) caricaOggettiInCarico();
-      else caricaOggettiInCarico();
+      else caricaOggettiInCarico(); // fallback per vedere i propri
     } else {
       oggetti = []; oggettiOriginali = []; popolaTabella();
     }
@@ -560,6 +577,29 @@ async function getKitDetails(kitId) {
     kitDetailsCache.set(kitId, res);
     return res;
   } catch(e) { return { sigla: '', lunghezza: '' }; }
+}
+
+// ============================================================
+// FILTRO PER TIPO OGGETTO (ARTICOLO / KIT / ENTRAMBI)
+// ============================================================
+function applicaFiltroTipo() {
+  if (!oggettiOriginali.length) {
+    oggetti = [];
+    popolaTabella();
+    return;
+  }
+  var tipoSelezionato = document.querySelector('input[name="tipoOggetto"]:checked');
+  var filtro = tipoSelezionato ? tipoSelezionato.value : 'ENTRAMBI';
+  if (filtro === 'ENTRAMBI') {
+    oggetti = oggettiOriginali.slice();
+  } else {
+    oggetti = oggettiOriginali.filter(function(o) {
+      return o.tipoOggetto === filtro;
+    });
+  }
+  paginaCorrente = 1;
+  sortOggetti();
+  popolaTabella();
 }
 
 // ============================================================
@@ -693,10 +733,12 @@ async function caricaOggettiInCarico() {
   try {
     var inc = [], ass = [];
     
+    // IN POSSESSO: soggetto SELEZIONATO come destinazione
     if (modeVal === 'incarico' || modeVal === 'entrambi') {
       inc = await getOggettiInCarico(tipo, id);
     }
     
+    // INVIATO AD ALTRI: UTENTE LOGGATO come provenienza
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       if (!isAdmin && currentUser.riferimento_id) {
         var mioTipo = currentUser.ruolo.toUpperCase();
@@ -715,6 +757,7 @@ async function caricaOggettiInCarico() {
     else tutti = inc.concat(ass);
     oggettiOriginali = tutti;
 
+    // Filtro destinatario (solo per assegnati)
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       var referenti = [];
       var provenienzaId = isAdmin ? id : (currentUser.riferimento_id || null);
@@ -743,15 +786,26 @@ async function caricaOggettiInCarico() {
       if (fv && referenti.length > 0) {
         var parts = fv.split('|');
         var fT = parts[0], fId = parts[1];
-        oggetti = tutti.filter(function(r) {
+        oggettiOriginali = tutti.filter(function(r) {
           return r.destinazioneTipo === fT && String(r.destinazioneId) === fId;
         });
       } else {
-        oggetti = tutti;
+        oggettiOriginali = tutti;
       }
     } else {
       filtroDestContainer.style.display = 'none';
-      oggetti = tutti;
+      oggettiOriginali = tutti;
+    }
+
+    // Applica filtro per tipo (ARTICOLO / KIT / ENTRAMBI)
+    var tipoSelezionato = document.querySelector('input[name="tipoOggetto"]:checked');
+    var filtroTipo = tipoSelezionato ? tipoSelezionato.value : 'ENTRAMBI';
+    if (filtroTipo === 'ENTRAMBI') {
+      oggetti = oggettiOriginali.slice();
+    } else {
+      oggetti = oggettiOriginali.filter(function(o) {
+        return o.tipoOggetto === filtroTipo;
+      });
     }
 
     var thQuantita = document.getElementById('thQuantita');
@@ -1192,6 +1246,7 @@ async function apriModificaSingola(obj) {
     var selId = document.getElementById('editDestId');
     if (obj.destinazioneId) selId.value = obj.destinazioneId;
     
+    // Inizializza i campi "Dividi e trasferisci"
     var maxTrasferibile = obj.totale - 1;
     document.getElementById('dividiQuantita').value = 1;
     document.getElementById('dividiQuantita').max = maxTrasferibile;
@@ -1488,12 +1543,13 @@ function apriModalCreaKitDaCarico() {
     var desc = o.codice_sigla + ' - ' + o.descrizione;
     var disponibile = o.totale || 0;
     var inputId = 'qty_' + j;
+    // Default 1 se disponibile > 0, altrimenti 0
+    var valoreDefault = disponibile > 0 ? 1 : 0;
     html += '<tr>';
     html += '<td><strong>' + tipoArticolo + '</strong></td>';
     html += '<td>' + desc + '</td>';
     html += '<td class="quantita-disponibile">' + disponibile + '</td>';
-var valoreDefault = disponibile > 0 ? 1 : 0;
-html += '<td><input type="number" id="' + inputId + '" class="form-control" min="0" max="' + disponibile + '" value="' + valoreDefault + '" style="width:70px;"></td>';
+    html += '<td><input type="number" id="' + inputId + '" class="form-control" min="0" max="' + disponibile + '" value="' + valoreDefault + '" style="width:70px;"></td>';
     html += '</tr>';
   }
   html += '</tbody></table>';
@@ -1781,6 +1837,11 @@ function setup() {
     }
     caricoSection.style.display = 'flex';
   }
+  // Listener per il filtro tipo oggetto
+  tipoArticoli.addEventListener('change', function() { if (radioCarico.checked) applicaFiltroTipo(); });
+  tipoKit.addEventListener('change', function() { if (radioCarico.checked) applicaFiltroTipo(); });
+  tipoEntrambi.addEventListener('change', function() { if (radioCarico.checked) applicaFiltroTipo(); });
+
   modeInCarico.addEventListener('change', function() { if (radioCarico.checked) caricaOggettiInCarico(); });
   modeAssegnati.addEventListener('change', function() { if (radioCarico.checked) caricaOggettiInCarico(); });
   modeEntrambi.addEventListener('change', function() { if (radioCarico.checked) caricaOggettiInCarico(); });
