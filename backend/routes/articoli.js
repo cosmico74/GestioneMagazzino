@@ -95,7 +95,8 @@ router.get('/', verifyToken, async (req, res) => {
     const params = [];
     if (req.query.magazzino) { sql += ' AND a.magazzino = ?'; params.push(req.query.magazzino); }
     if (req.query.settore) { sql += ' AND a.settore = ?'; params.push(req.query.settore); }
-    if (req.query.categoria) { sql += ' AND a.categoria = ?'; params.push(req.query.categoria); }
+    // 🔧 MODIFICA: filtro categoria case‑insensitive
+    if (req.query.categoria) { sql += ' AND LOWER(a.categoria) = LOWER(?)'; params.push(req.query.categoria); }
     if (req.query.marca) { sql += ' AND a.marca = ?'; params.push(req.query.marca); }
     if (req.query.descrizione) { sql += ' AND a.descrizione LIKE ?'; params.push(`%${req.query.descrizione}%`); }
     if (req.query.lunghezza) { sql += ' AND a.lunghezza = ?'; params.push(req.query.lunghezza); }
