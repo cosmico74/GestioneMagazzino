@@ -57,7 +57,7 @@
     .pagination-info { display: flex; align-items: center; gap: 8px; }
     .pagination-bar input, .pagination-bar select { width: auto; padding: 2px 6px; border: 1px solid #cbd5e0; border-radius: 4px; }
     .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 700px; max-height: 85vh; overflow-y: auto; padding: 20px; }
     .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
     .modal-header h3 { margin: 0; }
     .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
@@ -100,6 +100,12 @@
       .filter-bar { flex-direction: column; align-items: stretch; }
       .radio-group { flex-direction: column; gap: 5px; }
     }
+    /* Stili per la tabella quantità nel modale crea kit */
+    .kit-quantita-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    .kit-quantita-table th { background: #f1f5f9; font-size: 0.7rem; padding: 4px 6px; text-align: left; position: static; }
+    .kit-quantita-table td { padding: 4px 6px; font-size: 0.7rem; vertical-align: middle; }
+    .kit-quantita-table input[type="number"] { width: 70px; padding: 2px 4px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.75rem; }
+    .kit-quantita-table .quantita-disponibile { font-weight: normal; color: #2c3e50; }
   </style>
 </head>
 <body>
@@ -340,12 +346,12 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiConfirmModal()">Annulla</button><button class="btn btn-danger" id="confirmActionBtn" onclick="eseguiConferma()">Conferma</button></div>
 </div></div>
 
-<!-- ===== MODALE CREA KIT DA CARICO ===== -->
+<!-- ===== MODALE CREA KIT DA CARICO (MODIFICATO) ===== -->
 <div id="modalCreaKitDaCarico" class="modal">
-  <div class="modal-content" style="max-width:600px;">
+  <div class="modal-content" style="max-width:700px;">
     <h3>📦 Crea Kit da carico</h3>
-    <p>Gli articoli selezionati saranno rimossi dal carico del soggetto e trasformati in un kit.</p>
-    <div id="riepilogoSelezione"></div>
+    <p>Seleziona le quantità di ciascun articolo da utilizzare nel kit. <br> <strong>Devi avere almeno uno sci e un attacco con quantità > 0.</strong></p>
+    <div id="riepilogoSelezione"></div> <!-- Qui verrà generata la tabella con le quantità -->
     <div class="form-group"><label>Magazzino di destinazione *</label><select id="creaKitMagazzino" class="form-control"></select></div>
     <div class="form-group"><label>Destinatario tipo</label><select id="creaKitDestTipo" class="form-control" onchange="caricaDestinazioniCreaKit()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
     <div class="form-group"><label>Destinatario</label><select id="creaKitDestId" class="form-control"></select></div>
@@ -1447,53 +1453,76 @@ async function confermaMassive() {
 }
 
 // ============================================================
-// CREA KIT DA CARICO
+// CREA KIT DA CARICO (MODIFICATO: permette scelta quantità)
 // ============================================================
 function apriModalCreaKitDaCarico() {
+  // Raccogli gli elementi selezionati
   var idx = [];
   var cbs = document.querySelectorAll('.row-checkbox:checked');
   for (var i = 0; i < cbs.length; i++) {
     var id = parseInt(cbs[i].dataset.rowId);
     if (!isNaN(id)) idx.push(id);
   }
-  if (idx.length === 0) { showMessage('Seleziona almeno un elemento', 'error'); return; }
+  if (idx.length === 0) {
+    showMessage('Seleziona almeno un elemento', 'error');
+    return;
+  }
   var selezionati = idx.map(function(i) { return oggetti[i]; });
-  var hasSci = false, hasAttacco = false;
-  var magazzinoId = null;
-  for (var o of selezionati) {
-    if (o.categoriaNome && o.categoriaNome.toLowerCase() === 'sci') {
-      hasSci = true;
-      if (!magazzinoId && o.magazzino) magazzinoId = o.magazzino;
-    }
-    if (o.categoriaNome && o.categoriaNome.toLowerCase() === 'attacchi') { hasAttacco = true; }
+  
+  // Verifica che ci sia almeno uno sci e un attacco (basato sulla categoria)
+  var hasSci = selezionati.some(function(o) { return o.categoriaNome && o.categoriaNome.toLowerCase() === 'sci'; });
+  var hasAttacco = selezionati.some(function(o) { return o.categoriaNome && o.categoriaNome.toLowerCase() === 'attacchi'; });
+  if (!hasSci || !hasAttacco) {
+    showMessage('Devi selezionare almeno uno sci e un attacco (categorie "sci" e "attacchi")', 'error');
+    return;
   }
-  if (!hasSci) { showMessage('Devi selezionare almeno uno sci', 'error'); return; }
-  if (!hasAttacco) { showMessage('Devi selezionare almeno un attacco', 'error'); return; }
+
+  // Memorizza la lista per l'uso successivo
   selectedPerKit = selezionati;
-  var rip = '<strong>Elementi selezionati (' + selectedPerKit.length + '):</strong><ul>';
-  for (var o of selectedPerKit) {
-    var tipo = o.categoriaNome || 'ARTICOLO';
-    rip += '<li>' + tipo + ': ' + o.codice_sigla + ' - ' + o.descrizione + ' (q.' + o.totale + ')</li>';
+
+  // Genera la tabella con le quantità
+  var container = document.getElementById('riepilogoSelezione');
+  var html = '<table class="kit-quantita-table"><thead><tr><th>Tipo</th><th>Descrizione</th><th>Disponibile</th><th>Quantità da usare</th></tr></thead><tbody>';
+  for (var j = 0; j < selezionati.length; j++) {
+    var o = selezionati[j];
+    var tipoArticolo = o.categoriaNome || 'Articolo';
+    var desc = o.codice_sigla + ' - ' + o.descrizione;
+    var disponibile = o.totale || 0;
+    // Creiamo un input con id univoco
+    var inputId = 'qty_' + j;
+    html += '<tr>';
+    html += '<td><strong>' + tipoArticolo + '</strong></td>';
+    html += '<td>' + desc + '</td>';
+    html += '<td class="quantita-disponibile">' + disponibile + '</td>';
+    html += '<td><input type="number" id="' + inputId + '" class="form-control" min="0" max="' + disponibile + '" value="' + disponibile + '" style="width:70px;"></td>';
+    html += '</tr>';
   }
-  rip += '</ul>';
-  document.getElementById('riepilogoSelezione').innerHTML = rip;
+  html += '</tbody></table>';
+  // Aggiungi un riepilogo rapido
+  html += '<div style="margin-top:8px; font-size:0.75rem; color:#2c3e50;">⚠️ Inserisci 0 per escludere un articolo dal kit. Devono rimanere almeno uno sci e un attacco con quantità > 0.</div>';
+  container.innerHTML = html;
+
+  // Carica magazzini e destinazioni
   var selMag = document.getElementById('creaKitMagazzino');
   selMag.innerHTML = '<option value="">Seleziona magazzino</option>';
   for (var m of magazzini) {
     var opt = document.createElement('option');
     opt.value = m.id;
     opt.textContent = m.nome;
-    if (magazzinoId && m.id == magazzinoId) opt.selected = true;
+    // Se c'è un magazzino di default (es. "Race") lo preselezioniamo
+    if (m.nome.toLowerCase() === 'race') opt.selected = true;
     selMag.appendChild(opt);
   }
+  // Destinazione: usiamo lo stesso soggetto selezionato nella vista in carico
   var selTipo = document.getElementById('creaKitDestTipo');
   var selId = document.getElementById('creaKitDestId');
   selTipo.value = sourceTipo.value || 'PROMOTER';
   caricaDestinazioniCreaKit();
+  // Se il sourceId ha un valore, proviamo a selezionarlo
   if (sourceId.value) {
     var options = selId.options;
-    for (var i = 0; i < options.length; i++) {
-      if (options[i].value == sourceId.value) {
+    for (var k = 0; k < options.length; k++) {
+      if (options[k].value == sourceId.value) {
         selId.value = sourceId.value;
         break;
       }
@@ -1501,10 +1530,12 @@ function apriModalCreaKitDaCarico() {
   }
   document.getElementById('modalCreaKitDaCarico').style.display = 'flex';
 }
+
 function chiudiModalCreaKit() {
   document.getElementById('modalCreaKitDaCarico').style.display = 'none';
   selectedPerKit = [];
 }
+
 async function caricaDestinazioniCreaKit() {
   var tipo = document.getElementById('creaKitDestTipo').value;
   var sel = document.getElementById('creaKitDestId');
@@ -1519,16 +1550,63 @@ async function caricaDestinazioniCreaKit() {
     }
   } catch(e) { sel.innerHTML = '<option value="">Errore caricamento</option>'; }
 }
+
 async function confermaCreaKitDaCarico() {
+  // Leggi le quantità dalla tabella
+  var quantitaDaUsare = [];
+  var hasSci = false, hasAttacco = false;
+  for (var i = 0; i < selectedPerKit.length; i++) {
+    var input = document.getElementById('qty_' + i);
+    if (!input) continue;
+    var qty = parseInt(input.value);
+    if (isNaN(qty) || qty < 0) qty = 0;
+    // Verifica che non superi il massimo
+    var max = parseInt(input.max);
+    if (qty > max) qty = max;
+    quantitaDaUsare.push(qty);
+    // Aggiorna la categoria per il controllo
+    var o = selectedPerKit[i];
+    var tipoCat = o.categoriaNome ? o.categoriaNome.toLowerCase() : '';
+    if (qty > 0) {
+      if (tipoCat === 'sci') hasSci = true;
+      if (tipoCat === 'attacchi') hasAttacco = true;
+    }
+  }
+
+  // Controlli
+  if (!hasSci || !hasAttacco) {
+    showMessage('Devi avere almeno uno sci e un attacco con quantità > 0.', 'error');
+    return;
+  }
+
+  // Costruisci il payload solo con gli elementi che hanno quantità > 0
+  var oggettiPayload = [];
+  for (var j = 0; j < selectedPerKit.length; j++) {
+    var q = quantitaDaUsare[j];
+    if (q <= 0) continue;
+    var o = selectedPerKit[j];
+    oggettiPayload.push({
+      tipoOggetto: 'ARTICOLO',
+      oggettoId: o.oggettoId,
+      siglaId: o.siglaId || null,
+      quantita: q
+    });
+  }
+
+  if (oggettiPayload.length === 0) {
+    showMessage('Nessun articolo con quantità > 0.', 'error');
+    return;
+  }
+
+  // Leggi gli altri campi
   var magazzinoId = document.getElementById('creaKitMagazzino').value;
   var destTipo = document.getElementById('creaKitDestTipo').value;
   var destId = document.getElementById('creaKitDestId').value;
   var note = document.getElementById('creaKitNote').value.trim();
+
   if (!magazzinoId) { showMessage('Seleziona un magazzino', 'error'); return; }
   if (!destTipo || !destId) { showMessage('Seleziona un destinatario', 'error'); return; }
-  var oggettiPayload = selectedPerKit.map(function(o) {
-    return { tipoOggetto: 'ARTICOLO', oggettoId: o.oggettoId, siglaId: o.siglaId || null, quantita: o.totale };
-  });
+
   var payload = {
     soggettoTipo: sourceTipo.value,
     soggettoId: parseInt(sourceId.value),
@@ -1538,14 +1616,19 @@ async function confermaCreaKitDaCarico() {
     magazzinoId: parseInt(magazzinoId),
     note: note
   };
+
   try {
     var r = await apiFetch('/kit/da-carico', { method: 'POST', body: JSON.stringify(payload) });
     if (r.success) {
       showMessage('Kit creato con successo!', 'success');
       chiudiModalCreaKit();
       caricaOggetti();
-    } else { showMessage(r.message, 'error'); }
-  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
+    } else {
+      showMessage(r.message, 'error');
+    }
+  } catch(e) {
+    showMessage('Errore: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
