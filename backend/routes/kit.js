@@ -293,6 +293,7 @@ router.post('/', verifyToken, async (req, res) => {
 // ============================================================
 // POST /api/kit/da-carico - Crea kit da articoli in carico a un soggetto
 // ============================================================
+
 router.post('/da-carico', verifyToken, async (req, res) => {
   const { soggettoTipo, soggettoId, oggetti, destinazioneTipo, destinazioneId, magazzinoId, note } = req.body;
   if (!soggettoTipo || !soggettoId || !oggetti || !oggetti.length) {
@@ -328,6 +329,8 @@ router.post('/da-carico', verifyToken, async (req, res) => {
     let sciSiglaId = null, attaccoSiglaId = null, skistopperSiglaId = null;
     let quantitaSci = 0, quantitaAttacco = 0, quantitaSkistopper = 0;
 
+    // Prima di tutto, verifichiamo che tutti gli articoli siano in carico al soggetto
+    // con quantità sufficiente, e raccogliamo le informazioni
     for (const item of oggetti) {
       const [art] = await connection.query(
         'SELECT a.articolo_id, a.descrizione, a.lunghezza, c.nome AS categoria_nome FROM articoli a LEFT JOIN categorie c ON a.categoria = c.categoria_id WHERE a.articolo_id = ?',
@@ -336,24 +339,40 @@ router.post('/da-carico', verifyToken, async (req, res) => {
       if (!art.length) throw new Error(`Articolo ${item.oggettoId} non trovato`);
       const categoria = art[0].categoria_nome || '';
 
+      // Verifica che l'articolo sia in carico al soggetto con quantità sufficiente
+      const [carico] = await connection.query(
+        `SELECT quantita FROM carico_sintesi 
+         WHERE destinazione_tipo = ? AND destinazione_id = ? 
+           AND tipo_oggetto = 'ARTICOLO' AND oggetto_id = ? 
+           AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))`,
+        [soggettoTipo, soggettoId, item.oggettoId, item.siglaId || null, item.siglaId || null]
+      );
+      if (!carico.length) {
+        throw new Error(`Articolo ${art[0].descrizione} non trovato in carico al soggetto`);
+      }
+      if (carico[0].quantita < item.quantita) {
+        throw new Error(`Quantità richiesta (${item.quantita}) per ${art[0].descrizione} supera quella in carico (${carico[0].quantita})`);
+      }
+
+      // Ora classifichiamo per categoria
       if (categoria.toLowerCase() === 'sci') {
         if (sciId) throw new Error('Puoi selezionare un solo sci per kit');
         sciId = item.oggettoId;
         sciSiglaId = item.siglaId;
         quantitaSci = item.quantita;
-        articoliSelezionati[sciId] = { ...item, categoria, articolo: art[0] };
+        articoliSelezionati[sciId] = { ...item, categoria, articolo: art[0], quantitaInCarico: carico[0].quantita };
       } else if (categoria.toLowerCase() === 'attacchi') {
         if (attaccoId) throw new Error('Puoi selezionare un solo attacco per kit');
         attaccoId = item.oggettoId;
         attaccoSiglaId = item.siglaId;
         quantitaAttacco = item.quantita;
-        articoliSelezionati[attaccoId] = { ...item, categoria, articolo: art[0] };
+        articoliSelezionati[attaccoId] = { ...item, categoria, articolo: art[0], quantitaInCarico: carico[0].quantita };
       } else if (categoria.toLowerCase() === 'skistoppers') {
         if (skistopperId) throw new Error('Puoi selezionare un solo skistopper per kit');
         skistopperId = item.oggettoId;
         skistopperSiglaId = item.siglaId;
         quantitaSkistopper = item.quantita;
-        articoliSelezionati[skistopperId] = { ...item, categoria, articolo: art[0] };
+        articoliSelezionati[skistopperId] = { ...item, categoria, articolo: art[0], quantitaInCarico: carico[0].quantita };
       } else {
         throw new Error(`Categoria ${categoria} non valida per composizione kit`);
       }
@@ -366,19 +385,13 @@ router.post('/da-carico', verifyToken, async (req, res) => {
     if (quantitaAttacco !== qta) throw new Error('La quantità dello sci e dell\'attacco deve essere la stessa');
     if (skistopperId && quantitaSkistopper !== qta) throw new Error('La quantità dello skistopper deve essere uguale a quella dello sci');
 
-    // Verifica giacenza dello sci
-    const giacenzaSci = await getGiacenzaArticolo(connection, sciId);
-    if (qta > giacenzaSci) {
-      await connection.rollback();
-      return res.status(400).json({
-        success: false,
-        message: `Quantità richiesta (${qta}) supera la giacenza disponibile (${giacenzaSci}) per lo sci`
-      });
-    }
+    // --- OK, tutte le verifiche sono passate ---
 
-    // 1. Rimuovi gli articoli selezionati dal carico del soggetto
+    // 1. Rimuovi (sottrai) le quantità selezionate dal carico del soggetto
     for (const id in articoliSelezionati) {
       const item = articoliSelezionati[id];
+      const nuovaQuantita = item.quantitaInCarico - item.quantita;
+      // Se la quantità residua è >0, aggiorna; altrimenti elimina (quantita=0)
       await aggiornaCaricoSintesi(
         connection,
         soggettoTipo,
@@ -386,10 +399,10 @@ router.post('/da-carico', verifyToken, async (req, res) => {
         'ARTICOLO',
         item.oggettoId,
         item.siglaId,
-        0,
-        null,
-        null,
-        null
+        nuovaQuantita,
+        null,      // provenienza_tipo (non serve, è lo stesso soggetto)
+        null,      // provenienza_id
+        null       // data (non serve)
       );
     }
 
