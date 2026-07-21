@@ -140,7 +140,7 @@
       <div class="form-group"><label>Settore *</label><select id="settore" required></select></div>
       <div class="form-group"><label>Categoria *</label><select id="categoria" required></select></div>
       <div class="form-group"><label>Marca *</label><select id="marca" required></select></div>
-      <div class="form-group"><label>Sigla</label><select id="siglaSelect"><option value="">Nessuna</option></select><button type="button" class="btn btn-sm btn-secondary" onclick="apriModalNuovaSigla()" style="margin-top:2px;">➕ Nuova</button></div>
+      <!-- Campo Sigla RIMOSSO -->
     </div>
     <div class="form-row-3col">
       <div class="form-group"><label>Descrizione *</label><input type="text" id="descrizione" list="descrizioneList" required autocomplete="off"><datalist id="descrizioneList"></datalist></div>
@@ -289,7 +289,7 @@
   </div>
 </div>
 
-<!-- MODALE MODIFICA SIGLA -->
+<!-- MODAL MODIFICA SIGLA -->
 <div id="modalModificaSigla" class="modal">
   <div class="modal-content" style="max-width:500px;">
     <h3>✏️ Modifica Sigla</h3>
@@ -393,7 +393,7 @@ const durezzaInput = document.getElementById('durezza');
 const quantitaInput = document.getElementById('quantita');
 
 // ============================================================
-// VENDITA (invariata)
+// VENDITA
 // ============================================================
 async function caricaSoggettiPerTipoVendita(tipo) {
   const select = document.getElementById('venditaSoggettoId');
@@ -483,7 +483,7 @@ async function confermaVendita() {
 function apriNuovoSoggetto() { window.open('GestioneSoggetti.html', '_blank'); }
 
 // ============================================================
-// ANAGRAFICHE + DATALIST (invariate)
+// ANAGRAFICHE + DATALIST
 // ============================================================
 async function caricaAnagrafiche() {
   try {
@@ -690,7 +690,6 @@ function renderTabellaPaginata() {
     btnSigle.className = 'btn';
     btnSigle.style.background = '#6c757d';
     btnSigle.style.padding = '2px 6px';
-    // MODIFICA: passo anche a.lunghezza
     btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione, a.lunghezza);
     tdSigle.appendChild(btnSigle);
     const actions = row.insertCell(15);
@@ -787,8 +786,7 @@ async function salvaArticolo() {
     codiceModello: codiceModelloInput.value.trim(),
     inventario_austria: inventarioAustria
   };
-  const siglaSelect = document.getElementById('siglaSelect');
-  if (siglaSelect && siglaSelect.value) payload.siglaId = parseInt(siglaSelect.value);
+  // RIMOSSO il campo siglaId
   const saveBtn = document.getElementById('saveBtn');
   saveBtn.disabled = true;
   saveBtn.innerHTML = '<span class="spinner"></span>';
@@ -894,9 +892,8 @@ async function eliminaArticolo(id) {
 }
 
 // ============================================================
-// GESTIONE SIGLE (con log e gestione errori)
+// GESTIONE SIGLE
 // ============================================================
-// MODIFICA: accetto anche il parametro lunghezza
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
   const displayText = descrizione + (lunghezza ? ' (' + lunghezza + ' cm)' : '');
@@ -1095,9 +1092,6 @@ async function confermaObsolescenza() {
     if (res.success) { showMessage(res.message, 'success'); chiudiModalObsoleto(); caricaArticoli(); }
     else showMessage(res.message, 'error');
   } catch(err) { showMessage(err.message, 'error'); }
-}
-function apriModalNuovaSigla() {
-  showMessage('Crea prima l\'articolo, poi gestisci le sigle dal pulsante 🔖', 'info');
 }
 
 // ============================================================
