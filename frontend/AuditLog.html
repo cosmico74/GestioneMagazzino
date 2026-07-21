@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>📋 Audit Log</title>
   <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <style>
@@ -38,6 +39,9 @@
     .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
     .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
     .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
+    .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 15px; align-items: center; }
+    .pagination button { padding: 4px 12px; }
+    .btn-sm { padding: 2px 8px; font-size: 0.7rem; }
   </style>
 </head>
 <body>
@@ -63,6 +67,8 @@
         <option value="">Tutte</option>
         <option value="articoli">Articoli</option>
         <option value="kit">Kit</option>
+        <option value="sigle_articoli">Sigle Articoli</option>
+        <option value="kit_dettaglio">Dettagli Kit</option>
       </select>
     </div>
     <div class="filter-group">
@@ -100,6 +106,11 @@
       </thead>
       <tbody id="logBody"><tr><td colspan="8" class="text-center">Caricamento...</td></tr></tbody>
     </table>
+  </div>
+  <div class="pagination">
+    <button class="btn btn-secondary btn-sm" id="prevPage" onclick="cambiaPagina(-1)">◀</button>
+    <span id="pageInfo">Pagina 1</span>
+    <button class="btn btn-secondary btn-sm" id="nextPage" onclick="cambiaPagina(1)">▶</button>
   </div>
 </div>
 
@@ -140,7 +151,11 @@ function formatDate(d) {
 // ============================================================
 // CARICAMENTO LOG
 // ============================================================
-async function caricaLog() {
+let currentPage = 1;
+const limit = 50;
+
+async function caricaLog(page = 1) {
+  currentPage = page;
   const tabella = document.getElementById('filtroTabella').value;
   const operazione = document.getElementById('filtroOperazione').value;
   const rigaId = document.getElementById('filtroRigaId').value;
@@ -148,10 +163,15 @@ async function caricaLog() {
   if (tabella) params.append('tabella', tabella);
   if (operazione) params.append('operazione', operazione);
   if (rigaId) params.append('riga_id', rigaId);
+  params.append('limit', limit);
+  params.append('offset', (page - 1) * limit);
   try {
     const res = await apiFetch('/audit/log?' + params.toString());
     if (res.success) {
       renderLog(res.data);
+      document.getElementById('pageInfo').innerText = 'Pagina ' + page;
+      document.getElementById('prevPage').disabled = page <= 1;
+      document.getElementById('nextPage').disabled = res.data.length < limit;
     } else showMessage(res.message, 'error');
   } catch(e) {
     showMessage(e.message, 'error');
@@ -195,7 +215,11 @@ function resetFiltri() {
   document.getElementById('filtroTabella').value = '';
   document.getElementById('filtroOperazione').value = '';
   document.getElementById('filtroRigaId').value = '';
-  caricaLog();
+  caricaLog(1);
+}
+function cambiaPagina(delta) {
+  const nuova = currentPage + delta;
+  if (nuova >= 1) caricaLog(nuova);
 }
 
 // ============================================================
@@ -207,7 +231,7 @@ async function annullaOperazione(auditId) {
     const res = await apiFetch('/audit/annulla/' + auditId, { method: 'POST' });
     if (res.success) {
       showMessage(res.message, 'success');
-      caricaLog();
+      caricaLog(currentPage);
     } else showMessage(res.message, 'error');
   } catch(e) {
     showMessage(e.message, 'error');
@@ -227,7 +251,7 @@ window.onload = async () => {
     const user = JSON.parse(localStorage.getItem('user'));
     document.getElementById('loginInfo').innerHTML = '👤 ' + (user.nome_visualizzato || user.username) + ' (' + user.ruolo + ')';
   } catch(e) { logout(); return; }
-  await caricaLog();
+  await caricaLog(1);
 };
 </script>
 </body>

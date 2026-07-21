@@ -454,9 +454,18 @@ router.post('/da-carico', verifyToken, async (req, res) => {
       [now, `${soggettoTipo}-${soggettoId}`, `${destinazioneTipo}-${destinazioneId}`, kitId, 'KIT', qta, req.userId, note, null]
     );
 
-    // Audit
-    const [newRow] = await connection.query('SELECT * FROM kit WHERE id = ?', [kitId]);
-    await registraAudit(connection, 'kit', 'CREAZIONE', kitId, null, newRow[0], req.userId);
+    // Audit per il kit
+    const [newKit] = await connection.query('SELECT * FROM kit WHERE id = ?', [kitId]);
+    await registraAudit(connection, 'kit', 'CREAZIONE', kitId, null, newKit[0], req.userId);
+
+    // Audit per i dettagli del kit
+    const [dettagliInseriti] = await connection.query(
+      'SELECT * FROM kit_dettaglio WHERE kit_id = ?',
+      [kitId]
+    );
+    for (const det of dettagliInseriti) {
+      await registraAudit(connection, 'kit_dettaglio', 'CREAZIONE', det.id, null, det, req.userId);
+    }
 
     await connection.commit();
     res.json({ success: true, message: 'Kit creato da carico con successo', kitId });
@@ -607,7 +616,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/kit/:id/note - Aggiorna solo la nota del kit
+// PATCH /api/kit/:id/note - Aggiorna solo la nota del kit (AUDIT AGGIUNTO)
 // ============================================================
 router.patch('/:id/note', verifyToken, async (req, res) => {
   const { note } = req.body;
@@ -616,7 +625,7 @@ router.patch('/:id/note', verifyToken, async (req, res) => {
   }
   const connection = await db.getConnection();
   try {
-    // Recupera i vecchi dati per audit (anche se modifichiamo solo nota)
+    // Recupera i vecchi dati per audit
     const [oldRow] = await connection.query('SELECT * FROM kit WHERE id = ?', [req.params.id]);
 
     await connection.query('UPDATE kit SET note = ?, data_modifica = NOW() WHERE id = ?', [note, req.params.id]);

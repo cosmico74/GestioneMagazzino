@@ -49,7 +49,7 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Operazione già annullata' });
     }
 
-    // 2. Verifica se ci sono assegnazioni successive (per kit/articoli)
+    // 2. Gestione assegnazioni successive (per articoli o kit)
     const tipoOggetto = entry.tabella === 'articoli' ? 'ARTICOLO' : 'KIT';
     const [assegnazioni] = await connection.query(
       `SELECT * FROM carico_sintesi 
@@ -78,68 +78,23 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       }
     }
 
-    // 3. Esegui il rollback in base al tipo di operazione
-    switch (entry.operazione) {
-      case 'CREAZIONE':
-        if (entry.tabella === 'articoli') {
-          // Elimina l'articolo e le sue sigle
-          await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [entry.riga_id]);
-          await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [entry.riga_id]);
-        } else {
-          // Elimina il kit e i suoi dettagli
-          await connection.query('DELETE FROM kit_dettaglio WHERE kit_id = ?', [entry.riga_id]);
-          await connection.query('DELETE FROM kit WHERE id = ?', [entry.riga_id]);
-        }
+    // 3. Esegui il rollback in base al tipo di tabella e operazione
+    switch (entry.tabella) {
+      case 'articoli':
+        await rollbackArticolo(connection, entry, req.userId);
         break;
-
-      case 'MODIFICA':
-        const prima = JSON.parse(entry.dati_prima);
-        if (entry.tabella === 'articoli') {
-          // Rimuovi l'ID e i campi generati (se presenti)
-          delete prima.articolo_id;
-          delete prima.data_inserimento;
-          delete prima.data_modifica;
-          const setClause = Object.keys(prima).map(k => `${k} = ?`).join(', ');
-          const values = Object.values(prima);
-          await connection.query(
-            `UPDATE articoli SET ${setClause} WHERE articolo_id = ?`,
-            [...values, entry.riga_id]
-          );
-        } else {
-          delete prima.id;
-          delete prima.data_creazione;
-          delete prima.data_modifica;
-          const setClause = Object.keys(prima).map(k => `${k} = ?`).join(', ');
-          const values = Object.values(prima);
-          await connection.query(
-            `UPDATE kit SET ${setClause} WHERE id = ?`,
-            [...values, entry.riga_id]
-          );
-        }
+      case 'kit':
+        await rollbackKit(connection, entry, req.userId);
         break;
-
-      case 'ELIMINAZIONE':
-        const dati = JSON.parse(entry.dati_prima);
-        if (entry.tabella === 'articoli') {
-          // Ripristina articolo (senza ID, lo assegna automaticamente?)
-          delete dati.articolo_id;
-          delete dati.data_inserimento;
-          delete dati.data_modifica;
-          // Inserisci l'articolo
-          await connection.query(`INSERT INTO articoli SET ?`, [dati]);
-          // Nota: se ci sono sigle nel JSON, potremmo ripristinarle, ma per semplicità non gestiamo ora
-          // Potresti estendere con un campo per salvare anche le sigle.
-        } else {
-          delete dati.id;
-          delete dati.data_creazione;
-          delete dati.data_modifica;
-          await connection.query(`INSERT INTO kit SET ?`, [dati]);
-        }
+      case 'sigle_articoli':
+        await rollbackSigla(connection, entry, req.userId);
         break;
-
+      case 'kit_dettaglio':
+        await rollbackKitDettaglio(connection, entry, req.userId);
+        break;
       default:
         await connection.rollback();
-        return res.status(400).json({ success: false, message: 'Operazione non supportata per annullamento' });
+        return res.status(400).json({ success: false, message: 'Tabella non supportata per annullamento' });
     }
 
     // 4. Segna il record di audit come annullato
@@ -155,5 +110,105 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
     connection.release();
   }
 });
+
+// ============================================================
+// FUNZIONI DI ROLLBACK PER TABELLA
+// ============================================================
+
+async function rollbackArticolo(connection, entry, userId) {
+  const id = entry.riga_id;
+  switch (entry.operazione) {
+    case 'CREAZIONE':
+      // Elimina l'articolo e le sue sigle
+      await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [id]);
+      await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [id]);
+      break;
+    case 'MODIFICA':
+      const prima = JSON.parse(entry.dati_prima);
+      delete prima.articolo_id;
+      delete prima.data_inserimento;
+      delete prima.data_modifica;
+      const setClauseArt = Object.keys(prima).map(k => `${k} = ?`).join(', ');
+      const valuesArt = Object.values(prima);
+      await connection.query(`UPDATE articoli SET ${setClauseArt} WHERE articolo_id = ?`, [...valuesArt, id]);
+      break;
+    case 'ELIMINAZIONE':
+      const dati = JSON.parse(entry.dati_prima);
+      delete dati.articolo_id;
+      delete dati.data_inserimento;
+      delete dati.data_modifica;
+      await connection.query(`INSERT INTO articoli SET ?`, [dati]);
+      break;
+  }
+}
+
+async function rollbackKit(connection, entry, userId) {
+  const id = entry.riga_id;
+  switch (entry.operazione) {
+    case 'CREAZIONE':
+      // Elimina il kit e i dettagli
+      await connection.query('DELETE FROM kit_dettaglio WHERE kit_id = ?', [id]);
+      await connection.query('DELETE FROM kit WHERE id = ?', [id]);
+      break;
+    case 'MODIFICA':
+      const prima = JSON.parse(entry.dati_prima);
+      delete prima.id;
+      delete prima.data_creazione;
+      delete prima.data_modifica;
+      const setClauseKit = Object.keys(prima).map(k => `${k} = ?`).join(', ');
+      const valuesKit = Object.values(prima);
+      await connection.query(`UPDATE kit SET ${setClauseKit} WHERE id = ?`, [...valuesKit, id]);
+      break;
+    case 'ELIMINAZIONE':
+      const dati = JSON.parse(entry.dati_prima);
+      delete dati.id;
+      delete dati.data_creazione;
+      delete dati.data_modifica;
+      await connection.query(`INSERT INTO kit SET ?`, [dati]);
+      break;
+  }
+}
+
+async function rollbackSigla(connection, entry, userId) {
+  const id = entry.riga_id;
+  switch (entry.operazione) {
+    case 'CREAZIONE':
+      await connection.query('DELETE FROM sigle_articoli WHERE id = ?', [id]);
+      break;
+    case 'MODIFICA':
+      const prima = JSON.parse(entry.dati_prima);
+      delete prima.id;
+      delete prima.articolo_id; // non modificare l'articolo_id
+      const setClauseSig = Object.keys(prima).map(k => `${k} = ?`).join(', ');
+      const valuesSig = Object.values(prima);
+      await connection.query(`UPDATE sigle_articoli SET ${setClauseSig} WHERE id = ?`, [...valuesSig, id]);
+      break;
+    case 'ELIMINAZIONE':
+      const dati = JSON.parse(entry.dati_prima);
+      await connection.query(`INSERT INTO sigle_articoli SET ?`, [dati]);
+      break;
+  }
+}
+
+async function rollbackKitDettaglio(connection, entry, userId) {
+  const id = entry.riga_id;
+  switch (entry.operazione) {
+    case 'CREAZIONE':
+      await connection.query('DELETE FROM kit_dettaglio WHERE id = ?', [id]);
+      break;
+    case 'MODIFICA':
+      const prima = JSON.parse(entry.dati_prima);
+      delete prima.id;
+      delete prima.kit_id;
+      const setClauseDet = Object.keys(prima).map(k => `${k} = ?`).join(', ');
+      const valuesDet = Object.values(prima);
+      await connection.query(`UPDATE kit_dettaglio SET ${setClauseDet} WHERE id = ?`, [...valuesDet, id]);
+      break;
+    case 'ELIMINAZIONE':
+      const dati = JSON.parse(entry.dati_prima);
+      await connection.query(`INSERT INTO kit_dettaglio SET ?`, [dati]);
+      break;
+  }
+}
 
 module.exports = router;
