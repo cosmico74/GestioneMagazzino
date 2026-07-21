@@ -367,7 +367,7 @@ async function caricaArticoli() {
     console.log('🔍 Caricamento articoli...');
     console.log('📡 Token presente?', !!localStorage.getItem('token'));
     
-    // Rimuoviamo &min_giacenza=1 per vedere TUTTI gli articoli
+    // Prima prova con filtro categoria
     const r1 = await apiFetch('/articoli?categoria=sci');
     console.log('✅ Risposta sci:', r1);
     articoliSci = r1.success ? r1.data : [];
@@ -383,15 +383,16 @@ async function caricaArticoli() {
     articoliSkistoppers = r3.success ? r3.data : [];
     console.log('📊 Articoli skistoppers ricevuti:', articoliSkistoppers.length);
     
-    // Se ancora non ci sono dati, proviamo senza filtro categoria
+    // Se non ci sono dati con i filtri, prova senza filtro e filtra lato client
     if (articoliSci.length === 0 && articoliAttacchi.length === 0 && articoliSkistoppers.length === 0) {
       console.log('⚠️ Nessun articolo con filtro categoria, provo senza filtro...');
       const rAll = await apiFetch('/articoli');
       if (rAll.success) {
         var tutti = rAll.data;
-        articoliSci = tutti.filter(a => a.categoria && a.categoria.toLowerCase() === 'sci');
-        articoliAttacchi = tutti.filter(a => a.categoria && a.categoria.toLowerCase() === 'attacchi');
-        articoliSkistoppers = tutti.filter(a => a.categoria && a.categoria.toLowerCase() === 'skistoppers');
+        // 🔧 CORREZIONE: controlla che a.categoria esista e sia una stringa prima di chiamare toLowerCase()
+        articoliSci = tutti.filter(a => a.categoria && typeof a.categoria === 'string' && a.categoria.toLowerCase() === 'sci');
+        articoliAttacchi = tutti.filter(a => a.categoria && typeof a.categoria === 'string' && a.categoria.toLowerCase() === 'attacchi');
+        articoliSkistoppers = tutti.filter(a => a.categoria && typeof a.categoria === 'string' && a.categoria.toLowerCase() === 'skistoppers');
         console.log('📊 Dopo fallback - sci:', articoliSci.length, 'attacchi:', articoliAttacchi.length, 'skistoppers:', articoliSkistoppers.length);
       }
     }
