@@ -1492,7 +1492,8 @@ function apriModalCreaKitDaCarico() {
     html += '<td><strong>' + tipoArticolo + '</strong></td>';
     html += '<td>' + desc + '</td>';
     html += '<td class="quantita-disponibile">' + disponibile + '</td>';
-    html += '<td><input type="number" id="' + inputId + '" class="form-control" min="0" max="' + disponibile + '" value="' + disponibile + '" style="width:70px;"></td>';
+var valoreDefault = disponibile > 0 ? 1 : 0;
+html += '<td><input type="number" id="' + inputId + '" class="form-control" min="0" max="' + disponibile + '" value="' + valoreDefault + '" style="width:70px;"></td>';
     html += '</tr>';
   }
   html += '</tbody></table>';
