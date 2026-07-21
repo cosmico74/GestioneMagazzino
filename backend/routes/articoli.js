@@ -73,6 +73,11 @@ router.get('/', verifyToken, async (req, res) => {
     let sql = `
       SELECT a.*,
         (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE,
+        -- Calcolo dinamico dello stato in base alla giacenza reale
+        CASE 
+          WHEN (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) <= 0 THEN 'Esaurito'
+          ELSE 'Disponibile'
+        END AS stato,
         m.nome AS magazzino_nome,
         s.nome AS settore_nome,
         c.nome AS categoria_nome,
@@ -116,7 +121,11 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT a.*,
-        (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE
+        (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE,
+        CASE 
+          WHEN (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) <= 0 THEN 'Esaurito'
+          ELSE 'Disponibile'
+        END AS stato
       FROM articoli a
       WHERE a.articolo_id = ?
     `, [req.params.id]);
@@ -379,7 +388,7 @@ router.post('/', verifyToken, async (req, res) => {
       lunghezza || '', durezza || '',
       quantita || 0,
       versione || '1.0',
-      'Disponibile',
+      'Disponibile', // verrà sovrascritto dal calcolo dinamico
       now, now,
       note || '',
       codiceModello || null,
