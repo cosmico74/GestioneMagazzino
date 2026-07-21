@@ -100,7 +100,6 @@
       .filter-bar { flex-direction: column; align-items: stretch; }
       .radio-group { flex-direction: column; gap: 5px; }
     }
-    /* Stili per la tabella quantità nel modale crea kit */
     .kit-quantita-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .kit-quantita-table th { background: #f1f5f9; font-size: 0.7rem; padding: 4px 6px; text-align: left; position: static; }
     .kit-quantita-table td { padding: 4px 6px; font-size: 0.7rem; vertical-align: middle; }
@@ -245,9 +244,7 @@
       </thead>
       <tbody id="tabellaBody"><tr><td colspan="11" class="text-center">Caricamento...</td></tr></tbody>
     </table>
-    <!-- OVERLAY -->
     <div id="loadingOverlay"><div class="spinner"></div><span>Caricamento in corso...</span></div>
-    <!-- PAGINAZIONE -->
     <div class="pagination-bar">
       <div class="pagination-info">
         <span>Righe per pagina:</span>
@@ -268,14 +265,13 @@
     </div>
   </div>
 
-  <!-- PULSANTI AZIONI -->
   <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px; flex-wrap:wrap;">
     <button class="btn btn-massive" id="btnTrasferisciMassivo" onclick="apriModalTrasferimentoMassivo()">➡️ Trasferisci selezionati</button>
     <button class="btn btn-success" id="btnCreaKitDaCarico" onclick="apriModalCreaKitDaCarico()">📦 Crea Kit da selezionati</button>
   </div>
 </div>
 
-<!-- ===== MODALI ===== -->
+<!-- MODALI -->
 <div id="assignModal" class="modal"><div class="modal-content"><h3>📤 Assegna oggetto</h3>
   <div class="form-group"><label>Oggetto</label><input type="text" id="assignOggetto" class="form-control" readonly></div>
   <div class="form-group"><label>Sigla</label><input type="text" id="assignSiglaDisplay" class="form-control" readonly></div>
@@ -287,7 +283,6 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiAssignModal()">Annulla</button><button class="btn btn-success" onclick="confermaAssegnazione()">Conferma</button></div>
 </div></div>
 
-<!-- ===== MODALE EDIT ASSEGNAZIONE (con sezione Dividi e Trasferisci) ===== -->
 <div id="editAssignmentModal" class="modal">
   <div class="modal-content" style="max-width:600px;">
     <h3>✏️ Modifica assegnazione</h3>
@@ -302,9 +297,7 @@
       <button class="btn btn-secondary" onclick="chiudiEditModal()">Annulla</button>
       <button class="btn btn-success" onclick="confermaModificaSingola()">Conferma</button>
     </div>
-
     <hr style="margin: 15px 0;">
-
     <h4>✂️ Dividi e trasferisci</h4>
     <p class="warning-badge">⚠️ Questa operazione trasferisce una parte dell'oggetto a un altro soggetto.</p>
     <div class="form-group">
@@ -333,7 +326,6 @@
   </div>
 </div>
 
-<!-- ===== ALTRE MODALI ===== -->
 <div id="massiveModal" class="modal"><div class="modal-content"><h3>➡️ Trasferimento massivo</h3>
   <div id="massiveRiepilogo"></div>
   <div class="form-group"><label>Destinazione tipo</label><select id="massiveDestTipo" class="form-control" onchange="caricaDestinazioniMassive()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option><option value="MAGAZZINO">Magazzino (rientro)</option></select></div>
@@ -346,12 +338,12 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiConfirmModal()">Annulla</button><button class="btn btn-danger" id="confirmActionBtn" onclick="eseguiConferma()">Conferma</button></div>
 </div></div>
 
-<!-- ===== MODALE CREA KIT DA CARICO (MODIFICATO) ===== -->
+<!-- MODALE CREA KIT DA CARICO (con quantità) -->
 <div id="modalCreaKitDaCarico" class="modal">
   <div class="modal-content" style="max-width:700px;">
     <h3>📦 Crea Kit da carico</h3>
     <p>Seleziona le quantità di ciascun articolo da utilizzare nel kit. <br> <strong>Devi avere almeno uno sci e un attacco con quantità > 0.</strong></p>
-    <div id="riepilogoSelezione"></div> <!-- Qui verrà generata la tabella con le quantità -->
+    <div id="riepilogoSelezione"></div>
     <div class="form-group"><label>Magazzino di destinazione *</label><select id="creaKitMagazzino" class="form-control"></select></div>
     <div class="form-group"><label>Destinatario tipo</label><select id="creaKitDestTipo" class="form-control" onchange="caricaDestinazioniCreaKit()"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
     <div class="form-group"><label>Destinatario</label><select id="creaKitDestId" class="form-control"></select></div>
@@ -509,7 +501,7 @@ async function caricaSoggettiPerTipo() {
     if (sel.options.length > 1 && !sel.value) sel.selectedIndex = 1;
     if (radioCarico.checked) {
       if (sel.value) caricaOggettiInCarico();
-      else caricaOggettiInCarico(); // fallback per vedere i propri
+      else caricaOggettiInCarico();
     } else {
       oggetti = []; oggettiOriginali = []; popolaTabella();
     }
@@ -701,12 +693,10 @@ async function caricaOggettiInCarico() {
   try {
     var inc = [], ass = [];
     
-    // IN POSSESSO: soggetto SELEZIONATO come destinazione
     if (modeVal === 'incarico' || modeVal === 'entrambi') {
       inc = await getOggettiInCarico(tipo, id);
     }
     
-    // INVIATO AD ALTRI: UTENTE LOGGATO come provenienza
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       if (!isAdmin && currentUser.riferimento_id) {
         var mioTipo = currentUser.ruolo.toUpperCase();
@@ -725,7 +715,6 @@ async function caricaOggettiInCarico() {
     else tutti = inc.concat(ass);
     oggettiOriginali = tutti;
 
-    // Filtro destinatario
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       var referenti = [];
       var provenienzaId = isAdmin ? id : (currentUser.riferimento_id || null);
@@ -1203,7 +1192,6 @@ async function apriModificaSingola(obj) {
     var selId = document.getElementById('editDestId');
     if (obj.destinazioneId) selId.value = obj.destinazioneId;
     
-    // Inizializza i campi "Dividi e trasferisci"
     var maxTrasferibile = obj.totale - 1;
     document.getElementById('dividiQuantita').value = 1;
     document.getElementById('dividiQuantita').max = maxTrasferibile;
@@ -1453,10 +1441,9 @@ async function confermaMassive() {
 }
 
 // ============================================================
-// CREA KIT DA CARICO (MODIFICATO: permette scelta quantità)
+// CREA KIT DA CARICO (con quantità) – FUNZIONA ANCHE PER ASSEGNATI
 // ============================================================
 function apriModalCreaKitDaCarico() {
-  // Raccogli gli elementi selezionati
   var idx = [];
   var cbs = document.querySelectorAll('.row-checkbox:checked');
   for (var i = 0; i < cbs.length; i++) {
@@ -1469,10 +1456,9 @@ function apriModalCreaKitDaCarico() {
   }
   var selezionati = idx.map(function(i) { return oggetti[i]; });
   
-  // Funzioni helper per riconoscere sci/attacco anche senza categoria
+  // Helper per riconoscere sci/attacco anche senza categoria
   function isSci(o) {
     if (o.categoriaNome) return o.categoriaNome.toLowerCase() === 'sci';
-    // Fallback: cerca nella descrizione o nel codice
     var desc = (o.descrizione || '').toLowerCase();
     var codice = (o.codice_sigla || '').toLowerCase();
     return desc.includes('sci') || codice.includes('sci');
@@ -1492,10 +1478,8 @@ function apriModalCreaKitDaCarico() {
     return;
   }
 
-  // Memorizza la lista per l'uso successivo
   selectedPerKit = selezionati;
 
-  // Genera la tabella con le quantità
   var container = document.getElementById('riepilogoSelezione');
   var html = '<table class="kit-quantita-table"><thead><tr><th>Tipo</th><th>Descrizione</th><th>Disponibile</th><th>Quantità da usare</th></tr></thead><tbody>';
   for (var j = 0; j < selezionati.length; j++) {
@@ -1515,7 +1499,6 @@ function apriModalCreaKitDaCarico() {
   html += '<div style="margin-top:8px; font-size:0.75rem; color:#2c3e50;">⚠️ Inserisci 0 per escludere un articolo dal kit. Devono rimanere almeno uno sci e un attacco con quantità > 0.</div>';
   container.innerHTML = html;
 
-  // Carica magazzini e destinazioni
   var selMag = document.getElementById('creaKitMagazzino');
   selMag.innerHTML = '<option value="">Seleziona magazzino</option>';
   for (var m of magazzini) {
@@ -1525,85 +1508,10 @@ function apriModalCreaKitDaCarico() {
     if (m.nome.toLowerCase() === 'race') opt.selected = true;
     selMag.appendChild(opt);
   }
-  // Destinazione: usiamo lo stesso soggetto selezionato nella vista in carico
   var selTipo = document.getElementById('creaKitDestTipo');
   var selId = document.getElementById('creaKitDestId');
   selTipo.value = sourceTipo.value || 'PROMOTER';
   caricaDestinazioniCreaKit();
-  if (sourceId.value) {
-    var options = selId.options;
-    for (var k = 0; k < options.length; k++) {
-      if (options[k].value == sourceId.value) {
-        selId.value = sourceId.value;
-        break;
-      }
-    }
-  }
-  document.getElementById('modalCreaKitDaCarico').style.display = 'flex';
-}
-  // Raccogli gli elementi selezionati
-  var idx = [];
-  var cbs = document.querySelectorAll('.row-checkbox:checked');
-  for (var i = 0; i < cbs.length; i++) {
-    var id = parseInt(cbs[i].dataset.rowId);
-    if (!isNaN(id)) idx.push(id);
-  }
-  if (idx.length === 0) {
-    showMessage('Seleziona almeno un elemento', 'error');
-    return;
-  }
-  var selezionati = idx.map(function(i) { return oggetti[i]; });
-  
-  // Verifica che ci sia almeno uno sci e un attacco (basato sulla categoria)
-  var hasSci = selezionati.some(function(o) { return o.categoriaNome && o.categoriaNome.toLowerCase() === 'sci'; });
-  var hasAttacco = selezionati.some(function(o) { return o.categoriaNome && o.categoriaNome.toLowerCase() === 'attacchi'; });
-  if (!hasSci || !hasAttacco) {
-    showMessage('Devi selezionare almeno uno sci e un attacco (categorie "sci" e "attacchi")', 'error');
-    return;
-  }
-
-  // Memorizza la lista per l'uso successivo
-  selectedPerKit = selezionati;
-
-  // Genera la tabella con le quantità
-  var container = document.getElementById('riepilogoSelezione');
-  var html = '<table class="kit-quantita-table"><thead><tr><th>Tipo</th><th>Descrizione</th><th>Disponibile</th><th>Quantità da usare</th></tr></thead><tbody>';
-  for (var j = 0; j < selezionati.length; j++) {
-    var o = selezionati[j];
-    var tipoArticolo = o.categoriaNome || 'Articolo';
-    var desc = o.codice_sigla + ' - ' + o.descrizione;
-    var disponibile = o.totale || 0;
-    // Creiamo un input con id univoco
-    var inputId = 'qty_' + j;
-    html += '<tr>';
-    html += '<td><strong>' + tipoArticolo + '</strong></td>';
-    html += '<td>' + desc + '</td>';
-    html += '<td class="quantita-disponibile">' + disponibile + '</td>';
-    html += '<td><input type="number" id="' + inputId + '" class="form-control" min="0" max="' + disponibile + '" value="' + disponibile + '" style="width:70px;"></td>';
-    html += '</tr>';
-  }
-  html += '</tbody></table>';
-  // Aggiungi un riepilogo rapido
-  html += '<div style="margin-top:8px; font-size:0.75rem; color:#2c3e50;">⚠️ Inserisci 0 per escludere un articolo dal kit. Devono rimanere almeno uno sci e un attacco con quantità > 0.</div>';
-  container.innerHTML = html;
-
-  // Carica magazzini e destinazioni
-  var selMag = document.getElementById('creaKitMagazzino');
-  selMag.innerHTML = '<option value="">Seleziona magazzino</option>';
-  for (var m of magazzini) {
-    var opt = document.createElement('option');
-    opt.value = m.id;
-    opt.textContent = m.nome;
-    // Se c'è un magazzino di default (es. "Race") lo preselezioniamo
-    if (m.nome.toLowerCase() === 'race') opt.selected = true;
-    selMag.appendChild(opt);
-  }
-  // Destinazione: usiamo lo stesso soggetto selezionato nella vista in carico
-  var selTipo = document.getElementById('creaKitDestTipo');
-  var selId = document.getElementById('creaKitDestId');
-  selTipo.value = sourceTipo.value || 'PROMOTER';
-  caricaDestinazioniCreaKit();
-  // Se il sourceId ha un valore, proviamo a selezionarlo
   if (sourceId.value) {
     var options = selId.options;
     for (var k = 0; k < options.length; k++) {
@@ -1637,7 +1545,6 @@ async function caricaDestinazioniCreaKit() {
 }
 
 async function confermaCreaKitDaCarico() {
-  // Funzioni helper per riconoscere sci/attacco (stesse di sopra)
   function isSci(o) {
     if (o.categoriaNome) return o.categoriaNome.toLowerCase() === 'sci';
     var desc = (o.descrizione || '').toLowerCase();
@@ -1651,7 +1558,6 @@ async function confermaCreaKitDaCarico() {
     return desc.includes('attacco') || codice.includes('attacco');
   }
 
-  // Leggi le quantità dalla tabella
   var quantitaDaUsare = [];
   var hasSci = false, hasAttacco = false;
   for (var i = 0; i < selectedPerKit.length; i++) {
@@ -1674,7 +1580,6 @@ async function confermaCreaKitDaCarico() {
     return;
   }
 
-  // Costruisci il payload solo con gli elementi che hanno quantità > 0
   var oggettiPayload = [];
   for (var j = 0; j < selectedPerKit.length; j++) {
     var q = quantitaDaUsare[j];
@@ -1693,7 +1598,6 @@ async function confermaCreaKitDaCarico() {
     return;
   }
 
-  // Leggi gli altri campi
   var magazzinoId = document.getElementById('creaKitMagazzino').value;
   var destTipo = document.getElementById('creaKitDestTipo').value;
   var destId = document.getElementById('creaKitDestId').value;
