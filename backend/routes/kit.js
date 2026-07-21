@@ -85,6 +85,9 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 // ============================================================
 // GET /api/kit - Elenco kit
 // ============================================================
+// ============================================================
+// GET /api/kit - Elenco kit con informazioni di assegnazione
+// ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
     const [kits] = await db.query(`
@@ -98,17 +101,48 @@ router.get('/', verifyToken, async (req, res) => {
          WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI'
          LIMIT 1) AS sigla_sci,
         u1.username AS creato_da_username,
-        u2.username AS modificato_da_username
+        u2.username AS modificato_da_username,
+        -- Informazioni di assegnazione
+        cs.destinazione_tipo AS assegnato_tipo,
+        cs.destinazione_id AS assegnato_id,
+        CONCAT(
+          COALESCE(sog.nome, ''),
+          IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
+        ) AS assegnato_nome,
+        CASE 
+          WHEN cs.destinazione_id IS NOT NULL THEN 'Assegnato'
+          ELSE 'In magazzino'
+        END AS stato_assegnazione
       FROM kit k
       LEFT JOIN utenti u1 ON k.creato_da = u1.id
       LEFT JOIN utenti u2 ON k.modificato_da = u2.id
+      LEFT JOIN carico_sintesi cs ON cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
+      LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
       ORDER BY k.id DESC
     `);
-    const risultato = kits.map(k => ({
-      ...k,
-      lunghezza_sci: k.lunghezza_sci || '',
-      sigla_sci: k.sigla_sci || ''
-    }));
+
+    // Per ogni kit, se è assegnato, recupera anche il nome del soggetto (già fatto con la JOIN)
+    // Ma se il soggetto è un PROMOTER, vogliamo il nome completo
+    const risultato = kits.map(k => {
+      let assegnatoA = 'In magazzino';
+      if (k.assegnato_tipo && k.assegnato_id) {
+        if (k.assegnato_tipo === 'PROMOTER') {
+          assegnatoA = k.assegnato_nome || 'Promoter ' + k.assegnato_id;
+        } else {
+          assegnatoA = k.assegnato_nome || k.assegnato_tipo + ' ' + k.assegnato_id;
+        }
+      }
+      return {
+        ...k,
+        lunghezza_sci: k.lunghezza_sci || '',
+        sigla_sci: k.sigla_sci || '',
+        assegnato_a: assegnatoA,
+        assegnato_tipo: k.assegnato_tipo,
+        assegnato_id: k.assegnato_id,
+        stato_assegnazione: k.stato_assegnazione || 'In magazzino'
+      };
+    });
+
     res.json(risultato);
   } catch (err) {
     console.error('❌ Errore GET /kit:', err);

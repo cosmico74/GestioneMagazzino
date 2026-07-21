@@ -87,7 +87,6 @@
     .badge-success { background: #d4edda; color: #155724; }
     .badge-warning { background: #fff3cd; color: #856404; }
     .badge-danger { background: #f8d7da; color: #721c24; }
-    .badge-info { background: #d1ecf1; color: #0c5460; }
     @media (max-width: 768px) {
       .filter-bar { flex-direction: column; align-items: stretch; }
       .form-row { flex-direction: column; }
@@ -121,7 +120,7 @@
     </div>
     <div class="filter-group">
       <label>Assegnato a</label>
-      <select id="filtroAssegnazione" onchange="caricaKit()">
+      <select id="filtroAssegnato" onchange="caricaKit()">
         <option value="">Tutti</option>
         <option value="assegnato">Assegnato</option>
         <option value="magazzino">In magazzino</option>
@@ -148,7 +147,7 @@
           <th data-sort="lunghezza_sci">Lunghezza <span class="sort-arrow sort-asc" data-col="lunghezza_sci">▲</span><span class="sort-arrow sort-desc" data-col="lunghezza_sci">▼</span></th>
           <th data-sort="quantita">Qtà <span class="sort-arrow sort-asc" data-col="quantita">▲</span><span class="sort-arrow sort-desc" data-col="quantita">▼</span></th>
           <th data-sort="magazzino">Magazzino <span class="sort-arrow sort-asc" data-col="magazzino">▲</span><span class="sort-arrow sort-desc" data-col="magazzino">▼</span></th>
-          <th data-sort="assegnatario">Assegnato a <span class="sort-arrow sort-asc" data-col="assegnatario">▲</span><span class="sort-arrow sort-desc" data-col="assegnatario">▼</span></th>
+          <th data-sort="assegnato_a">Assegnato a <span class="sort-arrow sort-asc" data-col="assegnato_a">▲</span><span class="sort-arrow sort-desc" data-col="assegnato_a">▼</span></th>
           <th data-sort="data_creazione">Creato <span class="sort-arrow sort-asc" data-col="data_creazione">▲</span><span class="sort-arrow sort-desc" data-col="data_creazione">▼</span></th>
           <th>Azioni</th>
         </tr>
@@ -326,6 +325,7 @@ async function caricaMagazzini() {
     var sel2 = document.getElementById('kitMagazzino');
     sel2.innerHTML = '<option value="">Seleziona...</option>';
     magazzini.forEach(function(m) { sel2.appendChild(new Option(m.nome, m.id)); });
+    // Preseleziona 'Race' se esiste
     var race = magazzini.find(function(m) { return m.nome.toLowerCase() === 'race'; });
     if (race) sel2.value = race.id;
   } catch(e) { console.error('Errore magazzini', e); }
@@ -333,10 +333,13 @@ async function caricaMagazzini() {
 
 async function caricaArticoli() {
   try {
+    // Sci
     var r = await apiFetch('/articoli?categoria=sci&min_giacenza=1');
     articoliSci = r.success ? r.data : [];
+    // Attacchi
     r = await apiFetch('/articoli?categoria=attacchi&min_giacenza=1');
     articoliAttacchi = r.success ? r.data : [];
+    // Skistoppers
     r = await apiFetch('/articoli?categoria=skistoppers&min_giacenza=1');
     articoliSkistoppers = r.success ? r.data : [];
   } catch(e) { console.error('Errore articoli', e); }
@@ -349,26 +352,24 @@ async function caricaSigle() {
 }
 
 // ============================================================
-// CARICAMENTO KIT
+// CARICAMENTO KIT (con assegnazione)
 // ============================================================
 async function caricaKit() {
   showLoading();
   try {
     kits = await apiFetch('/kit');
     var fMag = document.getElementById('filtroMagazzino').value;
-    var fAssegn = document.getElementById('filtroAssegnazione').value;
+    var fAss = document.getElementById('filtroAssegnato').value;
     var fRic = document.getElementById('filtroRicerca').value.toLowerCase();
+    
     if (fMag) kits = kits.filter(function(k) { return String(k.magazzino) === fMag; });
+    if (fAss === 'assegnato') kits = kits.filter(function(k) { return k.assegnato_tipo && k.assegnato_id; });
+    if (fAss === 'magazzino') kits = kits.filter(function(k) { return !k.assegnato_tipo || !k.assegnato_id; });
     if (fRic) kits = kits.filter(function(k) {
       return (k.codice_kit || '').toLowerCase().includes(fRic) ||
              (k.descrizione || '').toLowerCase().includes(fRic) ||
              (k.sigla_sci || '').toLowerCase().includes(fRic);
     });
-    if (fAssegn === 'assegnato') {
-      kits = kits.filter(function(k) { return k.assegnatario !== null; });
-    } else if (fAssegn === 'magazzino') {
-      kits = kits.filter(function(k) { return k.assegnatario === null; });
-    }
     sortOggetti();
     paginaCorrente = 1;
     popolaTabella();
@@ -389,10 +390,6 @@ function sortOggetti() {
       va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
     } else if (sortColumn === 'data_creazione') {
       va = va ? new Date(va).getTime() : 0; vb = vb ? new Date(vb).getTime() : 0;
-    } else if (sortColumn === 'assegnatario') {
-      va = a.assegnatario ? a.assegnatario.nome : '';
-      vb = b.assegnatario ? b.assegnatario.nome : '';
-      va = va.toLowerCase(); vb = vb.toLowerCase();
     } else {
       va = va.toString().toLowerCase(); vb = vb.toString().toLowerCase();
     }
@@ -454,20 +451,9 @@ function popolaTabella() {
     var found = magazzini.find(function(m) { return m.id == k.magazzino; });
     if (found) magNome = found.nome;
     row.insertCell(6).innerText = magNome;
-    // Colonna Assegnato a
-    var cellaAssegnato = row.insertCell(7);
-    if (k.assegnatario) {
-      var nome = k.assegnatario.nome || 'Soggetto ' + k.assegnatario.id;
-      var tipo = k.assegnatario.tipo || '';
-      var badge = '<span class="badge badge-success">' + nome + '</span>';
-      if (tipo === 'PROMOTER') badge = '<span class="badge badge-info">' + nome + ' (Promoter)</span>';
-      else if (tipo === 'NEGOZIO') badge = '<span class="badge badge-warning">' + nome + ' (Negozio)</span>';
-      else if (tipo === 'CLIENTE') badge = '<span class="badge badge-info">' + nome + ' (Cliente)</span>';
-      else if (tipo === 'AGENTE') badge = '<span class="badge badge-secondary">' + nome + ' (Agente)</span>';
-      cellaAssegnato.innerHTML = badge;
-    } else {
-      cellaAssegnato.innerHTML = '<span class="badge badge-secondary">In magazzino</span>';
-    }
+    // Assegnato a
+    var assegnatoText = k.assegnato_a || 'In magazzino';
+    row.insertCell(7).innerText = assegnatoText;
     row.insertCell(8).innerText = formatDate(k.data_creazione);
     var cellaAzioni = row.insertCell(9);
     var btnDettaglio = document.createElement('button');
@@ -548,7 +534,9 @@ async function apriModalModificaKit(id) {
     document.getElementById('kitEditId').value = id;
     document.getElementById('kitNote').value = kit.note || '';
     document.getElementById('kitQuantita').value = kit.quantita || 1;
+    // Carica dropdown
     await popolaDropdownKit();
+    // Seleziona i valori correnti
     var sci = kit.dettagli.find(function(d) { return d.tipo_articolo === 'SCI'; });
     var attacco = kit.dettagli.find(function(d) { return d.tipo_articolo === 'ATTACCHI'; });
     var skistopper = kit.dettagli.find(function(d) { return d.tipo_articolo === 'SKISTOPPER'; });
@@ -677,13 +665,6 @@ async function apriDettaglio(id) {
     html += '<p><strong>Descrizione:</strong> ' + kit.descrizione + '</p>';
     html += '<p><strong>Quantità:</strong> ' + kit.quantita + '</p>';
     html += '<p><strong>Magazzino:</strong> ' + (magazzini.find(function(m) { return m.id == kit.magazzino; })?.nome || kit.magazzino) + '</p>';
-    // Mostra assegnazione nel dettaglio
-    var ass = kits.find(function(k) { return k.id == id; });
-    if (ass && ass.assegnatario) {
-      html += '<p><strong>Assegnato a:</strong> ' + ass.assegnatario.nome + ' (' + (ass.assegnatario.tipo || 'Soggetto') + ')</p>';
-    } else {
-      html += '<p><strong>Assegnato a:</strong> <span class="badge badge-secondary">In magazzino</span></p>';
-    }
     html += '<p><strong>Note:</strong> ' + (kit.note || '-') + '</p>';
     html += '<p><strong>Creato:</strong> ' + formatDate(kit.data_creazione) + '</p>';
     html += '<p><strong>Modificato:</strong> ' + formatDate(kit.data_modifica) + '</p>';
@@ -742,7 +723,6 @@ async function confermaElimina() {
 function anteprimaPDF() {
   if (!kits || kits.length === 0) { showMessage('Nessun kit da esportare', 'error'); return; }
   var rows = kits.map(function(k, i) {
-    var assegnato = k.assegnatario ? k.assegnatario.nome : 'In magazzino';
     return {
       index: i + 1,
       codice: k.codice_kit || '-',
@@ -751,7 +731,7 @@ function anteprimaPDF() {
       lunghezza: k.lunghezza_sci || '-',
       quantita: k.quantita || 0,
       magazzino: magazzini.find(function(m) { return m.id == k.magazzino; })?.nome || k.magazzino,
-      assegnato: assegnato,
+      assegnato: k.assegnato_a || 'In magazzino',
       data: formatDate(k.data_creazione)
     };
   });
@@ -766,7 +746,7 @@ function anteprimaPDF() {
     { header: 'Assegnato a', dataKey: 'assegnato' },
     { header: 'Data', dataKey: 'data' }
   ];
-  var doc = new jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  var doc = new jspdf.jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   var pageWidth = doc.internal.pageSize.getWidth();
   var logoImg = document.querySelector('.logo img');
   if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
@@ -797,17 +777,16 @@ function anteprimaPDF() {
     styles: { fontSize: 8 },
     headStyles: { fillColor: [26, 115, 232] },
     margin: { left: 20, right: 20 },
-    tableWidth: 'auto',
     columnStyles: {
       index: { cellWidth: 25 },
       codice: { cellWidth: 70 },
-      descrizione: { cellWidth: 150 },
-      sigla: { cellWidth: 50 },
-      lunghezza: { cellWidth: 50 },
-      quantita: { cellWidth: 35 },
-      magazzino: { cellWidth: 60 },
-      assegnato: { cellWidth: 80 },
-      data: { cellWidth: 55 }
+      descrizione: { cellWidth: 160 },
+      sigla: { cellWidth: 45 },
+      lunghezza: { cellWidth: 45 },
+      quantita: { cellWidth: 30 },
+      magazzino: { cellWidth: 55 },
+      assegnato: { cellWidth: 70 },
+      data: { cellWidth: 50 }
     }
   });
   doc.save('Kit_' + new Date().toISOString().slice(0,10) + '.pdf');
