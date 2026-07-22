@@ -152,6 +152,7 @@
           <th>Descrizione</th>
           <th>Sigla Sci</th>
           <th>Magazzino</th>
+          <th>Assegnato a</th>
           <th>Quantità</th>
           <th>Nota</th>
           <th>Azioni</th>
@@ -666,20 +667,22 @@ function popolaTabellaKit() {
   const tbody = document.querySelector('#tabellaKit tbody');
   tbody.innerHTML = '';
   if (!allKits.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Nessun kit trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
   allKits.forEach(k => {
     const mag = magazzini.find(m => m.id == k.magazzino)?.nome || k.magazzino;
+    const assegnato = k.assegnato_a || 'In magazzino';
     const row = tbody.insertRow();
     row.insertCell(0).innerText = k.id;
     row.insertCell(1).innerText = k.codice_kit;
     row.insertCell(2).innerText = k.descrizione || '-';
     row.insertCell(3).innerText = k.sigla_sci || 'NA';
     row.insertCell(4).innerText = mag;
-    row.insertCell(5).innerText = k.quantita || 0;
-    row.insertCell(6).innerText = k.note || '';
-    const actions = row.insertCell(7);
+    row.insertCell(5).innerText = assegnato;
+    row.insertCell(6).innerText = k.quantita || 0;
+    row.insertCell(7).innerText = k.note || '';
+    const actions = row.insertCell(8);
     actions.className = 'action-buttons';
     actions.innerHTML = `
       <button class="btn" onclick="apriModificaKit(${k.id}, '${k.codice_kit.replace(/'/g, "\\'")}', '${(k.note || '').replace(/'/g, "\\'")}')">✏️</button>
