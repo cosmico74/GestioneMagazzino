@@ -334,7 +334,6 @@ var magazzini = [];
 var articoliSci = [];
 var articoliAttacchi = [];
 var articoliSkistoppers = [];
-var sigle = [];
 var sortColumn = 'id';
 var sortAsc = false;
 var paginaCorrente = 1;
@@ -362,25 +361,22 @@ async function caricaMagazzini() {
   } catch(e) { console.error('Errore magazzini', e); }
 }
 
+// Carica TUTTI gli articoli e filtra lato client in modo sicuro
 async function caricaArticoli() {
   try {
-    // Carica TUTTI gli articoli (senza filtro categoria)
     var r = await apiFetch('/articoli');
     if (r.success && r.data) {
       var tutti = r.data;
-      // Filtra lato client per categoria (case-insensitive)
+      // Filtra in modo sicuro: controlla che categoria esista e sia una stringa
       articoliSci = tutti.filter(function(a) { 
-        return a.categoria && a.categoria.toLowerCase() === 'sci'; 
+        return a.categoria && typeof a.categoria === 'string' && a.categoria.toLowerCase() === 'sci'; 
       });
       articoliAttacchi = tutti.filter(function(a) { 
-        return a.categoria && a.categoria.toLowerCase() === 'attacchi'; 
+        return a.categoria && typeof a.categoria === 'string' && a.categoria.toLowerCase() === 'attacchi'; 
       });
       articoliSkistoppers = tutti.filter(function(a) { 
-        return a.categoria && a.categoria.toLowerCase() === 'skistoppers'; 
+        return a.categoria && typeof a.categoria === 'string' && a.categoria.toLowerCase() === 'skistoppers'; 
       });
-      console.log('📊 Articoli sci:', articoliSci.length);
-      console.log('📊 Articoli attacchi:', articoliAttacchi.length);
-      console.log('📊 Articoli skistoppers:', articoliSkistoppers.length);
     } else {
       articoliSci = [];
       articoliAttacchi = [];
@@ -389,10 +385,55 @@ async function caricaArticoli() {
   } catch(e) { console.error('Errore articoli', e); }
 }
 
-async function caricaSigle() {
+// ============================================================
+// FUNZIONI PER LE SIGLE (usano /articoli/:id/sigle)
+// ============================================================
+async function caricaSigleSci() {
+  var sciId = document.getElementById('kitSci').value;
+  var sel = document.getElementById('kitSiglaSci');
+  sel.innerHTML = '<option value="">Caricamento...</option>';
+  if (!sciId) {
+    sel.innerHTML = '<option value="">Seleziona uno sci</option>';
+    return;
+  }
   try {
-    sigle = await apiFetch('/sigle-articoli');
-  } catch(e) { console.error('Errore sigle', e); }
+    var sigle = await apiFetch('/articoli/' + sciId + '/sigle');
+    sel.innerHTML = '<option value="">Seleziona sigla...</option>';
+    if (!sigle || sigle.length === 0) {
+      sel.innerHTML = '<option value="">Nessuna sigla disponibile</option>';
+    } else {
+      sigle.forEach(function(s) {
+        var disp = s.giacenza !== undefined ? s.giacenza : s.quantita;
+        sel.appendChild(new Option(s.sigla + ' (disp. ' + disp + ')', s.id));
+      });
+    }
+  } catch(e) {
+    console.error('Errore caricamento sigle sci:', e);
+    sel.innerHTML = '<option value="">Errore nel caricamento</option>';
+  }
+}
+
+async function caricaSigleAttacco() {
+  var attId = document.getElementById('kitAttacco').value;
+  var sel = document.getElementById('kitSiglaAttacco');
+  sel.innerHTML = '<option value="">Caricamento...</option>';
+  if (!attId) {
+    sel.innerHTML = '<option value="">Nessuna</option>';
+    return;
+  }
+  try {
+    var sigle = await apiFetch('/articoli/' + attId + '/sigle');
+    sel.innerHTML = '<option value="">Nessuna</option>';
+    if (sigle && sigle.length > 0) {
+      sigle.forEach(function(s) {
+        var disp = s.giacenza !== undefined ? s.giacenza : s.quantita;
+        sel.appendChild(new Option(s.sigla + ' (disp. ' + disp + ')', s.id));
+      });
+    }
+  } catch(e) {
+    console.error('Errore caricamento sigle attacco:', e);
+    sel.innerHTML = '<option value="">Errore nel caricamento</option>';
+  }
 }
 
 // ============================================================
@@ -643,32 +684,6 @@ async function popolaDropdownKit() {
   document.getElementById('kitSiglaAttacco').innerHTML = '<option value="">Nessuna</option>';
 }
 
-async function caricaSigleSci() {
-  var sciId = document.getElementById('kitSci').value;
-  var sel = document.getElementById('kitSiglaSci');
-  sel.innerHTML = '<option value="">Seleziona sigla...</option>';
-  if (!sciId) return;
-  var sigleFiltrate = sigle.filter(function(s) { return s.articolo_id == sciId; });
-  if (sigleFiltrate.length === 0) {
-    sel.innerHTML = '<option value="">Nessuna sigla disponibile</option>';
-  } else {
-    sigleFiltrate.forEach(function(s) {
-      sel.appendChild(new Option(s.sigla + ' (disp. ' + s.quantita + ')', s.id));
-    });
-  }
-}
-
-async function caricaSigleAttacco() {
-  var attId = document.getElementById('kitAttacco').value;
-  var sel = document.getElementById('kitSiglaAttacco');
-  sel.innerHTML = '<option value="">Nessuna</option>';
-  if (!attId) return;
-  var sigleFiltrate = sigle.filter(function(s) { return s.articolo_id == attId; });
-  sigleFiltrate.forEach(function(s) {
-    sel.appendChild(new Option(s.sigla + ' (disp. ' + s.quantita + ')', s.id));
-  });
-}
-
 async function salvaKit() {
   var editId = document.getElementById('kitEditId').value;
   var magazzino = document.getElementById('kitMagazzino').value;
@@ -867,7 +882,8 @@ window.onload = async function() {
     currentUser = JSON.parse(localStorage.getItem('user'));
   } catch(e) { logout(); return; }
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
-  await Promise.all([caricaMagazzini(), caricaArticoli(), caricaSigle()]);
+  // Carica magazzini, articoli (le sigle vengono caricate on-demand)
+  await Promise.all([caricaMagazzini(), caricaArticoli()]);
   resetForm();
   caricaKit();
 };
