@@ -99,23 +99,17 @@ router.get('/', verifyToken, async (req, res) => {
          LIMIT 1) AS sigla_sci,
         u1.username AS creato_da_username,
         u2.username AS modificato_da_username,
-        -- Catena di assegnazioni (tutte le righe in carico_sintesi per questo kit)
-        (SELECT JSON_ARRAYAGG(
-           JSON_OBJECT(
-             'tipo', cs.destinazione_tipo,
-             'id', cs.destinazione_id,
-             'nome', CONCAT(
-               COALESCE(sog.nome, ''),
-               IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
-             ),
-             'data', cs.data_assegnazione
-           )
+        -- Catena di assegnazioni (tutti i nomi in ordine cronologico, separati da →)
+        (SELECT GROUP_CONCAT(
+           CONCAT(
+             COALESCE(sog.nome, ''),
+             IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
+           ) ORDER BY cs.data_assegnazione ASC SEPARATOR ' → '
          ) FROM carico_sintesi cs
          LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
          WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
-         ORDER BY cs.data_assegnazione ASC
-        ) AS assegnazioni_json,
-        -- Ultimo destinatario (l'ultimo della catena)
+        ) AS catena_assegnazioni,
+        -- Ultimo destinatario (nome)
         (SELECT CONCAT(
            COALESCE(sog.nome, ''),
            IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
@@ -125,7 +119,7 @@ router.get('/', verifyToken, async (req, res) => {
          ORDER BY cs.data_assegnazione DESC
          LIMIT 1
         ) AS ultimo_destinatario_nome,
-        -- Tipo e ID dell'ultimo destinatario
+        -- Tipo e ID dell'ultimo destinatario (utile per eventuali link)
         (SELECT cs.destinazione_tipo FROM carico_sintesi cs
          WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
          ORDER BY cs.data_assegnazione DESC
@@ -142,20 +136,11 @@ router.get('/', verifyToken, async (req, res) => {
       ORDER BY k.id DESC
     `);
 
-    // Parse JSON per le assegnazioni
     const risultato = kits.map(k => {
-      let assegnazioni = [];
-      if (k.assegnazioni_json) {
-        try {
-          assegnazioni = JSON.parse(k.assegnazioni_json);
-        } catch(e) {}
-      }
-
       let ultimoDestinatario = 'In magazzino';
       if (k.ultimo_destinatario_nome && k.ultimo_destinatario_nome.trim() !== '') {
         ultimoDestinatario = k.ultimo_destinatario_nome.trim();
       } else if (k.ultimo_destinatario_tipo && k.ultimo_destinatario_id) {
-        // Fallback: se il nome è vuoto, mostra il tipo+id
         ultimoDestinatario = k.ultimo_destinatario_tipo + ' ' + k.ultimo_destinatario_id;
       }
 
@@ -163,7 +148,7 @@ router.get('/', verifyToken, async (req, res) => {
         ...k,
         lunghezza_sci: k.lunghezza_sci || '',
         sigla_sci: k.sigla_sci || '',
-        assegnazioni: assegnazioni,
+        catena_assegnazioni: k.catena_assegnazioni || null,
         ultimo_destinatario: ultimoDestinatario,
         ultimo_destinatario_tipo: k.ultimo_destinatario_tipo,
         ultimo_destinatario_id: k.ultimo_destinatario_id

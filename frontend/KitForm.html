@@ -158,7 +158,7 @@
           <th>Sigla Sci</th>
           <th>Magazzino</th>
           <th>Quantità</th>
-          <th>Assegnato a</th> <!-- NUOVA COLONNA -->
+          <th>Assegnato a</th>
           <th>Nota</th>
           <th>Azioni</th>
         </tr>
@@ -661,7 +661,7 @@ async function salvaKit() {
 }
 
 // ============================================================
-// CARICA KIT (con assegnazioni e catena)
+// CARICA KIT (con catena di assegnazioni)
 // ============================================================
 async function caricaKit() {
   try {
@@ -710,20 +710,13 @@ function popolaTabellaKit() {
     const tdAssegnato = row.insertCell(6);
     const assegnato = k.ultimo_destinatario || 'In magazzino';
 
-    // Costruisci la catena per il tooltip
-    let tooltipText = 'In magazzino';
-    if (k.assegnazioni && k.assegnazioni.length > 0) {
-      const nomi = k.assegnazioni.map(a => a.nome || (a.tipo + ' ' + a.id)).filter(n => n);
-      if (nomi.length > 0) {
-        tooltipText = nomi.join(' → ');
-      }
-    }
-
     const span = document.createElement('span');
     span.textContent = assegnato;
-    if (tooltipText !== 'In magazzino') {
+
+    // Se c'è una catena e non è solo "In magazzino", aggiungi tooltip
+    if (k.catena_assegnazioni && k.catena_assegnazioni.trim() !== '' && k.catena_assegnazioni !== 'In magazzino') {
       span.className = 'assegnazione-tooltip';
-      span.setAttribute('data-tooltip', tooltipText);
+      span.setAttribute('data-tooltip', k.catena_assegnazioni);
     }
     tdAssegnato.appendChild(span);
     // ---- fine colonna ----
@@ -759,12 +752,8 @@ async function modificaKit(id) {
     // Seleziona sci
     const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
     if (sciDet) {
-      // Per lo sci, dobbiamo trovare l'ID dello sci nel gruppo
-      // Qui semplifichiamo: usiamo l'articolo_id del dettaglio
       const sciId = sciDet.articolo_id;
-      // Imposta il dropdown sull'ID dello sci
       const sciSelect = document.getElementById('kitSci');
-      // Trova l'opzione con quel valore
       let found = false;
       for (let opt of sciSelect.options) {
         if (opt.value == sciId) {
@@ -774,7 +763,6 @@ async function modificaKit(id) {
         }
       }
       if (!found) {
-        // Se non trovato, prova a cercare nel gruppo
         for (let key in articoliSciGroup) {
           if (articoliSciGroup[key].includes(sciId)) {
             sciSelect.value = key;
@@ -794,7 +782,6 @@ async function modificaKit(id) {
 
     // Aggiungi righe dai dettagli
     const righeKit = kit.dettagli.filter(d => d.tipo_articolo === 'ATTACCHI');
-    // Per ogni attacco, crea una riga
     if (righeKit.length > 0) {
       righeKit.forEach((attDet, index) => {
         aggiungiRigaSigla();
@@ -806,7 +793,6 @@ async function modificaKit(id) {
           const skSelect = row.cells[2].querySelector('select');
           const qtyInput = row.cells[3].querySelector('input');
 
-          // Trova la sigla corretta
           const sciDetCorr = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
           if (sciDetCorr && sciDetCorr.sigla_id) {
             popolaSelectSigle(siglaSelect, sciDetCorr.sigla_id);
@@ -814,9 +800,7 @@ async function modificaKit(id) {
             popolaSelectSigle(siglaSelect);
           }
 
-          // Attacco
           popolaSelectAttacco(attSelect, attDet.articolo_id);
-          // Skistopper
           const skDet = kit.dettagli.find(d => d.tipo_articolo === 'SKISTOPPER' && d.quantita === attDet.quantita);
           if (skDet) {
             popolaSelectSkistopper(skSelect, skDet.articolo_id);
