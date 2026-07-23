@@ -41,7 +41,7 @@
     .action-buttons { display: flex; gap: 4px; justify-content: center; }
     .text-center { text-align: center; }
     .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 800px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 1000px; max-height: 85vh; overflow-y: auto; padding: 20px; }
     .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
     .modal-header h3 { margin: 0; }
     .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
@@ -49,7 +49,6 @@
     .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
     .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; }
 
-    /* Tooltip per la catena di assegnazioni */
     .assegnazione-tooltip {
       cursor: help;
       border-bottom: 1px dashed #1a73e8;
@@ -84,6 +83,13 @@
     }
     .btn-dettaglio-gruppo:hover {
       background: #138496;
+    }
+    .dettaglio-kit-table td {
+      vertical-align: top;
+    }
+    .dettaglio-kit-table .componenti {
+      font-size: 0.75rem;
+      color: #555;
     }
   </style>
 </head>
@@ -190,15 +196,16 @@
   </div>
 </div>
 
-<!-- MODALE DETTAGLIO KIT (singolo o gruppo) -->
+<!-- MODALE DETTAGLIO GRUPPO (potenziato) -->
 <div id="detailModal" class="modal">
-  <div class="modal-content" style="max-width:800px;">
+  <div class="modal-content" style="max-width:1000px;">
     <div class="modal-header">
-      <h3 id="detailModalTitle">🔍 Dettaglio Kit</h3>
+      <h3 id="detailModalTitle">🔍 Dettaglio Gruppo</h3>
       <span class="close" onclick="chiudiDetailModal()">&times;</span>
     </div>
     <div id="detailBody"></div>
     <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="caricaKit(); chiudiDetailModal();">🔄 Ricarica</button>
       <button class="btn btn-secondary" onclick="chiudiDetailModal()">Chiudi</button>
     </div>
   </div>
@@ -270,7 +277,6 @@ let currentKitId = null;
 let formResetting = false;
 let kitEditId = null;
 
-// Ordinamento tabella: di default per descrizione (primi 8 char) e lunghezza
 let sortColumn = 'descrizione';
 let sortAsc = true;
 
@@ -308,7 +314,6 @@ function getLabelSkistopper(skistopper) {
 // ============================================================
 async function caricaAnagrafiche() {
   try {
-    // Magazzini
     magazzini = await apiFetch('/anagrafiche/magazzini');
     const sel = filtroMagazzino;
     sel.innerHTML = '<option value="">Tutti</option>';
@@ -324,29 +329,24 @@ async function caricaAnagrafiche() {
       kitMagazzinoSelect.selectedIndex = 1;
     }
 
-    // Categorie
     const categorie = await apiFetch('/anagrafiche/categorie');
     const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
     const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
     const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-    // Memorizza per uso successivo
     window.sciCat = sciCat;
     window.attCat = attCat;
     window.skCat = skCat;
 
-    // Carica sci, attacchi, skistoppers
     await caricaSci(sciCat);
     await caricaArticoliPerCategoria(attCat, skCat);
     await caricaSigleUsate();
 
-    // Seleziona primo sci
     if (articoliSci.length > 0) {
       kitSciSelect.value = articoliSci[0].articolo_id;
       await caricaSiglePerSci(kitSciSelect.value);
     }
 
-    // Eventi
     kitSciSelect.addEventListener('change', async () => {
       if (formResetting) return;
       const sciId = kitSciSelect.value;
@@ -367,7 +367,6 @@ async function caricaAnagrafiche() {
       caricaKit();
     });
 
-    // Ordina inizialmente per descrizione e lunghezza
     sortColumn = 'descrizione';
     sortAsc = true;
     await caricaKit();
@@ -691,7 +690,6 @@ async function salvaKit() {
     if (res.success) {
       showMessage(editId ? 'Kit aggiornato!' : 'Kit creato!', 'success');
       
-      // Ricarica tutti i dati per aggiornare i dropdown
       const categorie = await apiFetch('/anagrafiche/categorie');
       const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
       const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
@@ -727,7 +725,6 @@ function handleSort(col) {
     sortColumn = col;
     sortAsc = true;
   }
-  // Aggiorna frecce
   document.querySelectorAll('.sort-arrow').forEach(el => el.classList.remove('active'));
   const arrow = document.getElementById('sort-' + col);
   if (arrow) {
@@ -738,7 +735,7 @@ function handleSort(col) {
 }
 
 // ============================================================
-// CARICA KIT (con raggruppamento per descrizione, lunghezza, sigla)
+// CARICA KIT (con raggruppamento)
 // ============================================================
 async function caricaKit() {
   try {
@@ -773,11 +770,8 @@ function popolaTabellaKit() {
     return;
   }
 
-  // Raggruppamento per descrizione, lunghezza_sci, sigla_sci (e magazzino? lo lasciamo fuori per raggruppare anche se in magazzini diversi? Meglio raggruppare per magazzino anche)
-  // Per sicurezza raggruppiamo per descrizione, lunghezza, sigla, magazzino (così non mischiamo magazzini diversi)
   const groups = {};
   filtered.forEach(k => {
-    // Usiamo chiave che include descrizione, lunghezza, sigla, magazzino e stato assegnazione (ultimo_destinatario) per evitare di raggruppare kit assegnati a soggetti diversi
     const key = `${k.descrizione}|${k.lunghezza_sci || ''}|${k.sigla_sci || ''}|${k.magazzino}|${k.ultimo_destinatario || 'In magazzino'}`;
     if (!groups[key]) {
       groups[key] = {
@@ -794,7 +788,6 @@ function popolaTabellaKit() {
     groups[key].kits.push(k);
   });
 
-  // Ordina i gruppi
   const sortedGroups = Object.values(groups).sort((a, b) => {
     const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
     const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
@@ -809,7 +802,6 @@ function popolaTabellaKit() {
     const mag = magazzini.find(m => m.id == group.magazzino)?.nome || group.magazzino;
     const row = tbody.insertRow();
 
-    // Colonna ID: mostriamo il numero di kit nel gruppo come badge
     const idDisplay = group.kits.length > 1 ? 
       `<span class="badge-kit-count">${group.kits.length} kit</span>` : 
       firstKit.id;
@@ -822,7 +814,6 @@ function popolaTabellaKit() {
     row.insertCell(5).innerText = mag;
     row.insertCell(6).innerText = group.quantita_totale || 0;
 
-    // Assegnato a
     const tdAssegnato = row.insertCell(7);
     const assegnato = group.ultimo_destinatario || 'In magazzino';
     const span = document.createElement('span');
@@ -835,11 +826,9 @@ function popolaTabellaKit() {
 
     row.insertCell(8).innerText = firstKit.note || '';
 
-    // Azioni
     const actions = row.insertCell(9);
     actions.className = 'action-buttons';
     if (group.kits.length > 1) {
-      // Pulsante per dettaglio gruppo
       const btnGroup = document.createElement('button');
       btnGroup.textContent = '📋';
       btnGroup.className = 'btn btn-dettaglio-gruppo btn-sm';
@@ -847,7 +836,6 @@ function popolaTabellaKit() {
       btnGroup.onclick = () => apriDettaglioGruppo(group.kits);
       actions.appendChild(btnGroup);
     } else {
-      // Singolo kit: pulsanti modifica/elimina
       const kit = group.kits[0];
       const btnMod = document.createElement('button');
       btnMod.textContent = '✏️';
@@ -864,27 +852,72 @@ function popolaTabellaKit() {
 }
 
 // ============================================================
-// DETTAGLIO GRUPPO
+// DETTAGLIO GRUPPO (POTENZIATO con descrizione e lunghezza)
 // ============================================================
-function apriDettaglioGruppo(kits) {
+async function apriDettaglioGruppo(kits) {
   const modal = document.getElementById('detailModal');
   const title = document.getElementById('detailModalTitle');
   const body = document.getElementById('detailBody');
-  title.textContent = '📦 Dettaglio gruppo (' + kits.length + ' kit)';
-  let html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
-  html += '<tr style="background:#f1f5f9;"><th>ID</th><th>Codice</th><th>Quantità</th><th>Assegnato a</th><th>Azioni</th></tr>';
-  kits.forEach(k => {
+  title.textContent = '🔍 Dettaglio gruppo (' + kits.length + ' kit)';
+
+  // Recupera i dettagli completi di ogni kit in parallelo
+  const kitDetails = await Promise.all(kits.map(k => apiFetch('/kit/' + k.id)));
+
+  let html = '<table class="dettaglio-kit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
+  html += `<tr style="background:#f1f5f9;">
+    <th>ID</th>
+    <th>Codice</th>
+    <th>Magazzino</th>
+    <th>Descrizione / Lunghezza</th>
+    <th>Sigla</th>
+    <th>Attacchi (Qtà)</th>
+    <th>Skistoppers</th>
+    <th>Qtà Tot</th>
+    <th>Assegnato a</th>
+    <th>Azioni</th>
+  </tr>`;
+
+  for (const det of kitDetails) {
+    // Estrai info sci
+    const sciDet = det.dettagli.find(d => d.tipo_articolo === 'SCI');
+    const sciDesc = sciDet ? sciDet.articolo_descrizione || '' : '';
+    const sciLung = sciDet ? (det.lunghezza_sci || '') : '';
+    const sciSigla = sciDet ? det.sigla_sci || '' : '';
+
+    // Attacchi
+    const attacchi = det.dettagli.filter(d => d.tipo_articolo === 'ATTACCHI');
+    const attList = attacchi.map(a => {
+      const q = a.quantita || 0;
+      return `${a.articolo_descrizione || 'ID:'+a.articolo_id} (${q})`;
+    }).join('<br>');
+
+    // Skistoppers
+    const skistoppers = det.dettagli.filter(d => d.tipo_articolo === 'SKISTOPPER');
+    const skList = skistoppers.map(s => {
+      const q = s.quantita || 0;
+      return `${s.articolo_descrizione || 'ID:'+s.articolo_id} (${q})`;
+    }).join('<br>');
+
+    const mag = magazzini.find(m => m.id == det.magazzino)?.nome || det.magazzino;
+    const assegnato = det.ultimo_destinatario || 'In magazzino';
+
     html += `<tr>
-      <td>${k.id}</td>
-      <td>${k.codice_kit || '-'}</td>
-      <td>${k.quantita || 0}</td>
-      <td>${k.ultimo_destinatario || 'In magazzino'}</td>
+      <td>${det.id}</td>
+      <td>${det.codice_kit || '-'}</td>
+      <td>${mag}</td>
+      <td><strong>${sciDesc}</strong><br><span style="font-size:0.75rem;color:#555;">Lunghezza: ${sciLung} cm</span></td>
+      <td>${sciSigla}</td>
+      <td class="componenti">${attList || '-'}</td>
+      <td class="componenti">${skList || '-'}</td>
+      <td>${det.quantita || 0}</td>
+      <td>${assegnato}</td>
       <td>
-        <button class="btn btn-sm" onclick="chiudiDetailModal(); modificaKit(${k.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="chiudiDetailModal(); eliminaKit(${k.id})">🗑️</button>
+        <button class="btn btn-sm" onclick="chiudiDetailModal(); modificaKit(${det.id})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="chiudiDetailModal(); eliminaKit(${det.id})">🗑️</button>
       </td>
     </tr>`;
-  });
+  }
+
   html += '</table>';
   body.innerHTML = html;
   modal.style.display = 'flex';
@@ -907,7 +940,6 @@ async function modificaKit(id) {
     document.getElementById('kitMagazzino').value = kit.magazzino;
     document.getElementById('kitNote').value = kit.note || '';
 
-    // Seleziona sci
     const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
     if (sciDet) {
       const sciId = sciDet.articolo_id;
@@ -934,11 +966,9 @@ async function modificaKit(id) {
       }
     }
 
-    // Pulisci righe esistenti
     const tbody = document.getElementById('sigleTbody');
     tbody.innerHTML = '';
 
-    // Aggiungi righe dai dettagli
     const righeKit = kit.dettagli.filter(d => d.tipo_articolo === 'ATTACCHI');
     if (righeKit.length > 0) {
       righeKit.forEach((attDet, index) => {
@@ -1066,7 +1096,6 @@ window.onload = async () => {
 
   await caricaAnagrafiche();
 
-  // Attiva ordinamento sulle colonne
   document.querySelectorAll('#tabellaKit thead th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
       const col = th.getAttribute('data-sort');
@@ -1074,7 +1103,6 @@ window.onload = async () => {
     });
   });
 
-  // Imposta freccia iniziale su Descrizione
   const initArrow = document.getElementById('sort-descrizione');
   if (initArrow) {
     initArrow.classList.add('active');
