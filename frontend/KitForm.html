@@ -26,7 +26,10 @@
     .table-wrapper { overflow-x: auto; margin-top: 20px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     th, td { border: 1px solid #ddd; padding: 6px; text-align: left; vertical-align: middle; }
-    th { background: #f8f9fa; }
+    th { background: #f8f9fa; cursor: pointer; user-select: none; }
+    th:hover { background: #e2e8f0; }
+    .sort-arrow { font-size: 0.7rem; margin-left: 4px; color: #aaa; }
+    .sort-arrow.active { color: #1a73e8; font-weight: bold; }
     .sigle-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .sigle-table th, .sigle-table td { border: 1px solid #ddd; padding: 6px; }
     .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
@@ -152,14 +155,14 @@
     <table id="tabellaKit">
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Codice</th>
-          <th>Descrizione</th>
-          <th>Sigla Sci</th>
-          <th>Magazzino</th>
-          <th>Quantità</th>
-          <th>Assegnato a</th>
-          <th>Nota</th>
+          <th data-sort="id">ID <span class="sort-arrow" id="sort-id">▲</span></th>
+          <th data-sort="codice_kit">Codice <span class="sort-arrow" id="sort-codice_kit">▲</span></th>
+          <th data-sort="descrizione">Descrizione <span class="sort-arrow" id="sort-descrizione">▲</span></th>
+          <th data-sort="sigla_sci">Sigla Sci <span class="sort-arrow" id="sort-sigla_sci">▲</span></th>
+          <th data-sort="magazzino">Magazzino <span class="sort-arrow" id="sort-magazzino">▲</span></th>
+          <th data-sort="quantita">Quantità <span class="sort-arrow" id="sort-quantita">▲</span></th>
+          <th data-sort="ultimo_destinatario">Assegnato a <span class="sort-arrow" id="sort-ultimo_destinatario">▲</span></th>
+          <th data-sort="note">Nota <span class="sort-arrow" id="sort-note">▲</span></th>
           <th>Azioni</th>
         </tr>
       </thead>
@@ -234,6 +237,10 @@ let currentKitId = null;
 let formResetting = false;
 let kitEditId = null;
 
+// Ordinamento tabella
+let sortColumn = 'descrizione';
+let sortAsc = true;
+
 const kitMagazzinoSelect = document.getElementById('kitMagazzino');
 const kitSciSelect = document.getElementById('kitSci');
 const filtroMagazzino = document.getElementById('filtroMagazzino');
@@ -290,6 +297,11 @@ async function caricaAnagrafiche() {
     const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
     const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
+    // Memorizza per uso successivo
+    window.sciCat = sciCat;
+    window.attCat = attCat;
+    window.skCat = skCat;
+
     // Carica sci, attacchi, skistoppers
     await caricaSci(sciCat);
     await caricaArticoliPerCategoria(attCat, skCat);
@@ -322,6 +334,9 @@ async function caricaAnagrafiche() {
       caricaKit();
     });
 
+    // Ordina inizialmente per descrizione
+    sortColumn = 'descrizione';
+    sortAsc = true;
     await caricaKit();
     resetForm();
 
@@ -637,12 +652,16 @@ async function salvaKit() {
     }
     if (res.success) {
       showMessage(editId ? 'Kit aggiornato!' : 'Kit creato!', 'success');
-      await caricaSigleUsate();
+      
+      // Ricarica tutti i dati per aggiornare i dropdown
       const categorie = await apiFetch('/anagrafiche/categorie');
-      await caricaArticoliPerCategoria(
-        categorie.find(c => c.nome.toLowerCase() === 'attacchi'),
-        categorie.find(c => c.nome.toLowerCase() === 'skistoppers')
-      );
+      const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
+      const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
+      const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
+      
+      await caricaSci(sciCat);                     // <-- AGGIUNTO: ricarica gli sci
+      await caricaArticoliPerCategoria(attCat, skCat);
+      await caricaSigleUsate();
       if (kitSciSelect.value) {
         await caricaSiglePerSci(kitSciSelect.value);
       }
@@ -661,7 +680,27 @@ async function salvaKit() {
 }
 
 // ============================================================
-// CARICA KIT (con catena di assegnazioni)
+// ORDINAMENTO TABELLA
+// ============================================================
+function handleSort(col) {
+  if (sortColumn === col) {
+    sortAsc = !sortAsc;
+  } else {
+    sortColumn = col;
+    sortAsc = true;
+  }
+  // Aggiorna frecce
+  document.querySelectorAll('.sort-arrow').forEach(el => el.classList.remove('active'));
+  const arrow = document.getElementById('sort-' + col);
+  if (arrow) {
+    arrow.classList.add('active');
+    arrow.textContent = sortAsc ? '▲' : '▼';
+  }
+  caricaKit();
+}
+
+// ============================================================
+// CARICA KIT (con catena di assegnazioni e ordinamento)
 // ============================================================
 async function caricaKit() {
   try {
@@ -686,9 +725,36 @@ function popolaTabellaKit() {
   if (search) {
     filtered = filtered.filter(k =>
       (k.codice_kit || '').toLowerCase().includes(search) ||
-      (k.descrizione || '').toLowerCase().includes(search)
+      (k.descrizione || '').toLowerCase().includes(search) ||
+      (k.sigla_sci || '').toLowerCase().includes(search)
     );
   }
+
+  // Ordinamento
+  filtered.sort((a, b) => {
+    let va = a[sortColumn] || '';
+    let vb = b[sortColumn] || '';
+    if (sortColumn === 'id' || sortColumn === 'quantita' || sortColumn === 'magazzino') {
+      va = parseFloat(va) || 0;
+      vb = parseFloat(vb) || 0;
+    } else if (sortColumn === 'ultimo_destinatario') {
+      va = (a.ultimo_destinatario || 'In magazzino').toLowerCase();
+      vb = (b.ultimo_destinatario || 'In magazzino').toLowerCase();
+    } else {
+      va = va.toString().toLowerCase();
+      vb = vb.toString().toLowerCase();
+    }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    // Secondario: se uguali, ordina per descrizione
+    if (sortColumn !== 'descrizione') {
+      const da = (a.descrizione || '').toLowerCase();
+      const db = (b.descrizione || '').toLowerCase();
+      if (da < db) return sortAsc ? -1 : 1;
+      if (da > db) return sortAsc ? 1 : -1;
+    }
+    return 0;
+  });
 
   if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nessun kit trovato</td></tr>';
@@ -713,7 +779,6 @@ function popolaTabellaKit() {
     const span = document.createElement('span');
     span.textContent = assegnato;
 
-    // Se c'è una catena e non è solo "In magazzino", aggiungi tooltip
     if (k.catena_assegnazioni && k.catena_assegnazioni.trim() !== '' && k.catena_assegnazioni !== 'In magazzino') {
       span.className = 'assegnazione-tooltip';
       span.setAttribute('data-tooltip', k.catena_assegnazioni);
@@ -831,12 +896,13 @@ async function eliminaKit(id) {
     const res = await apiFetch('/kit/' + id, { method: 'DELETE' });
     if (res.success) {
       showMessage('Kit eliminato', 'success');
-      await caricaSigleUsate();
       const categorie = await apiFetch('/anagrafiche/categorie');
-      await caricaArticoliPerCategoria(
-        categorie.find(c => c.nome.toLowerCase() === 'attacchi'),
-        categorie.find(c => c.nome.toLowerCase() === 'skistoppers')
-      );
+      const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
+      const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
+      const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
+      await caricaSci(sciCat);
+      await caricaArticoliPerCategoria(attCat, skCat);
+      await caricaSigleUsate();
       if (kitSciSelect.value) {
         await caricaSiglePerSci(kitSciSelect.value);
       }
@@ -899,6 +965,21 @@ window.onload = async () => {
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
 
   await caricaAnagrafiche();
+
+  // Attiva ordinamento sulle colonne
+  document.querySelectorAll('#tabellaKit thead th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.getAttribute('data-sort');
+      handleSort(col);
+    });
+  });
+
+  // Imposta freccia iniziale su Descrizione
+  const initArrow = document.getElementById('sort-descrizione');
+  if (initArrow) {
+    initArrow.classList.add('active');
+    initArrow.textContent = '▲';
+  }
 };
 </script>
 </body>
