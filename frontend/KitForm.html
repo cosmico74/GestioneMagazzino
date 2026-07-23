@@ -40,7 +40,7 @@
     .action-buttons { display: flex; gap: 4px; justify-content: center; }
     .text-center { text-align: center; }
     .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 700px; max-height: 85vh; overflow-y: auto; padding: 20px; }
     .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
     .modal-header h3 { margin: 0; }
     .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
@@ -67,6 +67,14 @@
       white-space: nowrap;
       z-index: 1000;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .dettaglio-gruppo-btn {
+      background: #17a2b8;
+      color: white;
+      border: none;
+      padding: 2px 6px;
+      border-radius: 4px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -141,7 +149,8 @@
         <tbody id="sigleTbody"></tbody>
       </table>
 
-      <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+      <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button type="button" class="btn btn-secondary" onclick="aggiungiRiga()">➕ Aggiungi configurazione</button>
         <button type="button" class="btn btn-success" id="saveKitBtn" onclick="salvaKit()">💾 Salva Kit</button>
         <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
         <button type="button" class="btn btn-secondary" id="cancelEditBtn" onclick="resetForm()" style="display:none;">✖️ Annulla</button>
@@ -169,6 +178,20 @@
       </thead>
       <tbody id="tabellaBody"></tbody>
     </table>
+  </div>
+</div>
+
+<!-- MODALE DETTAGLIO KIT (singolo o gruppo) -->
+<div id="detailModal" class="modal">
+  <div class="modal-content" style="max-width:800px;">
+    <div class="modal-header">
+      <h3 id="detailModalTitle">🔍 Dettaglio Kit</h3>
+      <span class="close" onclick="chiudiDetailModal()">&times;</span>
+    </div>
+    <div id="detailBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="chiudiDetailModal()">Chiudi</button>
+    </div>
   </div>
 </div>
 
@@ -502,6 +525,11 @@ function aggiungiRigaSigla() {
   popolaSelectSkistopper(skSelect);
 }
 
+function aggiungiRiga() {
+  aggiungiRigaSigla();
+  aggiornaTutteLeRighe();
+}
+
 function popolaSelectSigle(select, selectedId = null) {
   select.innerHTML = '<option value="">Seleziona sigla</option>';
   if (currentSigleDisponibili.length === 0) {
@@ -701,7 +729,7 @@ function handleSort(col) {
 }
 
 // ============================================================
-// CARICA KIT (con catena di assegnazioni e ordinamento)
+// CARICA KIT (con raggruppamento)
 // ============================================================
 async function caricaKit() {
   try {
@@ -731,85 +759,121 @@ function popolaTabellaKit() {
     );
   }
 
-  // Ordinamento
-  filtered.sort((a, b) => {
-    // Gestione speciale per descrizione: primi 8 caratteri + lunghezza
-    if (sortColumn === 'descrizione') {
-      const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
-      const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
-      if (descA !== descB) {
-        return sortAsc ? (descA < descB ? -1 : 1) : (descA > descB ? -1 : 1);
-      }
-      // A parità di primi 8 caratteri, ordina per lunghezza
-      const lA = parseFloat(a.lunghezza_sci) || 0;
-      const lB = parseFloat(b.lunghezza_sci) || 0;
-      if (lA !== lB) {
-        return sortAsc ? (lA - lB) : (lB - lA);
-      }
-      // Se ancora uguali, usa codice_kit come fallback
-      const cA = (a.codice_kit || '').toLowerCase();
-      const cB = (b.codice_kit || '').toLowerCase();
-      return sortAsc ? (cA < cB ? -1 : 1) : (cA > cB ? -1 : 1);
-    }
-
-    // Per le altre colonne, ordinamento standard
-    let va = a[sortColumn] || '';
-    let vb = b[sortColumn] || '';
-    if (sortColumn === 'id' || sortColumn === 'quantita' || sortColumn === 'magazzino') {
-      va = parseFloat(va) || 0;
-      vb = parseFloat(vb) || 0;
-    } else if (sortColumn === 'ultimo_destinatario') {
-      va = (a.ultimo_destinatario || 'In magazzino').toLowerCase();
-      vb = (b.ultimo_destinatario || 'In magazzino').toLowerCase();
-    } else {
-      va = va.toString().toLowerCase();
-      vb = vb.toString().toLowerCase();
-    }
-    if (va < vb) return sortAsc ? -1 : 1;
-    if (va > vb) return sortAsc ? 1 : -1;
-    return 0;
-  });
-
   if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
 
+  // Raggruppamento per: descrizione, lunghezza_sci, sigla_sci, magazzino, ultimo_destinatario
+  const groups = {};
   filtered.forEach(k => {
-    const mag = magazzini.find(m => m.id == k.magazzino)?.nome || k.magazzino;
+    const key = `${k.descrizione}|${k.lunghezza_sci || ''}|${k.sigla_sci || ''}|${k.magazzino}|${k.ultimo_destinatario || 'In magazzino'}`;
+    if (!groups[key]) {
+      groups[key] = {
+        descrizione: k.descrizione || '',
+        lunghezza_sci: k.lunghezza_sci || '',
+        sigla_sci: k.sigla_sci || '',
+        magazzino: k.magazzino,
+        ultimo_destinatario: k.ultimo_destinatario || 'In magazzino',
+        quantita_totale: 0,
+        kits: []
+      };
+    }
+    groups[key].quantita_totale += k.quantita || 0;
+    groups[key].kits.push(k);
+  });
+
+  // Ordina i gruppi (per descrizione)
+  const sortedGroups = Object.values(groups).sort((a, b) => {
+    const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
+    const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
+    if (descA !== descB) return descA < descB ? -1 : 1;
+    const lA = parseFloat(a.lunghezza_sci) || 0;
+    const lB = parseFloat(b.lunghezza_sci) || 0;
+    return lA - lB;
+  });
+
+  sortedGroups.forEach(group => {
+    const firstKit = group.kits[0];
+    const mag = magazzini.find(m => m.id == group.magazzino)?.nome || group.magazzino;
     const row = tbody.insertRow();
 
-    row.insertCell(0).innerText = k.id;
-    row.insertCell(1).innerText = k.codice_kit;
-    row.insertCell(2).innerText = k.descrizione || '-';
-    row.insertCell(3).innerText = k.sigla_sci || 'NA';
-    row.insertCell(4).innerText = k.lunghezza_sci || '-';
+    // Colonna ID: mostriamo "Gruppo" se più di un kit, altrimenti l'ID
+    const idDisplay = group.kits.length > 1 ? '📦 Gruppo' : firstKit.id;
+    row.insertCell(0).innerText = idDisplay;
+    row.insertCell(1).innerText = group.kits.length > 1 ? '—' : (firstKit.codice_kit || '-');
+    row.insertCell(2).innerText = group.descrizione || '-';
+    row.insertCell(3).innerText = group.sigla_sci || 'NA';
+    row.insertCell(4).innerText = group.lunghezza_sci || '-';
     row.insertCell(5).innerText = mag;
-    row.insertCell(6).innerText = k.quantita || 0;
+    row.insertCell(6).innerText = group.quantita_totale || 0;
 
-    // ---- COLONNA "Assegnato a" con tooltip ----
+    // Assegnato a
     const tdAssegnato = row.insertCell(7);
-    const assegnato = k.ultimo_destinatario || 'In magazzino';
-
+    const assegnato = group.ultimo_destinatario || 'In magazzino';
     const span = document.createElement('span');
     span.textContent = assegnato;
-
-    if (k.catena_assegnazioni && k.catena_assegnazioni.trim() !== '' && k.catena_assegnazioni !== 'In magazzino') {
+    // Tooltip per catena (prendiamo dal primo kit)
+    if (firstKit.catena_assegnazioni && firstKit.catena_assegnazioni.trim() !== '') {
       span.className = 'assegnazione-tooltip';
-      span.setAttribute('data-tooltip', k.catena_assegnazioni);
+      span.setAttribute('data-tooltip', firstKit.catena_assegnazioni);
     }
     tdAssegnato.appendChild(span);
-    // ---- fine colonna ----
 
-    row.insertCell(8).innerText = k.note || '';
+    row.insertCell(8).innerText = firstKit.note || '';
 
+    // Azioni
     const actions = row.insertCell(9);
     actions.className = 'action-buttons';
-    actions.innerHTML = `
-      <button class="btn" onclick="modificaKit(${k.id})">✏️</button>
-      <button class="btn btn-danger" onclick="eliminaKit(${k.id})">🗑️</button>
-    `;
+    if (group.kits.length > 1) {
+      // Pulsante per dettaglio gruppo
+      const btnGroup = document.createElement('button');
+      btnGroup.textContent = '🔍';
+      btnGroup.className = 'btn dettaglio-gruppo-btn';
+      btnGroup.onclick = () => apriDettaglioGruppo(group.kits);
+      actions.appendChild(btnGroup);
+    } else {
+      // Singolo kit: pulsanti modifica/elimina
+      const kit = group.kits[0];
+      const btnMod = document.createElement('button');
+      btnMod.textContent = '✏️';
+      btnMod.className = 'btn';
+      btnMod.onclick = () => modificaKit(kit.id);
+      actions.appendChild(btnMod);
+      const btnDel = document.createElement('button');
+      btnDel.textContent = '🗑️';
+      btnDel.className = 'btn btn-danger';
+      btnDel.onclick = () => eliminaKit(kit.id);
+      actions.appendChild(btnDel);
+    }
   });
+}
+
+// ============================================================
+// DETTAGLIO GRUPPO
+// ============================================================
+function apriDettaglioGruppo(kits) {
+  const modal = document.getElementById('detailModal');
+  const title = document.getElementById('detailModalTitle');
+  const body = document.getElementById('detailBody');
+  title.textContent = '📦 Gruppo di ' + kits.length + ' kit';
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
+  html += '<tr style="background:#f1f5f9;"><th>ID</th><th>Codice</th><th>Quantità</th><th>Assegnato a</th><th>Azioni</th></tr>';
+  kits.forEach(k => {
+    html += `<tr>
+      <td>${k.id}</td>
+      <td>${k.codice_kit || '-'}</td>
+      <td>${k.quantita || 0}</td>
+      <td>${k.ultimo_destinatario || 'In magazzino'}</td>
+      <td>
+        <button class="btn" onclick="chiudiDetailModal(); modificaKit(${k.id})">✏️</button>
+        <button class="btn btn-danger" onclick="chiudiDetailModal(); eliminaKit(${k.id})">🗑️</button>
+      </td>
+    </tr>`;
+  });
+  html += '</table>';
+  body.innerHTML = html;
+  modal.style.display = 'flex';
 }
 
 // ============================================================
@@ -962,6 +1026,13 @@ async function salvaNotaKit() {
   } catch(err) {
     showMessage(err.message, 'error');
   }
+}
+
+// ============================================================
+// CHIUDI MODALE DETTAGLIO
+// ============================================================
+function chiudiDetailModal() {
+  document.getElementById('detailModal').style.display = 'none';
 }
 
 // ============================================================
