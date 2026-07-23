@@ -375,7 +375,7 @@ function getLabelSkistopper(skistopper) {
 }
 
 // ============================================================
-// CARICAMENTO ANAGRAFICHE (generico)
+// CARICAMENTO ANAGRAFICHE
 // ============================================================
 async function caricaAnagrafiche() {
   try {
@@ -409,6 +409,8 @@ async function caricaAnagrafiche() {
 
     await caricaSci(sciCat);
     await caricaArticoliPerCategoria(attCat, skCat);
+
+    // Carica le sigle usate (solo per eventuale debug, non più usato per filtro)
     await caricaSigleUsate();
 
     if (articoliSci.length > 0) {
@@ -491,6 +493,15 @@ async function caricaSci(sciCat) {
     const label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
     editKitSci.appendChild(new Option(label, a.articolo_id));
   });
+
+  // Aggiungi listener per il cambio sci nel modale di modifica
+  editKitSci.addEventListener('change', async () => {
+    const sciId = editKitSci.value;
+    if (sciId) {
+      await caricaSiglePerSci(sciId);
+      aggiornaTutteLeRigheEdit();
+    }
+  });
 }
 
 // ============================================================
@@ -523,7 +534,7 @@ async function caricaArticoliPerCategoria(attCat, skCat) {
 }
 
 // ============================================================
-// CARICA SIGLE USATE
+// CARICA SIGLE USATE (non più usato per il filtro, ma tenuto per debug)
 // ============================================================
 async function caricaSigleUsate() {
   try {
@@ -535,7 +546,7 @@ async function caricaSigleUsate() {
 }
 
 // ============================================================
-// CARICA SIGLE PER SCI
+// CARICA SIGLE PER SCI (CORRETTA)
 // ============================================================
 async function caricaSiglePerSci(sciId) {
   if (!sciId) {
@@ -543,7 +554,12 @@ async function caricaSiglePerSci(sciId) {
     return;
   }
   try {
-    const articoliIds = articoliSciGroup[sciId] || [sciId];
+    // Se sciId è un gruppo, prendiamo gli articoli_ids dal gruppo
+    let articoliIds = articoliSciGroup[sciId];
+    if (!articoliIds || articoliIds.length === 0) {
+      // Se non trovato, forse sciId è già un articolo_id reale (caso di modifica)
+      articoliIds = [parseInt(sciId)];
+    }
     let allSigle = [];
     for (const id of articoliIds) {
       try {
@@ -551,13 +567,16 @@ async function caricaSiglePerSci(sciId) {
         allSigle = allSigle.concat(sigle);
       } catch(e) { console.warn('Errore per articolo', id, e); }
     }
+    // Deduplica per id
     const seen = new Set();
     const sigleUniche = allSigle.filter(s => {
       if (seen.has(s.id)) return false;
       seen.add(s.id);
       return true;
     });
-    currentSigleDisponibili = sigleUniche.filter(s => s.giacenza > 0 && !sigleUsateInKit.includes(s.id));
+    // Filtra solo quelle con giacenza > 0 (NON usiamo sigleUsateInKit)
+    currentSigleDisponibili = sigleUniche.filter(s => s.giacenza > 0);
+    console.log('Sigle disponibili per sciId', sciId, ':', currentSigleDisponibili);
   } catch(e) {
     currentSigleDisponibili = [];
     console.error('Errore carica sigle:', e);
@@ -565,7 +584,7 @@ async function caricaSiglePerSci(sciId) {
 }
 
 // ============================================================
-// GESTIONE RIGHE SIGLE (per form principale e edit modal)
+// GESTIONE RIGHE SIGLE
 // ============================================================
 function aggiungiRigaSigla(tbodyId = 'sigleTbody') {
   const tbody = document.getElementById(tbodyId);
@@ -694,7 +713,7 @@ function aggiornaTutteLeRigheEdit() {
 }
 
 // ============================================================
-// RESET FORM PRINCIPALE
+// RESET FORM
 // ============================================================
 function resetForm() {
   if (formResetting) return;
@@ -1028,8 +1047,6 @@ async function apriEditKitModal(kitId) {
     const kit = await apiFetch('/kit/' + kitId);
     if (!kit) return;
 
-    // Popola i dropdown con le opzioni disponibili (già caricate globalmente)
-    // Imposta i valori correnti
     editKitId.value = kitId;
     document.getElementById('editKitTitle').textContent = '✏️ Modifica Kit #' + kitId;
 
