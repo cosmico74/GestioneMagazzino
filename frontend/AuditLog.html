@@ -184,7 +184,7 @@ async function caricaLog(page = 1) {
 }
 
 // ============================================================
-// RENDER LOG CON DETTAGLI PER SIGLE
+// RENDER LOG (migliorato: mostra descrizione e lunghezza)
 // ============================================================
 function renderLog(data) {
   const tbody = document.getElementById('logBody');
@@ -203,10 +203,9 @@ function renderLog(data) {
 
     let oggetto = '';
     let dettagli = '';
-    let lunghezza = '';
     
     try {
-      // Gestione sicura del parsing
+      // Parsing sicuro dei dati
       let prima = null;
       let dopo = null;
       
@@ -223,35 +222,61 @@ function renderLog(data) {
       }
       
       const current = dopo || prima || {};
-      
+
+      // --- Gestione per tabella ---
       if (item.tabella === 'articoli') {
-        oggetto = current.descrizione || '';
-        lunghezza = current.lunghezza || '';
+        // Articolo: descrizione + lunghezza + durezza
+        const desc = current.descrizione || '';
+        const lung = current.lunghezza ? current.lunghezza + ' cm' : '';
+        const dur = current.durezza ? 'Durezza ' + current.durezza : '';
+        oggetto = [desc, lung, dur].filter(Boolean).join(' - ');
         dettagli = 'Codice: ' + (current.codice || '');
-        if (current.lunghezza) dettagli += ' | Lunghezza: ' + current.lunghezza + ' cm';
-        if (current.durezza) dettagli += ' | Durezza: ' + current.durezza;
         if (current.codice_modello) dettagli += ' | Modello: ' + current.codice_modello;
         if (current.quantita_totale !== undefined) dettagli += ' | Qtà: ' + current.quantita_totale;
-        
+
       } else if (item.tabella === 'kit') {
-        oggetto = current.descrizione || '';
-        lunghezza = current.lunghezza_sci || '';
+        // Kit: descrizione + lunghezza sci + sigla sci
+        const desc = current.descrizione || '';
+        const lung = current.lunghezza_sci ? current.lunghezza_sci + ' cm' : '';
+        const sigla = current.sigla_sci ? 'Sigla: ' + current.sigla_sci : '';
+        oggetto = [desc, lung, sigla].filter(Boolean).join(' - ');
         dettagli = 'Codice: ' + (current.codice_kit || '');
-        if (current.lunghezza_sci) dettagli += ' | Lunghezza sci: ' + current.lunghezza_sci + ' cm';
-        if (current.sigla_sci) dettagli += ' | Sigla: ' + current.sigla_sci;
         if (current.quantita !== undefined) dettagli += ' | Qtà: ' + current.quantita;
-        
+
+      } else if (item.tabella === 'kit_dettaglio') {
+        // Dettaglio kit: mostriamo il tipo + descrizione dell'articolo + lunghezza
+        const tipo = current.tipo_articolo || '';
+        // Per ottenere la descrizione e lunghezza, usiamo i dati disponibili
+        let articoloDesc = '';
+        let articoloLung = '';
+        if (current.articolo_descrizione) {
+          articoloDesc = current.articolo_descrizione;
+        } else if (current.articolo_id) {
+          // Se abbiamo solo l'ID, mostriamo l'ID
+          articoloDesc = 'Art.ID ' + current.articolo_id;
+        }
+        if (current.articolo_lunghezza) {
+          articoloLung = current.articolo_lunghezza + ' cm';
+        } else if (current.lunghezza) {
+          articoloLung = current.lunghezza + ' cm';
+        }
+        const sigla = current.sigla ? 'Sigla: ' + current.sigla : '';
+        oggetto = [tipo, articoloDesc, articoloLung, sigla].filter(Boolean).join(' - ');
+        dettagli = 'Kit ID: ' + (current.kit_id || '');
+        if (current.quantita !== undefined) dettagli += ' | Qtà: ' + current.quantita;
+        if (current.sigla_id) dettagli += ' | Sigla ID: ' + current.sigla_id;
+
       } else if (item.tabella === 'sigle_articoli') {
+        // Sigla: mostriamo la sigla, lunghezza e quantità
         const sigla = current.sigla || '';
-        oggetto = '🔖 Sigla: ' + sigla;
-        lunghezza = current.lunghezza || '';
+        const lung = current.lunghezza ? current.lunghezza + ' cm' : '';
+        const durezza = current.durezza ? 'Durezza: ' + current.durezza : '';
+        oggetto = ['🔖 ' + sigla, lung, durezza].filter(Boolean).join(' - ');
         dettagli = 'Articolo ID: ' + (current.articolo_id || '');
-        if (current.lunghezza) dettagli += ' | Lunghezza: ' + current.lunghezza + ' cm';
-        if (current.durezza) dettagli += ' | Durezza: ' + current.durezza;
         if (current.quantita !== undefined) dettagli += ' | Qtà: ' + current.quantita;
         if (current.quantita_austria !== undefined) dettagli += ' | Qtà AU: ' + current.quantita_austria;
         
-        // Mostra le modifiche se presenti
+        // Se è una modifica, mostriamo i cambiamenti
         if (prima && dopo) {
           let changes = [];
           if (prima.quantita !== dopo.quantita) {
@@ -263,26 +288,16 @@ function renderLog(data) {
           if (prima.sigla !== dopo.sigla) {
             changes.push('Sigla: <span class="change-old">' + prima.sigla + '</span><span class="change-arrow">→</span><span class="change-new">' + dopo.sigla + '</span>');
           }
-          if (prima.durezza !== dopo.durezza) {
-            changes.push('Durezza: <span class="change-old">' + (prima.durezza || '-') + '</span><span class="change-arrow">→</span><span class="change-new">' + (dopo.durezza || '-') + '</span>');
-          }
-          if (prima.codice_modello !== dopo.codice_modello) {
-            changes.push('Modello: <span class="change-old">' + (prima.codice_modello || '-') + '</span><span class="change-arrow">→</span><span class="change-new">' + (dopo.codice_modello || '-') + '</span>');
-          }
-          if (changes.length) dettagli = changes.join('; ');
+          if (changes.length) dettagli += ' | Modifiche: ' + changes.join('; ');
         }
-        
-      } else if (item.tabella === 'kit_dettaglio') {
-        const tipo = current.tipo_articolo || '';
-        oggetto = '📦 ' + tipo;
-        dettagli = 'Kit ID: ' + (current.kit_id || '');
-        if (current.articolo_id) dettagli += ' | Articolo ID: ' + current.articolo_id;
-        if (current.sigla_id) dettagli += ' | Sigla ID: ' + current.sigla_id;
-        if (current.quantita !== undefined) dettagli += ' | Qtà: ' + current.quantita;
+      } else {
+        // Fallback per altre tabelle
+        oggetto = 'Tabella ' + item.tabella;
+        dettagli = 'ID riga: ' + item.riga_id;
       }
       
-      // Se oggetto è vuoto ma abbiamo dettagli, usa quelli
-      if (!oggetto && dettagli) oggetto = '📄 ' + dettagli.substring(0, 30) + '...';
+      // Se oggetto è vuoto, usiamo un fallback
+      if (!oggetto) oggetto = '⚠️ Dati non disponibili';
       
     } catch(e) {
       oggetto = '⚠️ Errore parsing';
@@ -294,7 +309,7 @@ function renderLog(data) {
     row.insertCell(1).innerText = item.tabella;
     row.insertCell(2).innerHTML = `<span class="badge ${badgeOper}">${item.operazione}</span>`;
     row.insertCell(3).innerText = item.riga_id;
-    row.insertCell(4).innerText = oggetto || '-';
+    row.insertCell(4).innerText = oggetto;
     row.insertCell(5).innerHTML = dettagli || '-';
     row.insertCell(6).innerText = formatDate(item.data_ora);
     row.insertCell(7).innerText = item.utente_nome || item.utente_id || '-';
