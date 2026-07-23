@@ -95,7 +95,6 @@ router.get('/', verifyToken, async (req, res) => {
     const params = [];
     if (req.query.magazzino) { sql += ' AND a.magazzino = ?'; params.push(req.query.magazzino); }
     if (req.query.settore) { sql += ' AND a.settore = ?'; params.push(req.query.settore); }
-    // 🔧 MODIFICA: filtro categoria case‑insensitive
     if (req.query.categoria) { sql += ' AND LOWER(a.categoria) = LOWER(?)'; params.push(req.query.categoria); }
     if (req.query.marca) { sql += ' AND a.marca = ?'; params.push(req.query.marca); }
     if (req.query.descrizione) { sql += ' AND a.descrizione LIKE ?'; params.push(`%${req.query.descrizione}%`); }
@@ -291,7 +290,7 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /sigle/:id/quantita - MODIFICA QUANTITA' (con AUDIT)
+// PUT /sigle/:id/quantita - MODIFICA QUANTITA' (con AUDIT) - UNICA DEFINIZIONE
 // ============================================================
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   console.log('🔍 PUT /sigle/:id/quantita - body ricevuto:', req.body);
@@ -326,6 +325,18 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       [req.params.id, 'ARTICOLO']
     );
     const impegnato = usedInKit[0].totale + assegnato[0].totale;
+
+    // LOG DI DEBUG
+    console.log('🔍 DEBUG riduzione sigla:', {
+      siglaId: req.params.id,
+      siglaNome: oldData.sigla,
+      articoloId: oldData.articolo_id,
+      quantitaAttuale: oldData.quantita,
+      nuovaQuantita: quantitaNum,
+      inKit: usedInKit[0].totale,
+      assegnato: assegnato[0].totale,
+      impegnato: impegnato
+    });
 
     if (quantitaNum < impegnato) {
       await connection.rollback();
