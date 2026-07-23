@@ -159,6 +159,7 @@
           <th data-sort="codice_kit">Codice <span class="sort-arrow" id="sort-codice_kit">▲</span></th>
           <th data-sort="descrizione">Descrizione <span class="sort-arrow" id="sort-descrizione">▲</span></th>
           <th data-sort="sigla_sci">Sigla Sci <span class="sort-arrow" id="sort-sigla_sci">▲</span></th>
+          <th data-sort="lunghezza_sci">Lunghezza <span class="sort-arrow" id="sort-lunghezza_sci">▲</span></th>
           <th data-sort="magazzino">Magazzino <span class="sort-arrow" id="sort-magazzino">▲</span></th>
           <th data-sort="quantita">Quantità <span class="sort-arrow" id="sort-quantita">▲</span></th>
           <th data-sort="ultimo_destinatario">Assegnato a <span class="sort-arrow" id="sort-ultimo_destinatario">▲</span></th>
@@ -237,7 +238,7 @@ let currentKitId = null;
 let formResetting = false;
 let kitEditId = null;
 
-// Ordinamento tabella
+// Ordinamento tabella: di default per descrizione (primi 8 char) e lunghezza
 let sortColumn = 'descrizione';
 let sortAsc = true;
 
@@ -334,7 +335,7 @@ async function caricaAnagrafiche() {
       caricaKit();
     });
 
-    // Ordina inizialmente per descrizione
+    // Ordina inizialmente per descrizione e lunghezza
     sortColumn = 'descrizione';
     sortAsc = true;
     await caricaKit();
@@ -659,7 +660,7 @@ async function salvaKit() {
       const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
       const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
       
-      await caricaSci(sciCat);                     // <-- AGGIUNTO: ricarica gli sci
+      await caricaSci(sciCat);
       await caricaArticoliPerCategoria(attCat, skCat);
       await caricaSigleUsate();
       if (kitSciSelect.value) {
@@ -732,6 +733,26 @@ function popolaTabellaKit() {
 
   // Ordinamento
   filtered.sort((a, b) => {
+    // Gestione speciale per descrizione: primi 8 caratteri + lunghezza
+    if (sortColumn === 'descrizione') {
+      const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
+      const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
+      if (descA !== descB) {
+        return sortAsc ? (descA < descB ? -1 : 1) : (descA > descB ? -1 : 1);
+      }
+      // A parità di primi 8 caratteri, ordina per lunghezza
+      const lA = parseFloat(a.lunghezza_sci) || 0;
+      const lB = parseFloat(b.lunghezza_sci) || 0;
+      if (lA !== lB) {
+        return sortAsc ? (lA - lB) : (lB - lA);
+      }
+      // Se ancora uguali, usa codice_kit come fallback
+      const cA = (a.codice_kit || '').toLowerCase();
+      const cB = (b.codice_kit || '').toLowerCase();
+      return sortAsc ? (cA < cB ? -1 : 1) : (cA > cB ? -1 : 1);
+    }
+
+    // Per le altre colonne, ordinamento standard
     let va = a[sortColumn] || '';
     let vb = b[sortColumn] || '';
     if (sortColumn === 'id' || sortColumn === 'quantita' || sortColumn === 'magazzino') {
@@ -746,18 +767,11 @@ function popolaTabellaKit() {
     }
     if (va < vb) return sortAsc ? -1 : 1;
     if (va > vb) return sortAsc ? 1 : -1;
-    // Secondario: se uguali, ordina per descrizione
-    if (sortColumn !== 'descrizione') {
-      const da = (a.descrizione || '').toLowerCase();
-      const db = (b.descrizione || '').toLowerCase();
-      if (da < db) return sortAsc ? -1 : 1;
-      if (da > db) return sortAsc ? 1 : -1;
-    }
     return 0;
   });
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nessun kit trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
 
@@ -769,11 +783,12 @@ function popolaTabellaKit() {
     row.insertCell(1).innerText = k.codice_kit;
     row.insertCell(2).innerText = k.descrizione || '-';
     row.insertCell(3).innerText = k.sigla_sci || 'NA';
-    row.insertCell(4).innerText = mag;
-    row.insertCell(5).innerText = k.quantita || 0;
+    row.insertCell(4).innerText = k.lunghezza_sci || '-';
+    row.insertCell(5).innerText = mag;
+    row.insertCell(6).innerText = k.quantita || 0;
 
     // ---- COLONNA "Assegnato a" con tooltip ----
-    const tdAssegnato = row.insertCell(6);
+    const tdAssegnato = row.insertCell(7);
     const assegnato = k.ultimo_destinatario || 'In magazzino';
 
     const span = document.createElement('span');
@@ -786,9 +801,9 @@ function popolaTabellaKit() {
     tdAssegnato.appendChild(span);
     // ---- fine colonna ----
 
-    row.insertCell(7).innerText = k.note || '';
+    row.insertCell(8).innerText = k.note || '';
 
-    const actions = row.insertCell(8);
+    const actions = row.insertCell(9);
     actions.className = 'action-buttons';
     actions.innerHTML = `
       <button class="btn" onclick="modificaKit(${k.id})">✏️</button>
