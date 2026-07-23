@@ -19,6 +19,7 @@
     .btn-success { background: #28a745; }
     .btn-secondary { background: #6c757d; }
     .btn-sm { padding: 2px 6px; font-size: 0.7rem; }
+    .btn-warning { background: #f39c12; color: white; }
     .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; }
     .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
     .form-group { flex: 1; min-width: 150px; }
@@ -107,6 +108,29 @@
       margin-bottom: 10px;
       font-size: 0.85rem;
       border-left: 3px solid #1a73e8;
+    }
+    .batch-quantita-container {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin: 10px 0;
+      padding: 8px 12px;
+      background: #fff3cd;
+      border-radius: 6px;
+      border-left: 3px solid #f39c12;
+    }
+    .batch-quantita-container input {
+      width: 100px;
+      padding: 4px 6px;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+    .batch-quantita-container label {
+      font-weight: 600;
+      font-size: 0.8rem;
+      margin: 0;
+      display: inline;
     }
   </style>
 </head>
@@ -213,7 +237,7 @@
   </div>
 </div>
 
-<!-- MODALE DETTAGLIO GRUPPO -->
+<!-- MODALE DETTAGLIO GRUPPO (con Modifica quantità gruppo) -->
 <div id="detailModal" class="modal">
   <div class="modal-content" style="max-width:1000px;">
     <div class="modal-header">
@@ -237,7 +261,6 @@
     </div>
     <form id="editKitForm" onsubmit="return false;">
       <input type="hidden" id="editKitId">
-      <!-- Riepilogo del kit attuale -->
       <div id="editKitRiepilogo" class="kit-riepilogo"></div>
       <div class="form-row">
         <div class="form-group">
@@ -975,7 +998,7 @@ function popolaTabellaKit() {
 }
 
 // ============================================================
-// DETTAGLIO GRUPPO
+// DETTAGLIO GRUPPO (con Modifica quantità gruppo)
 // ============================================================
 async function apriDettaglioGruppo(kits) {
   const modal = document.getElementById('detailModal');
@@ -986,7 +1009,13 @@ async function apriDettaglioGruppo(kits) {
   // Recupera i dettagli completi di ogni kit in parallelo
   const kitDetails = await Promise.all(kits.map(k => apiFetch('/kit/' + k.id)));
 
-  let html = '<table class="dettaglio-kit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
+  let html = '<div class="batch-quantita-container">';
+  html += '<label for="batchQuantitaInput">Modifica quantità gruppo:</label>';
+  html += '<input type="number" id="batchQuantitaInput" min="0" step="1" value="1">';
+  html += '<button class="btn btn-warning btn-sm" onclick="modificaQuantitaGruppo()">📦 Applica a tutti</button>';
+  html += '</div>';
+
+  html += '<table class="dettaglio-kit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
   html += `<tr style="background:#f1f5f9;">
     <th>ID</th>
     <th>Codice</th>
@@ -999,6 +1028,9 @@ async function apriDettaglioGruppo(kits) {
     <th>Assegnato a</th>
     <th>Azioni</th>
   </tr>`;
+
+  // Salva gli ID dei kit del gruppo per la modifica batch
+  const kitIds = kitDetails.map(d => d.id);
 
   for (const det of kitDetails) {
     const sciDet = det.dettagli.find(d => d.tipo_articolo === 'SCI');
@@ -1040,11 +1072,56 @@ async function apriDettaglioGruppo(kits) {
 
   html += '</table>';
   body.innerHTML = html;
+
+  // Salva gli ID dei kit per la funzione di modifica batch
+  window._batchKitIds = kitIds;
+
   modal.style.display = 'flex';
 }
 
 // ============================================================
-// MODALE MODIFICA KIT (dedicato) con riepilogo
+// MODIFICA QUANTITÀ GRUPPO (batch)
+// ============================================================
+async function modificaQuantitaGruppo() {
+  const ids = window._batchKitIds;
+  if (!ids || !ids.length) {
+    showMessage('Nessun kit nel gruppo', 'error');
+    return;
+  }
+
+  const input = document.getElementById('batchQuantitaInput');
+  const nuovaQuantita = parseInt(input.value);
+  if (isNaN(nuovaQuantita) || nuovaQuantita < 0) {
+    showMessage('Inserisci una quantità valida (>= 0)', 'error');
+    return;
+  }
+
+  const btn = document.querySelector('.batch-quantita-container .btn-warning');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const res = await apiFetch('/kit/batch-quantita', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids, quantita: nuovaQuantita })
+    });
+    if (res.success) {
+      showMessage('Quantità aggiornata per ' + ids.length + ' kit!', 'success');
+      chiudiDetailModal();
+      caricaKit();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch (err) {
+    showMessage('Errore: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '📦 Applica a tutti';
+  }
+}
+
+// ============================================================
+// MODALE MODIFICA KIT (dedicato)
 // ============================================================
 async function apriEditKitModal(kitId) {
   try {
@@ -1054,7 +1131,6 @@ async function apriEditKitModal(kitId) {
     editKitId.value = kitId;
     document.getElementById('editKitTitle').textContent = '✏️ Modifica Kit #' + kitId;
 
-    // Riepilogo del kit
     const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
     const sciDesc = sciDet ? sciDet.articolo_descrizione : '';
     const sciLung = sciDet ? sciDet.articolo_lunghezza || '' : '';
@@ -1067,10 +1143,8 @@ async function apriEditKitModal(kitId) {
       </span>
     `;
 
-    // Magazzino
     editKitMagazzino.value = kit.magazzino;
 
-    // Sci
     if (sciDet) {
       const sciId = sciDet.articolo_id;
       let found = false;
@@ -1093,14 +1167,11 @@ async function apriEditKitModal(kitId) {
       editKitSci.value = '';
     }
 
-    // Note
     editKitNote.value = kit.note || '';
 
-    // Pulisci righe esistenti
     const tbody = editSigleTbody;
     tbody.innerHTML = '';
 
-    // Aggiungi righe dai dettagli
     const righeKit = kit.dettagli.filter(d => d.tipo_articolo === 'ATTACCHI');
     if (righeKit.length > 0) {
       righeKit.forEach((attDet, index) => {
@@ -1217,7 +1288,6 @@ async function salvaEditKit() {
     if (res.success) {
       showMessage('Kit aggiornato!', 'success');
       chiudiEditKitModal();
-      // Ricarica i dati e le liste
       const categorie = await apiFetch('/anagrafiche/categorie');
       const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
       const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
