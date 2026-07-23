@@ -264,7 +264,7 @@
           <th>Codice Modello</th>
           <th>Note</th>
           <th>Quantità</th>
-          <th>Impegnato</th> <!-- NUOVA COLONNA -->
+          <th>Impegnato</th>
           <th>Qtà Austria</th>
           <th>Azioni</th>
         </tr>
@@ -375,7 +375,7 @@ function logout() {
 let magazzini = [], settori = [], categorie = [], marche = [];
 let articoliCorrente = [];
 let articoliFiltrati = [];
-let sortColumn = 'codice_modello';
+let sortColumn = 'descrizione'; // MODIFICATO: ordinamento iniziale per descrizione
 let sortAsc = true;
 let paginaCorrente = 1, righePerPagina = 25;
 let currentObsId = null, currentVenditaId = null, currentVenditaTipo = null, currentVenditaSigle = [];
@@ -593,6 +593,26 @@ async function caricaArticoli() {
 }
 
 function compare(a,b,col) {
+  // Per la colonna 'descrizione' usiamo i primi 8 caratteri e poi la lunghezza (se numerica)
+  if (col === 'descrizione') {
+    const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
+    const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
+    if (descA !== descB) {
+      return descA < descB ? -1 : 1;
+    }
+    // A parità di primi 8 caratteri, ordina per lunghezza (converti a numero)
+    const lungA = parseFloat(a.lunghezza) || 0;
+    const lungB = parseFloat(b.lunghezza) || 0;
+    if (lungA !== lungB) {
+      return lungA < lungB ? -1 : 1;
+    }
+    // Se ancora uguali, usa codice_modello come fallback
+    const ca = (a.codice_modello || a.codice || '').toLowerCase();
+    const cb = (b.codice_modello || b.codice || '').toLowerCase();
+    return ca < cb ? -1 : (ca > cb ? 1 : 0);
+  }
+
+  // Per le altre colonne, ordinamento standard
   if (col === 'codice_modello') {
     const va = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
     const vb = (b.codice_modello && b.codice_modello.trim() !== '') ? b.codice_modello : (b.codice || '');
@@ -978,6 +998,7 @@ async function caricaSigleArticolo(articoloId) {
   }
 }
 
+// Dopo il salvataggio di una sigla, ricarica la tabella articoli
 async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
   console.log('📤 aggiornaQuantitaSigla - siglaId:', siglaId, 'nuovaQuantita:', nuovaQuantita);
   let qta = parseInt(nuovaQuantita);
@@ -994,8 +1015,10 @@ async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
     console.log('📤 aggiornaQuantitaSigla - risposta:', res);
     if (res.success) {
       showMessage('Quantità aggiornata', 'success');
+      // Ricarica la lista delle sigle per questo articolo
       await caricaSigleArticolo(articoloId);
-      caricaArticoli();
+      // Ricarica la tabella degli articoli per riflettere i cambiamenti
+      await caricaArticoli();
     } else {
       showMessage(res.error || res.message || 'Errore', 'error');
     }
@@ -1004,6 +1027,7 @@ async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
     console.error('❌ Errore aggiornaQuantitaSigla:', err);
   }
 }
+
 async function aggiornaQuantitaAustriaSigla(siglaId, nuovaQuantita) {
   const qta = parseInt(nuovaQuantita);
   if (isNaN(qta) || qta < 0) { showMessage('Quantità Austria non valida', 'error'); return; }
@@ -1013,11 +1037,12 @@ async function aggiornaQuantitaAustriaSigla(siglaId, nuovaQuantita) {
       showMessage('Quantità Austria aggiornata', 'success');
       if (currentSigleArticoloId) {
         await caricaSigleArticolo(currentSigleArticoloId);
-        caricaArticoli();
+        await caricaArticoli();
       }
     } else showMessage(res.message, 'error');
   } catch(err) { showMessage(err.message, 'error'); }
 }
+
 async function aggiungiSigla() {
   const sigla = document.getElementById('nuovaSigla').value.trim();
   if (!sigla) { showMessage('Inserisci la sigla', 'error'); return; }
@@ -1041,7 +1066,7 @@ async function aggiungiSigla() {
     document.getElementById('nuovaSiglaQuantita').value = 0;
     document.getElementById('nuovaSiglaQuantitaAustria').value = 0;
     await caricaSigleArticolo(currentSigleArticoloId);
-    caricaArticoli();
+    await caricaArticoli();
   } catch(err) { showMessage(err.message, 'error'); }
 }
 function apriModificaSigla(id, articoloId, sigla, nota, quantitaAustria) {
@@ -1071,7 +1096,7 @@ async function salvaModificaSigla() {
     chiudiModificaSigla();
     if (currentSigleArticoloId) {
       await caricaSigleArticolo(currentSigleArticoloId);
-      caricaArticoli();
+      await caricaArticoli();
     }
   } catch(err) { showMessage(err.message, 'error'); }
 }
@@ -1080,10 +1105,15 @@ async function eliminaSigla(id) {
   try {
     await apiFetch('/articoli/sigle/' + id, { method: 'DELETE' });
     await caricaSigleArticolo(currentSigleArticoloId);
-    caricaArticoli();
+    await caricaArticoli();
   } catch(err) { showMessage(err.message, 'error'); }
 }
-function chiudiModalSigle() { document.getElementById('modalSigle').style.display = 'none'; currentSigleArticoloId = null; }
+function chiudiModalSigle() {
+  document.getElementById('modalSigle').style.display = 'none';
+  currentSigleArticoloId = null;
+  // Ricarica la tabella articoli alla chiusura del modale per sicurezza
+  caricaArticoli();
+}
 
 // ============================================================
 // OBSOLESCENZA
@@ -1132,6 +1162,16 @@ window.onload = async () => {
   await caricaAnagrafiche();
   attachFormEvents();
   attachSortListeners();
+  // Imposta ordinamento iniziale: per descrizione (primi 8 caratteri e lunghezza)
+  sortColumn = 'descrizione';
+  sortAsc = true;
+  ordinaArticoli();
+  renderTabellaPaginata();
+  // Attiva la freccia sulla colonna descrizione
+  const arrow = document.querySelector('.sort-arrow.sort-asc[data-col="descrizione"]');
+  if (arrow) {
+    arrow.classList.add('active');
+  }
 };
 </script>
 </body>
