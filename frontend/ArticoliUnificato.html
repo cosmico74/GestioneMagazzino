@@ -140,7 +140,6 @@
       <div class="form-group"><label>Settore *</label><select id="settore" required></select></div>
       <div class="form-group"><label>Categoria *</label><select id="categoria" required></select></div>
       <div class="form-group"><label>Marca *</label><select id="marca" required></select></div>
-      <!-- Campo Sigla RIMOSSO -->
     </div>
     <div class="form-row-3col">
       <div class="form-group"><label>Descrizione *</label><input type="text" id="descrizione" list="descrizioneList" required autocomplete="off"><datalist id="descrizioneList"></datalist></div>
@@ -252,7 +251,7 @@
   </div>
 </div>
 
-<!-- MODAL SIGLE -->
+<!-- MODAL SIGLE (con colonna Impegnato) -->
 <div id="modalSigle" class="modal">
   <div class="modal-content">
     <h3>🔖 Gestione Sigle</h3>
@@ -265,6 +264,7 @@
           <th>Codice Modello</th>
           <th>Note</th>
           <th>Quantità</th>
+          <th>Impegnato</th> <!-- NUOVA COLONNA -->
           <th>Qtà Austria</th>
           <th>Azioni</th>
         </tr>
@@ -892,7 +892,7 @@ async function eliminaArticolo(id) {
 }
 
 // ============================================================
-// GESTIONE SIGLE
+// GESTIONE SIGLE (con colonna Impegnato)
 // ============================================================
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
@@ -901,6 +901,7 @@ async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   await caricaSigleArticolo(articoloId);
   document.getElementById('modalSigle').style.display = 'flex';
 }
+
 async function caricaSigleArticolo(articoloId) {
   try {
     const sigle = await apiFetch('/articoli/' + articoloId + '/sigle');
@@ -913,6 +914,8 @@ async function caricaSigleArticolo(articoloId) {
       row.insertCell(1).innerText = s.durezza || '';
       row.insertCell(2).innerText = s.codice_modello || '';
       row.insertCell(3).innerText = s.note || '';
+
+      // Quantità
       const qtaCell = row.insertCell(4);
       const qtaInput = document.createElement('input');
       qtaInput.type = 'number';
@@ -924,7 +927,14 @@ async function caricaSigleArticolo(articoloId) {
         if (this.value === '' || this.value === '-') this.value = 0;
       });
       qtaCell.appendChild(qtaInput);
-      const qtaAustriaCell = row.insertCell(5);
+
+      // Impegnato (quantita - giacenza)
+      const impegnatoCell = row.insertCell(5);
+      const impegnato = (s.quantita || 0) - (s.giacenza || 0);
+      impegnatoCell.innerText = impegnato > 0 ? impegnato : 0;
+
+      // Quantità Austria
+      const qtaAustriaCell = row.insertCell(6);
       const qtaAustriaInput = document.createElement('input');
       qtaAustriaInput.type = 'number';
       qtaAustriaInput.min = 0;
@@ -933,7 +943,8 @@ async function caricaSigleArticolo(articoloId) {
       qtaAustriaInput.dataset.siglaId = s.id;
       qtaAustriaInput.dataset.articoloId = articoloId;
       qtaAustriaCell.appendChild(qtaAustriaInput);
-      const actionsCell = row.insertCell(6);
+
+      const actionsCell = row.insertCell(7);
       const btnSave = document.createElement('button');
       btnSave.textContent = '💾';
       btnSave.className = 'btn';
@@ -961,8 +972,12 @@ async function caricaSigleArticolo(articoloId) {
       btnDel.onclick = () => eliminaSigla(s.id);
       actionsCell.appendChild(btnDel);
     });
-  } catch(err) { showMessage('Errore caricamento sigle', 'error'); console.error(err); }
+  } catch(err) {
+    showMessage('Errore caricamento sigle', 'error');
+    console.error(err);
+  }
 }
+
 async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
   console.log('📤 aggiornaQuantitaSigla - siglaId:', siglaId, 'nuovaQuantita:', nuovaQuantita);
   let qta = parseInt(nuovaQuantita);

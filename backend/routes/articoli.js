@@ -315,7 +315,26 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     const oldData = oldRows[0];
     const articoloId = oldData.articolo_id;
 
-    // Calcola impegnato
+    // Se la nuova quantità è maggiore di quella attuale, non c'è bisogno di controllare l'impegnato
+    if (quantitaNum > oldData.quantita) {
+      console.log('📈 Aumento quantità: da', oldData.quantita, 'a', quantitaNum, '- nessun controllo');
+      await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantitaNum, req.params.id]);
+      
+      // Recupera i nuovi dati
+      const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
+      const newData = newRows[0];
+
+      // Audit
+      await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
+
+      // Ricalcola la quantita_totale dell'articolo
+      await ricalcolaQuantitaTotale(connection, articoloId);
+
+      await connection.commit();
+      return res.json({ success: true, message: 'Quantità aggiornata (aumento)' });
+    }
+
+    // Se stai riducendo, controlla l'impegnato
     const [usedInKit] = await connection.query(
       'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
       [req.params.id]
@@ -326,7 +345,6 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     );
     const impegnato = usedInKit[0].totale + assegnato[0].totale;
 
-    // LOG DI DEBUG
     console.log('🔍 DEBUG riduzione sigla:', {
       siglaId: req.params.id,
       siglaNome: oldData.sigla,
@@ -358,7 +376,7 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     await ricalcolaQuantitaTotale(connection, articoloId);
 
     await connection.commit();
-    res.json({ success: true, message: 'Quantità aggiornata' });
+    res.json({ success: true, message: 'Quantità aggiornata (riduzione)' });
   } catch (err) {
     await connection.rollback();
     console.error('❌ Errore PUT /sigle/quantita:', err);
