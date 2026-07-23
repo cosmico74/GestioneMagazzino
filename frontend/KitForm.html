@@ -100,6 +100,14 @@
     #editKitModal .form-group {
       min-width: 120px;
     }
+    .kit-riepilogo {
+      background: #f8f9fa;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+      border-left: 3px solid #1a73e8;
+    }
   </style>
 </head>
 <body>
@@ -229,6 +237,8 @@
     </div>
     <form id="editKitForm" onsubmit="return false;">
       <input type="hidden" id="editKitId">
+      <!-- Riepilogo del kit attuale -->
+      <div id="editKitRiepilogo" class="kit-riepilogo"></div>
       <div class="form-row">
         <div class="form-group">
           <label>Magazzino *</label>
@@ -349,6 +359,7 @@ const editKitSci = document.getElementById('editKitSci');
 const editKitNote = document.getElementById('editKitNote');
 const editKitId = document.getElementById('editKitId');
 const editSigleTbody = document.getElementById('editSigleTbody');
+const editKitRiepilogo = document.getElementById('editKitRiepilogo');
 
 // ============================================================
 // HELPER: calcola giacenza reale
@@ -409,8 +420,6 @@ async function caricaAnagrafiche() {
 
     await caricaSci(sciCat);
     await caricaArticoliPerCategoria(attCat, skCat);
-
-    // Carica le sigle usate (solo per eventuale debug, non più usato per filtro)
     await caricaSigleUsate();
 
     if (articoliSci.length > 0) {
@@ -436,6 +445,15 @@ async function caricaAnagrafiche() {
       }
       aggiornaTutteLeRighe();
       caricaKit();
+    });
+
+    // Anche per lo sci nel modale di modifica
+    editKitSci.addEventListener('change', async () => {
+      const sciId = editKitSci.value;
+      if (sciId) {
+        await caricaSiglePerSci(sciId);
+        aggiornaTutteLeRigheEdit();
+      }
     });
 
     sortColumn = 'descrizione';
@@ -487,20 +505,11 @@ async function caricaSci(sciCat) {
     kitSciSelect.appendChild(new Option(label, a.articolo_id));
   });
 
-  // Anche per edit modal (carica la stessa lista)
+  // Anche per edit modal
   editKitSci.innerHTML = '<option value="">Seleziona sci...</option>';
   articoliSci.forEach(a => {
     const label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
     editKitSci.appendChild(new Option(label, a.articolo_id));
-  });
-
-  // Aggiungi listener per il cambio sci nel modale di modifica
-  editKitSci.addEventListener('change', async () => {
-    const sciId = editKitSci.value;
-    if (sciId) {
-      await caricaSiglePerSci(sciId);
-      aggiornaTutteLeRigheEdit();
-    }
   });
 }
 
@@ -534,7 +543,7 @@ async function caricaArticoliPerCategoria(attCat, skCat) {
 }
 
 // ============================================================
-// CARICA SIGLE USATE (non più usato per il filtro, ma tenuto per debug)
+// CARICA SIGLE USATE (solo per debug, non più usato per filtro)
 // ============================================================
 async function caricaSigleUsate() {
   try {
@@ -554,10 +563,8 @@ async function caricaSiglePerSci(sciId) {
     return;
   }
   try {
-    // Se sciId è un gruppo, prendiamo gli articoli_ids dal gruppo
     let articoliIds = articoliSciGroup[sciId];
     if (!articoliIds || articoliIds.length === 0) {
-      // Se non trovato, forse sciId è già un articolo_id reale (caso di modifica)
       articoliIds = [parseInt(sciId)];
     }
     let allSigle = [];
@@ -567,14 +574,12 @@ async function caricaSiglePerSci(sciId) {
         allSigle = allSigle.concat(sigle);
       } catch(e) { console.warn('Errore per articolo', id, e); }
     }
-    // Deduplica per id
     const seen = new Set();
     const sigleUniche = allSigle.filter(s => {
       if (seen.has(s.id)) return false;
       seen.add(s.id);
       return true;
     });
-    // Filtra solo quelle con giacenza > 0 (NON usiamo sigleUsateInKit)
     currentSigleDisponibili = sigleUniche.filter(s => s.giacenza > 0);
     console.log('Sigle disponibili per sciId', sciId, ':', currentSigleDisponibili);
   } catch(e) {
@@ -623,7 +628,6 @@ function aggiungiRigaSigla(tbodyId = 'sigleTbody') {
   delBtn.onclick = () => row.remove();
   tdAz.appendChild(delBtn);
 
-  // Popola dropdown con le disponibilità correnti
   popolaSelectSigle(siglaSelect);
   popolaSelectAttacco(attSelect);
   popolaSelectSkistopper(skSelect);
@@ -999,8 +1003,8 @@ async function apriDettaglioGruppo(kits) {
   for (const det of kitDetails) {
     const sciDet = det.dettagli.find(d => d.tipo_articolo === 'SCI');
     const sciDesc = sciDet ? sciDet.articolo_descrizione || '' : '';
-    const sciLung = sciDet ? (det.lunghezza_sci || '') : '';
-    const sciSigla = sciDet ? det.sigla_sci || '' : '';
+    const sciLung = sciDet ? sciDet.articolo_lunghezza || '' : '';
+    const sciSigla = det.sigla_sci || (sciDet ? sciDet.sigla || '' : '');
 
     const attacchi = det.dettagli.filter(d => d.tipo_articolo === 'ATTACCHI');
     const attList = attacchi.map(a => {
@@ -1040,7 +1044,7 @@ async function apriDettaglioGruppo(kits) {
 }
 
 // ============================================================
-// MODALE MODIFICA KIT (dedicato)
+// MODALE MODIFICA KIT (dedicato) con riepilogo
 // ============================================================
 async function apriEditKitModal(kitId) {
   try {
@@ -1050,14 +1054,25 @@ async function apriEditKitModal(kitId) {
     editKitId.value = kitId;
     document.getElementById('editKitTitle').textContent = '✏️ Modifica Kit #' + kitId;
 
+    // Riepilogo del kit
+    const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
+    const sciDesc = sciDet ? sciDet.articolo_descrizione : '';
+    const sciLung = sciDet ? sciDet.articolo_lunghezza || '' : '';
+    const sciSigla = kit.sigla_sci || (sciDet ? sciDet.sigla || '' : '');
+    editKitRiepilogo.innerHTML = `
+      <strong>Kit #${kitId}</strong> — 
+      <span>${kit.descrizione || ''}</span><br>
+      <span style="font-size:0.8rem;color:#555;">
+        Sci: ${sciDesc} — Lunghezza: ${sciLung} cm — Sigla: ${sciSigla}
+      </span>
+    `;
+
     // Magazzino
     editKitMagazzino.value = kit.magazzino;
 
     // Sci
-    const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
     if (sciDet) {
       const sciId = sciDet.articolo_id;
-      // Cerca nell'elenco degli sci disponibili
       let found = false;
       for (let opt of editKitSci.options) {
         if (opt.value == sciId) {
@@ -1067,14 +1082,12 @@ async function apriEditKitModal(kitId) {
         }
       }
       if (!found) {
-        // Se non trovato (potrebbe essere esaurito), aggiungiamo temporaneamente l'opzione
         const opt = document.createElement('option');
         opt.value = sciId;
         opt.textContent = 'Sci ID ' + sciId + ' (esaurito)';
         editKitSci.appendChild(opt);
         editKitSci.value = sciId;
       }
-      // Carica le sigle per questo sci
       await caricaSiglePerSci(sciId);
     } else {
       editKitSci.value = '';
@@ -1121,10 +1134,8 @@ async function apriEditKitModal(kitId) {
       aggiungiRigaSigla('editSigleTbody');
     }
 
-    // Aggiorna i dropdown (disponibilità)
     aggiornaTutteLeRigheEdit();
 
-    // Mostra il modale
     document.getElementById('editKitModal').style.display = 'flex';
   } catch (err) {
     showMessage('Errore caricamento kit per modifica: ' + err.message, 'error');

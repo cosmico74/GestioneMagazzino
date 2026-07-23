@@ -184,25 +184,43 @@ router.get('/sigle-usate', verifyToken, async (req, res) => {
 // ============================================================
 // GET /api/kit/:id - Dettaglio kit
 // ============================================================
+// ============================================================
+// GET /api/kit/:id - Dettaglio kit
+// ============================================================
 router.get('/:id', verifyToken, async (req, res) => {
   try {
     const [kit] = await db.query('SELECT * FROM kit WHERE id = ?', [req.params.id]);
     if (!kit.length) return res.status(404).json({ error: 'Kit non trovato' });
     
     const [dettagli] = await db.query(`
-      SELECT d.*, a.descrizione AS articolo_descrizione, a.codice AS articolo_codice, s.sigla
+      SELECT d.*, 
+        a.descrizione AS articolo_descrizione, 
+        a.codice AS articolo_codice,
+        a.lunghezza AS articolo_lunghezza,
+        s.sigla
       FROM kit_dettaglio d
       LEFT JOIN articoli a ON d.articolo_id = a.articolo_id
       LEFT JOIN sigle_articoli s ON d.sigla_id = s.id
       WHERE d.kit_id = ?
     `, [req.params.id]);
     
-    res.json({ ...kit[0], dettagli });
+    // Aggiungi anche sigla_sci e lunghezza_sci per comodità
+    const sciDet = dettagli.find(d => d.tipo_articolo === 'SCI');
+    const lunghezza_sci = sciDet ? sciDet.articolo_lunghezza || '' : '';
+    const sigla_sci = sciDet ? sciDet.sigla || '' : '';
+
+    res.json({ 
+      ...kit[0], 
+      dettagli,
+      lunghezza_sci,
+      sigla_sci
+    });
   } catch (err) {
     console.error('❌ Errore GET /kit/:id:', err);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // ============================================================
 // POST /api/kit - Crea un nuovo kit
