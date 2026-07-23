@@ -24,7 +24,7 @@
     .btn-secondary { background: #6c757d; }
     .btn-success { background: #27ae60; }
     .btn-warning { background: #f39c12; color: white; }
-    .table-wrapper { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; }
+    .table-wrapper { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; max-height: 70vh; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     th, td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
     th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; }
@@ -203,20 +203,57 @@ function renderLog(data) {
 
     let oggetto = '';
     let dettagli = '';
+    let lunghezza = '';
+    
     try {
-      const prima = item.dati_prima ? JSON.parse(item.dati_prima) : null;
-      const dopo = item.dati_dopo ? JSON.parse(item.dati_dopo) : null;
+      // Gestione sicura del parsing
+      let prima = null;
+      let dopo = null;
+      
+      if (item.dati_prima && typeof item.dati_prima === 'string') {
+        try { prima = JSON.parse(item.dati_prima); } catch(e) { prima = null; }
+      } else if (item.dati_prima && typeof item.dati_prima === 'object') {
+        prima = item.dati_prima;
+      }
+      
+      if (item.dati_dopo && typeof item.dati_dopo === 'string') {
+        try { dopo = JSON.parse(item.dati_dopo); } catch(e) { dopo = null; }
+      } else if (item.dati_dopo && typeof item.dati_dopo === 'object') {
+        dopo = item.dati_dopo;
+      }
+      
+      const current = dopo || prima || {};
       
       if (item.tabella === 'articoli') {
-        oggetto = dopo?.descrizione || prima?.descrizione || '';
-        dettagli = dopo?.lunghezza ? 'Lunghezza: ' + dopo.lunghezza + ' cm' : (prima?.lunghezza ? 'Lunghezza: ' + prima.lunghezza + ' cm' : '');
-        if (dopo?.codice_modello) dettagli += ' | Modello: ' + dopo.codice_modello;
-      } else if (item.tabella === 'sigle_articoli') {
-        const sigla = dopo?.sigla || prima?.sigla || '';
-        oggetto = '🔖 Sigla: ' + sigla;
+        oggetto = current.descrizione || '';
+        lunghezza = current.lunghezza || '';
+        dettagli = 'Codice: ' + (current.codice || '');
+        if (current.lunghezza) dettagli += ' | Lunghezza: ' + current.lunghezza + ' cm';
+        if (current.durezza) dettagli += ' | Durezza: ' + current.durezza;
+        if (current.codice_modello) dettagli += ' | Modello: ' + current.codice_modello;
+        if (current.quantita_totale !== undefined) dettagli += ' | Qtà: ' + current.quantita_totale;
         
-        let changes = [];
+      } else if (item.tabella === 'kit') {
+        oggetto = current.descrizione || '';
+        lunghezza = current.lunghezza_sci || '';
+        dettagli = 'Codice: ' + (current.codice_kit || '');
+        if (current.lunghezza_sci) dettagli += ' | Lunghezza sci: ' + current.lunghezza_sci + ' cm';
+        if (current.sigla_sci) dettagli += ' | Sigla: ' + current.sigla_sci;
+        if (current.quantita !== undefined) dettagli += ' | Qtà: ' + current.quantita;
+        
+      } else if (item.tabella === 'sigle_articoli') {
+        const sigla = current.sigla || '';
+        oggetto = '🔖 Sigla: ' + sigla;
+        lunghezza = current.lunghezza || '';
+        dettagli = 'Articolo ID: ' + (current.articolo_id || '');
+        if (current.lunghezza) dettagli += ' | Lunghezza: ' + current.lunghezza + ' cm';
+        if (current.durezza) dettagli += ' | Durezza: ' + current.durezza;
+        if (current.quantita !== undefined) dettagli += ' | Qtà: ' + current.quantita;
+        if (current.quantita_austria !== undefined) dettagli += ' | Qtà AU: ' + current.quantita_austria;
+        
+        // Mostra le modifiche se presenti
         if (prima && dopo) {
+          let changes = [];
           if (prima.quantita !== dopo.quantita) {
             changes.push('Qtà: <span class="change-old">' + prima.quantita + '</span><span class="change-arrow">→</span><span class="change-new">' + dopo.quantita + '</span>');
           }
@@ -232,56 +269,48 @@ function renderLog(data) {
           if (prima.codice_modello !== dopo.codice_modello) {
             changes.push('Modello: <span class="change-old">' + (prima.codice_modello || '-') + '</span><span class="change-arrow">→</span><span class="change-new">' + (dopo.codice_modello || '-') + '</span>');
           }
-          if (prima.note !== dopo.note) {
-            changes.push('Nota: <span class="change-old">' + (prima.note || '-') + '</span><span class="change-arrow">→</span><span class="change-new">' + (dopo.note || '-') + '</span>');
-          }
+          if (changes.length) dettagli = changes.join('; ');
         }
-        dettagli = changes.length ? changes.join('; ') : (prima ? 'Qtà=' + prima.quantita + ', AU=' + prima.quantita_austria : '');
-        if (!dettagli && dopo) {
-          dettagli = 'Qtà=' + dopo.quantita + ', AU=' + dopo.quantita_austria;
-        }
-      } else if (item.tabella === 'kit') {
-        oggetto = dopo?.descrizione || prima?.descrizione || '';
-        dettagli = 'Codice: ' + (dopo?.codice_kit || prima?.codice_kit || '');
-        if (dopo?.quantita) dettagli += ' | Qtà: ' + dopo.quantita;
+        
       } else if (item.tabella === 'kit_dettaglio') {
-        const tipo = dopo?.tipo_articolo || prima?.tipo_articolo || '';
+        const tipo = current.tipo_articolo || '';
         oggetto = '📦 ' + tipo;
-        let changes = [];
-        if (prima && dopo) {
-          if (prima.quantita !== dopo.quantita) {
-            changes.push('Qtà: <span class="change-old">' + prima.quantita + '</span><span class="change-arrow">→</span><span class="change-new">' + dopo.quantita + '</span>');
-          }
-          if (prima.articolo_id !== dopo.articolo_id) {
-            changes.push('Articolo ID: <span class="change-old">' + prima.articolo_id + '</span><span class="change-arrow">→</span><span class="change-new">' + dopo.articolo_id + '</span>');
-          }
-        }
-        dettagli = changes.length ? changes.join('; ') : 'Articolo ID: ' + (dopo?.articolo_id || prima?.articolo_id || '') + ' | Qtà: ' + (dopo?.quantita || prima?.quantita || 0);
+        dettagli = 'Kit ID: ' + (current.kit_id || '');
+        if (current.articolo_id) dettagli += ' | Articolo ID: ' + current.articolo_id;
+        if (current.sigla_id) dettagli += ' | Sigla ID: ' + current.sigla_id;
+        if (current.quantita !== undefined) dettagli += ' | Qtà: ' + current.quantita;
       }
+      
+      // Se oggetto è vuoto ma abbiamo dettagli, usa quelli
+      if (!oggetto && dettagli) oggetto = '📄 ' + dettagli.substring(0, 30) + '...';
+      
     } catch(e) {
       oggetto = '⚠️ Errore parsing';
-      dettagli = '';
+      dettagli = 'Dati raw: ' + JSON.stringify(item.dati_prima || item.dati_dopo || '').substring(0, 50);
+      console.error('Errore parsing audit log:', e, item);
     }
 
     row.insertCell(0).innerText = item.id;
     row.insertCell(1).innerText = item.tabella;
     row.insertCell(2).innerHTML = `<span class="badge ${badgeOper}">${item.operazione}</span>`;
     row.insertCell(3).innerText = item.riga_id;
-    row.insertCell(4).innerText = oggetto;
-    row.insertCell(5).innerHTML = dettagli;
+    row.insertCell(4).innerText = oggetto || '-';
+    row.insertCell(5).innerHTML = dettagli || '-';
     row.insertCell(6).innerText = formatDate(item.data_ora);
-    row.insertCell(7).innerText = item.utente_nome || item.utente_id;
+    row.insertCell(7).innerText = item.utente_nome || item.utente_id || '-';
     row.insertCell(8).innerText = item.annullato ? '✅' : '❌';
     const actions = row.insertCell(9);
     actions.className = 'actions';
-    if (!item.annullato) {
+    if (!item.annullato && (item.operazione === 'CREAZIONE' || item.operazione === 'MODIFICA')) {
       const btn = document.createElement('button');
       btn.textContent = '↩️ Annulla';
       btn.className = 'btn btn-warning btn-sm';
       btn.onclick = () => annullaOperazione(item.id);
       actions.appendChild(btn);
-    } else {
+    } else if (item.annullato) {
       actions.innerHTML = '<span style="color:#999;">Annullato</span>';
+    } else {
+      actions.innerHTML = '<span style="color:#999;">—</span>';
     }
   });
 }
