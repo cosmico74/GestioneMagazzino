@@ -83,10 +83,7 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 }
 
 // ============================================================
-// GET /api/kit - Elenco kit
-// ============================================================
-// ============================================================
-// GET /api/kit - Elenco kit con informazioni di assegnazione
+// GET /api/kit - Elenco kit con informazioni di assegnazione e catena
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -102,44 +99,74 @@ router.get('/', verifyToken, async (req, res) => {
          LIMIT 1) AS sigla_sci,
         u1.username AS creato_da_username,
         u2.username AS modificato_da_username,
-        -- Informazioni di assegnazione
-        cs.destinazione_tipo AS assegnato_tipo,
-        cs.destinazione_id AS assegnato_id,
-        CONCAT(
-          COALESCE(sog.nome, ''),
-          IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
-        ) AS assegnato_nome,
-        CASE 
-          WHEN cs.destinazione_id IS NOT NULL THEN 'Assegnato'
-          ELSE 'In magazzino'
-        END AS stato_assegnazione
+        -- Catena di assegnazioni (tutte le righe in carico_sintesi per questo kit)
+        (SELECT JSON_ARRAYAGG(
+           JSON_OBJECT(
+             'tipo', cs.destinazione_tipo,
+             'id', cs.destinazione_id,
+             'nome', CONCAT(
+               COALESCE(sog.nome, ''),
+               IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
+             ),
+             'data', cs.data_assegnazione
+           )
+         ) FROM carico_sintesi cs
+         LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
+         WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
+         ORDER BY cs.data_assegnazione ASC
+        ) AS assegnazioni_json,
+        -- Ultimo destinatario (l'ultimo della catena)
+        (SELECT CONCAT(
+           COALESCE(sog.nome, ''),
+           IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
+         ) FROM carico_sintesi cs
+         LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
+         WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
+         ORDER BY cs.data_assegnazione DESC
+         LIMIT 1
+        ) AS ultimo_destinatario_nome,
+        -- Tipo e ID dell'ultimo destinatario
+        (SELECT cs.destinazione_tipo FROM carico_sintesi cs
+         WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
+         ORDER BY cs.data_assegnazione DESC
+         LIMIT 1
+        ) AS ultimo_destinatario_tipo,
+        (SELECT cs.destinazione_id FROM carico_sintesi cs
+         WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
+         ORDER BY cs.data_assegnazione DESC
+         LIMIT 1
+        ) AS ultimo_destinatario_id
       FROM kit k
       LEFT JOIN utenti u1 ON k.creato_da = u1.id
       LEFT JOIN utenti u2 ON k.modificato_da = u2.id
-      LEFT JOIN carico_sintesi cs ON cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
-      LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
       ORDER BY k.id DESC
     `);
 
-    // Per ogni kit, se è assegnato, recupera anche il nome del soggetto (già fatto con la JOIN)
-    // Ma se il soggetto è un PROMOTER, vogliamo il nome completo
+    // Parse JSON per le assegnazioni
     const risultato = kits.map(k => {
-      let assegnatoA = 'In magazzino';
-      if (k.assegnato_tipo && k.assegnato_id) {
-        if (k.assegnato_tipo === 'PROMOTER') {
-          assegnatoA = k.assegnato_nome || 'Promoter ' + k.assegnato_id;
-        } else {
-          assegnatoA = k.assegnato_nome || k.assegnato_tipo + ' ' + k.assegnato_id;
-        }
+      let assegnazioni = [];
+      if (k.assegnazioni_json) {
+        try {
+          assegnazioni = JSON.parse(k.assegnazioni_json);
+        } catch(e) {}
       }
+
+      let ultimoDestinatario = 'In magazzino';
+      if (k.ultimo_destinatario_nome && k.ultimo_destinatario_nome.trim() !== '') {
+        ultimoDestinatario = k.ultimo_destinatario_nome.trim();
+      } else if (k.ultimo_destinatario_tipo && k.ultimo_destinatario_id) {
+        // Fallback: se il nome è vuoto, mostra il tipo+id
+        ultimoDestinatario = k.ultimo_destinatario_tipo + ' ' + k.ultimo_destinatario_id;
+      }
+
       return {
         ...k,
         lunghezza_sci: k.lunghezza_sci || '',
         sigla_sci: k.sigla_sci || '',
-        assegnato_a: assegnatoA,
-        assegnato_tipo: k.assegnato_tipo,
-        assegnato_id: k.assegnato_id,
-        stato_assegnazione: k.stato_assegnazione || 'In magazzino'
+        assegnazioni: assegnazioni,
+        ultimo_destinatario: ultimoDestinatario,
+        ultimo_destinatario_tipo: k.ultimo_destinatario_tipo,
+        ultimo_destinatario_id: k.ultimo_destinatario_id
       };
     });
 

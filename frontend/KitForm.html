@@ -4,22 +4,13 @@
   <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>📦 Composizione Kit</title>
+  <title>📦 Gestione Kit</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
     .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 16px; padding: 20px; }
     h2 { border-left: 4px solid #1a73e8; padding-left: 10px; margin: 15px 0; color: #1e2a3a; }
-    .compact-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: white;
-      border-radius: 0 0 12px 12px;
-      padding: 4px 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-      margin-bottom: 15px;
-    }
+    .compact-bar { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 0 0 12px 12px; padding: 4px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 15px; }
     .logo { display: flex; justify-content: center; flex: 1; }
     .logo img { height: 120px; width: auto; display: block; }
     .btn { background: #1a73e8; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
@@ -34,7 +25,7 @@
     input, select, textarea { width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.8rem; background: #f9fafb; }
     .table-wrapper { overflow-x: auto; margin-top: 20px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; vertical-align: middle; }
     th { background: #f8f9fa; }
     .sigle-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .sigle-table th, .sigle-table td { border: 1px solid #ddd; padding: 6px; }
@@ -45,45 +36,35 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .action-buttons { display: flex; gap: 4px; justify-content: center; }
     .text-center { text-align: center; }
-    .modal {
-      display: none;
-      position: fixed;
-      top:0; left:0;
-      width:100%; height:100%;
-      background: rgba(0,0,0,0.5);
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    .modal-content {
-      background: white;
-      border-radius: 16px;
-      width: 90%;
-      max-width: 500px;
-      max-height: 85vh;
-      overflow-y: auto;
-      padding: 20px;
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 10px;
-      margin-bottom: 15px;
-    }
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
     .modal-header h3 { margin: 0; }
     .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
     .close:hover { color: black; }
-    .modal-footer {
-      border-top: 1px solid #e2e8f0;
-      padding-top: 12px;
-      margin-top: 15px;
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-    }
+    .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
     .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; }
+
+    /* Tooltip per la catena di assegnazioni */
+    .assegnazione-tooltip {
+      cursor: help;
+      border-bottom: 1px dashed #1a73e8;
+      position: relative;
+    }
+    .assegnazione-tooltip:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      background: #1e2a3a;
+      color: white;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      white-space: nowrap;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
   </style>
 </head>
 <body>
@@ -97,52 +78,76 @@
     <span id="loginInfo" class="login-info"></span>
     <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
     <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
+    <button class="btn btn-secondary" onclick="caricaKit()">🔄 Ricarica</button>
   </div>
 </div>
 
 <div class="container">
-  <h2>📦 Composizione Kit</h2>
+  <h2>📦 Gestione Kit</h2>
   <div id="messageArea"></div>
 
-  <h3>➕ Nuovo Kit</h3>
-  <form id="kitForm" onsubmit="return false;">
-    <div class="form-row">
-      <div class="form-group">
-        <label>Magazzino *</label>
-        <select id="kitMagazzino" required></select>
-      </div>
-      <div class="form-group">
-        <label>Sci *</label>
-        <select id="kitSci" required>
-          <option value="">Seleziona sci...</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Note</label>
-        <textarea id="kitNote" rows="1"></textarea>
-      </div>
+  <!-- FILTRI -->
+  <div class="form-row">
+    <div class="form-group" style="flex:0.5;">
+      <label>Magazzino</label>
+      <select id="filtroMagazzino" onchange="caricaKit()">
+        <option value="">Tutti</option>
+      </select>
     </div>
-
-    <h4>Configurazioni (Sigle e componenti)</h4>
-    <table class="sigle-table" id="sigleTable">
-      <thead>
-        <tr>
-          <th style="width:30%;">Sigla Sci (disponibilità)</th>
-          <th style="width:30%;">Attacco (disponibilità)</th>
-          <th style="width:25%;">Skistopper (disponibilità)</th>
-          <th style="width:10%;">Quantità</th>
-          <th style="width:5%;"></th>
-        </tr>
-      </thead>
-      <tbody id="sigleTbody"></tbody>
-    </table>
-
-    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-      <button type="button" class="btn btn-success" id="saveKitBtn" onclick="salvaKit()">💾 Salva Kit</button>
-      <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
+    <div class="form-group" style="flex:1;">
+      <label>Ricerca</label>
+      <input type="text" id="filtroRicerca" placeholder="Codice, descrizione..." oninput="caricaKit()">
     </div>
-  </form>
+    <div class="form-group" style="flex:0.3; display:flex; align-items:flex-end;">
+      <button class="btn btn-success" onclick="resetForm()" style="width:100%;">➕ Nuovo Kit</button>
+    </div>
+  </div>
 
+  <!-- FORM NUOVO KIT -->
+  <div style="background:#f8f9fa; border-radius:10px; padding:15px; margin-bottom:20px;">
+    <h3 id="formTitle">Nuovo Kit</h3>
+    <form id="kitForm" onsubmit="return false;">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Magazzino *</label>
+          <select id="kitMagazzino" required></select>
+        </div>
+        <div class="form-group">
+          <label>Sci *</label>
+          <select id="kitSci" required>
+            <option value="">Seleziona sci...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Note</label>
+          <textarea id="kitNote" rows="1"></textarea>
+        </div>
+      </div>
+
+      <h4>Configurazioni (Sigle e componenti)</h4>
+      <table class="sigle-table" id="sigleTable">
+        <thead>
+          <tr>
+            <th style="width:30%;">Sigla Sci (disponibilità)</th>
+            <th style="width:30%;">Attacco (disponibilità)</th>
+            <th style="width:25%;">Skistopper (disponibilità)</th>
+            <th style="width:10%;">Quantità</th>
+            <th style="width:5%;"></th>
+          </tr>
+        </thead>
+        <tbody id="sigleTbody"></tbody>
+      </table>
+
+      <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-success" id="saveKitBtn" onclick="salvaKit()">💾 Salva Kit</button>
+        <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
+        <button type="button" class="btn btn-secondary" id="cancelEditBtn" onclick="resetForm()" style="display:none;">✖️ Annulla</button>
+      </div>
+      <input type="hidden" id="kitEditId" value="">
+    </form>
+  </div>
+
+  <!-- LISTA KIT -->
   <div class="table-wrapper">
     <table id="tabellaKit">
       <thead>
@@ -152,17 +157,18 @@
           <th>Descrizione</th>
           <th>Sigla Sci</th>
           <th>Magazzino</th>
-          <th>Assegnato a</th>
           <th>Quantità</th>
+          <th>Assegnato a</th> <!-- NUOVA COLONNA -->
           <th>Nota</th>
           <th>Azioni</th>
         </tr>
       </thead>
-      <tbody></tbody>
+      <tbody id="tabellaBody"></tbody>
     </table>
   </div>
 </div>
 
+<!-- MODALE MODIFICA NOTA KIT -->
 <div id="modalModificaKit" class="modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -226,9 +232,12 @@ let sigleUsateInKit = [];
 let currentSigleDisponibili = [];
 let currentKitId = null;
 let formResetting = false;
+let kitEditId = null;
 
 const kitMagazzinoSelect = document.getElementById('kitMagazzino');
 const kitSciSelect = document.getElementById('kitSci');
+const filtroMagazzino = document.getElementById('filtroMagazzino');
+const filtroRicerca = document.getElementById('filtroRicerca');
 
 // ============================================================
 // HELPER: calcola giacenza reale
@@ -259,45 +268,40 @@ function getLabelSkistopper(skistopper) {
 // ============================================================
 async function caricaAnagrafiche() {
   try {
-    // 1. Carica magazzini
+    // Magazzini
     magazzini = await apiFetch('/anagrafiche/magazzini');
+    const sel = filtroMagazzino;
+    sel.innerHTML = '<option value="">Tutti</option>';
+    magazzini.forEach(m => sel.appendChild(new Option(m.nome, m.id)));
+
     kitMagazzinoSelect.innerHTML = '<option value="">Seleziona magazzino</option>';
     magazzini.forEach(m => kitMagazzinoSelect.appendChild(new Option(m.nome, m.id)));
 
     const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
     if (defaultMag) {
-      const exists = Array.from(kitMagazzinoSelect.options).some(opt => opt.value == defaultMag.id);
-      if (exists) {
-        kitMagazzinoSelect.value = defaultMag.id;
-      } else if (kitMagazzinoSelect.options.length > 1) {
-        kitMagazzinoSelect.selectedIndex = 1;
-      }
+      kitMagazzinoSelect.value = defaultMag.id;
     } else if (kitMagazzinoSelect.options.length > 1) {
       kitMagazzinoSelect.selectedIndex = 1;
     }
 
-    // 2. Carica categorie
+    // Categorie
     const categorie = await apiFetch('/anagrafiche/categorie');
     const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
     const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
     const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
 
-    // 3. Carica SOLO gli sci
+    // Carica sci, attacchi, skistoppers
     await caricaSci(sciCat);
-
-    // 4. Carica attacchi e skistoppers
     await caricaArticoliPerCategoria(attCat, skCat);
-
-    // 5. Carica sigle usate
     await caricaSigleUsate();
 
-    // 6. Imposta primo sci
+    // Seleziona primo sci
     if (articoliSci.length > 0) {
       kitSciSelect.value = articoliSci[0].articolo_id;
       await caricaSiglePerSci(kitSciSelect.value);
     }
 
-    // 7. Eventi
+    // Eventi
     kitSciSelect.addEventListener('change', async () => {
       if (formResetting) return;
       const sciId = kitSciSelect.value;
@@ -308,7 +312,6 @@ async function caricaAnagrafiche() {
     });
 
     kitMagazzinoSelect.addEventListener('change', async () => {
-      // Ricarica tutto quando cambia magazzino
       await caricaSci(sciCat);
       await caricaArticoliPerCategoria(attCat, skCat);
       await caricaSigleUsate();
@@ -334,11 +337,10 @@ async function caricaSci(sciCat) {
   let params = new URLSearchParams({ min_giacenza: '1' });
   if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
   if (sciCat) params.append('categoria', sciCat.id);
-  
+
   const sciRes = await apiFetch('/articoli?' + params.toString());
   const articoliSciRaw = sciRes.success ? sciRes.data : [];
 
-  // Raggruppa per descrizione+lunghezza
   const sciGroupMap = {};
   articoliSciRaw.forEach(a => {
     const key = `${a.descrizione}|${a.lunghezza || ''}`;
@@ -361,7 +363,6 @@ async function caricaSci(sciCat) {
     articoliSciGroup[a.articolo_id] = a.articoli_ids;
   });
 
-  // Popola dropdown sci
   kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
   articoliSci.forEach(a => {
     const label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
@@ -427,7 +428,6 @@ async function caricaSiglePerSci(sciId) {
         allSigle = allSigle.concat(sigle);
       } catch(e) { console.warn('Errore per articolo', id, e); }
     }
-    // Deduplica per id
     const seen = new Set();
     const sigleUniche = allSigle.filter(s => {
       if (seen.has(s.id)) return false;
@@ -481,7 +481,6 @@ function aggiungiRigaSigla() {
   delBtn.onclick = () => row.remove();
   tdAz.appendChild(delBtn);
 
-  // Popola i dropdown
   popolaSelectSigle(siglaSelect);
   popolaSelectAttacco(attSelect);
   popolaSelectSkistopper(skSelect);
@@ -553,7 +552,11 @@ function resetForm() {
     tbody.innerHTML = '';
     aggiungiRigaSigla();
     document.getElementById('kitNote').value = '';
-    // Assicura che i dropdown siano popolati
+    document.getElementById('kitEditId').value = '';
+    document.getElementById('formTitle').textContent = 'Nuovo Kit';
+    document.getElementById('saveKitBtn').textContent = '💾 Salva Kit';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+    kitEditId = null;
     setTimeout(() => aggiornaTutteLeRighe(), 100);
   } finally {
     formResetting = false;
@@ -561,12 +564,13 @@ function resetForm() {
 }
 
 // ============================================================
-// SALVA KIT
+// SALVA KIT (CREA O MODIFICA)
 // ============================================================
 async function salvaKit() {
   const magazzino = kitMagazzinoSelect.value;
   const sciId = kitSciSelect.value;
   const note = document.getElementById('kitNote').value.trim();
+  const editId = document.getElementById('kitEditId').value;
 
   if (!magazzino) { showMessage('Seleziona un magazzino', 'error'); return; }
   if (!sciId) { showMessage('Seleziona uno sci', 'error'); return; }
@@ -625,13 +629,19 @@ async function salvaKit() {
   btn.innerHTML = '<span class="spinner"></span> Salvataggio...';
 
   try {
-    const res = await apiFetch('/kit', { method: 'POST', body: JSON.stringify(payload) });
+    let res;
+    if (editId) {
+      res = await apiFetch('/kit/' + editId, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      res = await apiFetch('/kit', { method: 'POST', body: JSON.stringify(payload) });
+    }
     if (res.success) {
-      showMessage('Kit creato con successo!', 'success');
+      showMessage(editId ? 'Kit aggiornato!' : 'Kit creato!', 'success');
       await caricaSigleUsate();
+      const categorie = await apiFetch('/anagrafiche/categorie');
       await caricaArticoliPerCategoria(
-        (await apiFetch('/anagrafiche/categorie')).find(c => c.nome.toLowerCase() === 'attacchi'),
-        (await apiFetch('/anagrafiche/categorie')).find(c => c.nome.toLowerCase() === 'skistoppers')
+        categorie.find(c => c.nome.toLowerCase() === 'attacchi'),
+        categorie.find(c => c.nome.toLowerCase() === 'skistoppers')
       );
       if (kitSciSelect.value) {
         await caricaSiglePerSci(kitSciSelect.value);
@@ -651,7 +661,7 @@ async function salvaKit() {
 }
 
 // ============================================================
-// CARICA KIT
+// CARICA KIT (con assegnazioni e catena)
 // ============================================================
 async function caricaKit() {
   try {
@@ -664,62 +674,167 @@ async function caricaKit() {
 }
 
 function popolaTabellaKit() {
-  const tbody = document.querySelector('#tabellaKit tbody');
+  const tbody = document.getElementById('tabellaBody');
   tbody.innerHTML = '';
-  if (!allKits.length) {
+
+  let filtered = allKits;
+  const magFilter = filtroMagazzino.value;
+  const search = filtroRicerca.value.toLowerCase();
+  if (magFilter) {
+    filtered = filtered.filter(k => String(k.magazzino) === magFilter);
+  }
+  if (search) {
+    filtered = filtered.filter(k =>
+      (k.codice_kit || '').toLowerCase().includes(search) ||
+      (k.descrizione || '').toLowerCase().includes(search)
+    );
+  }
+
+  if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
-  allKits.forEach(k => {
+
+  filtered.forEach(k => {
     const mag = magazzini.find(m => m.id == k.magazzino)?.nome || k.magazzino;
-    const assegnato = k.assegnato_a || 'In magazzino';
     const row = tbody.insertRow();
+
     row.insertCell(0).innerText = k.id;
     row.insertCell(1).innerText = k.codice_kit;
     row.insertCell(2).innerText = k.descrizione || '-';
     row.insertCell(3).innerText = k.sigla_sci || 'NA';
     row.insertCell(4).innerText = mag;
-    row.insertCell(5).innerText = assegnato;
-    row.insertCell(6).innerText = k.quantita || 0;
+    row.insertCell(5).innerText = k.quantita || 0;
+
+    // ---- COLONNA "Assegnato a" con tooltip ----
+    const tdAssegnato = row.insertCell(6);
+    const assegnato = k.ultimo_destinatario || 'In magazzino';
+
+    // Costruisci la catena per il tooltip
+    let tooltipText = 'In magazzino';
+    if (k.assegnazioni && k.assegnazioni.length > 0) {
+      const nomi = k.assegnazioni.map(a => a.nome || (a.tipo + ' ' + a.id)).filter(n => n);
+      if (nomi.length > 0) {
+        tooltipText = nomi.join(' → ');
+      }
+    }
+
+    const span = document.createElement('span');
+    span.textContent = assegnato;
+    if (tooltipText !== 'In magazzino') {
+      span.className = 'assegnazione-tooltip';
+      span.setAttribute('data-tooltip', tooltipText);
+    }
+    tdAssegnato.appendChild(span);
+    // ---- fine colonna ----
+
     row.insertCell(7).innerText = k.note || '';
+
     const actions = row.insertCell(8);
     actions.className = 'action-buttons';
     actions.innerHTML = `
-      <button class="btn" onclick="apriModificaKit(${k.id}, '${k.codice_kit.replace(/'/g, "\\'")}', '${(k.note || '').replace(/'/g, "\\'")}')">✏️</button>
+      <button class="btn" onclick="modificaKit(${k.id})">✏️</button>
       <button class="btn btn-danger" onclick="eliminaKit(${k.id})">🗑️</button>
     `;
   });
 }
 
 // ============================================================
-// MODIFICA NOTA KIT
+// MODIFICA KIT (carica dati nel form)
 // ============================================================
-function apriModificaKit(id, codice, nota) {
-  currentKitId = id;
-  document.getElementById('modKitCodice').innerText = codice;
-  document.getElementById('modKitNota').value = nota || '';
-  document.getElementById('modalModificaKit').style.display = 'flex';
-}
-
-function chiudiModificaKit() {
-  document.getElementById('modalModificaKit').style.display = 'none';
-  currentKitId = null;
-}
-
-async function salvaNotaKit() {
-  if (!currentKitId) return;
-  const nota = document.getElementById('modKitNota').value.trim();
+async function modificaKit(id) {
   try {
-    const res = await apiFetch('/kit/' + currentKitId + '/note', { method: 'PATCH', body: JSON.stringify({ note: nota }) });
-    if (res.success) {
-      showMessage('Nota kit aggiornata', 'success');
-      chiudiModificaKit();
-      caricaKit();
-    } else {
-      showMessage(res.message, 'error');
+    const kit = await apiFetch('/kit/' + id);
+    if (!kit) return;
+
+    document.getElementById('kitEditId').value = id;
+    document.getElementById('formTitle').textContent = '✏️ Modifica Kit #' + id;
+    document.getElementById('saveKitBtn').textContent = '💾 Aggiorna';
+    document.getElementById('cancelEditBtn').style.display = 'inline-block';
+    kitEditId = id;
+
+    document.getElementById('kitMagazzino').value = kit.magazzino;
+    document.getElementById('kitNote').value = kit.note || '';
+
+    // Seleziona sci
+    const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
+    if (sciDet) {
+      // Per lo sci, dobbiamo trovare l'ID dello sci nel gruppo
+      // Qui semplifichiamo: usiamo l'articolo_id del dettaglio
+      const sciId = sciDet.articolo_id;
+      // Imposta il dropdown sull'ID dello sci
+      const sciSelect = document.getElementById('kitSci');
+      // Trova l'opzione con quel valore
+      let found = false;
+      for (let opt of sciSelect.options) {
+        if (opt.value == sciId) {
+          sciSelect.value = sciId;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        // Se non trovato, prova a cercare nel gruppo
+        for (let key in articoliSciGroup) {
+          if (articoliSciGroup[key].includes(sciId)) {
+            sciSelect.value = key;
+            found = true;
+            break;
+          }
+        }
+      }
+      if (found) {
+        await caricaSiglePerSci(sciSelect.value);
+      }
     }
-  } catch(err) {
-    showMessage(err.message, 'error');
+
+    // Pulisci righe esistenti
+    const tbody = document.getElementById('sigleTbody');
+    tbody.innerHTML = '';
+
+    // Aggiungi righe dai dettagli
+    const righeKit = kit.dettagli.filter(d => d.tipo_articolo === 'ATTACCHI');
+    // Per ogni attacco, crea una riga
+    if (righeKit.length > 0) {
+      righeKit.forEach((attDet, index) => {
+        aggiungiRigaSigla();
+        const rows = tbody.querySelectorAll('tr');
+        const row = rows[index];
+        if (row) {
+          const siglaSelect = row.cells[0].querySelector('select');
+          const attSelect = row.cells[1].querySelector('select');
+          const skSelect = row.cells[2].querySelector('select');
+          const qtyInput = row.cells[3].querySelector('input');
+
+          // Trova la sigla corretta
+          const sciDetCorr = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
+          if (sciDetCorr && sciDetCorr.sigla_id) {
+            popolaSelectSigle(siglaSelect, sciDetCorr.sigla_id);
+          } else {
+            popolaSelectSigle(siglaSelect);
+          }
+
+          // Attacco
+          popolaSelectAttacco(attSelect, attDet.articolo_id);
+          // Skistopper
+          const skDet = kit.dettagli.find(d => d.tipo_articolo === 'SKISTOPPER' && d.quantita === attDet.quantita);
+          if (skDet) {
+            popolaSelectSkistopper(skSelect, skDet.articolo_id);
+          } else {
+            popolaSelectSkistopper(skSelect);
+          }
+          qtyInput.value = attDet.quantita || 1;
+        }
+      });
+    } else {
+      aggiungiRigaSigla();
+    }
+
+    aggiornaTutteLeRighe();
+    document.getElementById('kitForm').scrollIntoView({ behavior: 'smooth' });
+
+  } catch (err) {
+    showMessage('Errore caricamento kit per modifica: ' + err.message, 'error');
   }
 }
 
@@ -748,6 +863,38 @@ async function eliminaKit(id) {
       showMessage(res.message, 'error');
     }
   } catch (err) {
+    showMessage(err.message, 'error');
+  }
+}
+
+// ============================================================
+// MODIFICA NOTA KIT (modal)
+// ============================================================
+function apriModificaKit(id, codice, nota) {
+  currentKitId = id;
+  document.getElementById('modKitCodice').innerText = codice;
+  document.getElementById('modKitNota').value = nota || '';
+  document.getElementById('modalModificaKit').style.display = 'flex';
+}
+
+function chiudiModificaKit() {
+  document.getElementById('modalModificaKit').style.display = 'none';
+  currentKitId = null;
+}
+
+async function salvaNotaKit() {
+  if (!currentKitId) return;
+  const nota = document.getElementById('modKitNota').value.trim();
+  try {
+    const res = await apiFetch('/kit/' + currentKitId + '/note', { method: 'PATCH', body: JSON.stringify({ note: nota }) });
+    if (res.success) {
+      showMessage('Nota kit aggiornata', 'success');
+      chiudiModificaKit();
+      caricaKit();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch(err) {
     showMessage(err.message, 'error');
   }
 }
