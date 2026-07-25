@@ -73,7 +73,7 @@ router.get('/disponibilita-sigla', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// ENDPOINT: quantità assegnata per kit
+// ENDPOINT: quantità assegnata per kit (esclude MAGAZZINO)
 // ============================================================
 router.get('/quantita-assegnata-kit', verifyToken, async (req, res) => {
   const { kit_id } = req.query;
@@ -106,6 +106,9 @@ async function canPromoterAssignTo(connection, promoterId, targetSoggettoId) {
   return false;
 }
 
+// ============================================================
+// HELPER: Aggiorna carico_sintesi (con SOMMA invece di sostituzione)
+// ============================================================
 async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, quantita, provenienzaTipo, provenienzaId, dataAssegnazione) {
   
   // 🔥 NON inserire righe con destinazione MAGAZZINO
@@ -133,28 +136,21 @@ async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneI
     return;
   }
 
-  // 🔥 Prima ELIMINA la riga esistente (se presente) per evitare duplicati
-  const deleteSql = `
-    DELETE FROM carico_sintesi 
-    WHERE destinazione_tipo = ? AND destinazione_id = ? 
-      AND tipo_oggetto = ? AND oggetto_id = ? 
-      AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))
-  `;
-  const deleteParams = [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, siglaId];
-  await connection.query(deleteSql, deleteParams);
-
-  // Poi INSERISCI la nuova riga
+  // 🔥 Inserisci o aggiorna SOMMANDO la quantità (non sostituendo)
   await connection.query(
     `INSERT INTO carico_sintesi (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE 
+       quantita = quantita + VALUES(quantita),
+       provenienza_tipo = VALUES(provenienza_tipo),
+       provenienza_id = VALUES(provenienza_id),
+       data_assegnazione = VALUES(data_assegnazione)`,
     [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || db.now()]
   );
 }
 
-
-
 // ============================================================
-// USCITA BATCH (dal magazzino) - CON PERMESSI PER PROMOTER LIVELLO 1
+// USCITA BATCH (dal magazzino)
 // ============================================================
 router.post('/uscita/batch', verifyToken, async (req, res) => {
   const { magazzinoId, destinazioneTipo, destinazioneId, note, oggetti } = req.body;
@@ -241,7 +237,7 @@ router.post('/uscita/batch', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// RIENTRO BATCH (MODIFICATO CON LOG E CONTROLLI)
+// RIENTRO BATCH
 // ============================================================
 router.post('/rientro/batch', verifyToken, async (req, res) => {
   const { magazzinoId, note, oggetti } = req.body;
@@ -265,7 +261,6 @@ router.post('/rientro/batch', verifyToken, async (req, res) => {
 
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, siglaId, quantita, daTipo, daId } = item;
-      // Usa daTipo/daId se presenti, altrimenti fallback a 'PROMOTER' e null (ma dovrebbero esserci)
       const provenienzaTipo = daTipo || 'PROMOTER';
       const provenienzaId = daId || null;
 
@@ -277,7 +272,6 @@ router.post('/rientro/batch', verifyToken, async (req, res) => {
         await aggiornaCaricoSintesi(connection, provenienzaTipo, provenienzaId, 'KIT', oggettoId, null, 0, null, null, null);
       }
 
-      // Registra il movimento di rientro
       await connection.query(
         `INSERT INTO movimenti (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
          VALUES (?, 'RIENTRO', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
@@ -424,15 +418,24 @@ router.post('/dividi', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Nessuna riga trovata da aggiornare.' });
     }
 
-    // 2. Crea la nuova riga per il destinatario
-    await connection.query(
-      `INSERT INTO carico_sintesi 
-       (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now]
-    );
+    // 2. Crea la nuova riga per il destinatario (se non è MAGAZZINO)
+    if (aTipo !== 'MAGAZZINO') {
+      await connection.query(
+        `INSERT INTO carico_sintesi 
+         (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE 
+           quantita = quantita + VALUES(quantita),
+           provenienza_tipo = VALUES(provenienza_tipo),
+           provenienza_id = VALUES(provenienza_id),
+           data_assegnazione = VALUES(data_assegnazione)`,
+        [aTipo, aId, tipoOggetto, oggettoId, siglaId || null, quantitaDaTrasferire, daTipo, daId, now]
+      );
+    } else {
+      console.log('⚠️ Destinazione MAGAZZINO - non creo riga in carico_sintesi');
+    }
 
-    // 3. Registra movimento con tipo 'TRASFERIMENTO' e dettaglio nella nota
+    // 3. Registra movimento
     const notaCompleta = note 
       ? `${note} - Divisione parziale (rimanente: ${quantitaRimanente}, trasferito: ${quantitaDaTrasferire})`
       : `Divisione parziale (rimanente: ${quantitaRimanente}, trasferito: ${quantitaDaTrasferire})`;
@@ -456,7 +459,7 @@ router.post('/dividi', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// OTTIENI OGGETTI IN CARICO (con categoria)
+// OTTIENI OGGETTI IN CARICO
 // ============================================================
 router.post('/oggetti', verifyToken, async (req, res) => {
   try {
@@ -656,7 +659,6 @@ router.get('/verifica-sigla', verifyToken, async (req, res) => {
   }
 });
 
-// ESPORTA UTILITÀ PER KIT.JS
 module.exports = router;
 module.exports.aggiornaCaricoSintesi = aggiornaCaricoSintesi;
 module.exports.getDisponibilitaSigla = getDisponibilitaSigla;
