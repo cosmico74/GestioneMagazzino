@@ -169,7 +169,6 @@
           <th data-sort="codice_kit">Codice <span class="sort-arrow" id="sort-codice_kit">▲</span></th>
           <th data-sort="descrizione">Descrizione <span class="sort-arrow" id="sort-descrizione">▲</span></th>
           <th data-sort="sigla_sci">Sigla Sci <span class="sort-arrow" id="sort-sigla_sci">▲</span></th>
-          <th data-sort="attacco_descrizione">Attacco <span class="sort-arrow" id="sort-attacco_descrizione">▲</span></th>
           <th data-sort="lunghezza_sci">Lunghezza <span class="sort-arrow" id="sort-lunghezza_sci">▲</span></th>
           <th data-sort="magazzino">Magazzino <span class="sort-arrow" id="sort-magazzino">▲</span></th>
           <th data-sort="quantita">Quantità <span class="sort-arrow" id="sort-quantita">▲</span></th>
@@ -775,7 +774,7 @@ function handleSort(col) {
 }
 
 // ============================================================
-// CARICA KIT (ogni kit singolo, con attacco e magazzino)
+// CARICA KIT (funzionante)
 // ============================================================
 async function caricaKit() {
   try {
@@ -812,29 +811,87 @@ function popolaTabellaKit() {
     filtered = filtered.filter(k =>
       (k.codice_kit || '').toLowerCase().includes(search) ||
       (k.descrizione || '').toLowerCase().includes(search) ||
-      (k.sigla_sci || '').toLowerCase().includes(search) ||
-      (k.attacco_descrizione || '').toLowerCase().includes(search)
+      (k.sigla_sci || '').toLowerCase().includes(search)
     );
   }
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="text-center">Nessun kit trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
 
-  filtered.sort((a, b) => { /* ... ordinamento invariato ... */ });
+  // ORDINAMENTO
+  filtered.sort((a, b) => {
+    if (sortColumn === 'descrizione') {
+      const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
+      const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
+      if (descA !== descB) return sortAsc ? (descA < descB ? -1 : 1) : (descA > descB ? -1 : 1);
+      const lA = parseFloat(a.lunghezza_sci) || 0;
+      const lB = parseFloat(b.lunghezza_sci) || 0;
+      if (lA !== lB) return sortAsc ? lA - lB : lB - lA;
+      const cA = (a.codice_kit || '').toLowerCase();
+      const cB = (b.codice_kit || '').toLowerCase();
+      return sortAsc ? (cA < cB ? -1 : 1) : (cA > cB ? -1 : 1);
+    }
+    let va = a[sortColumn] || '', vb = b[sortColumn] || '';
+    if (sortColumn === 'id' || sortColumn === 'quantita' || sortColumn === 'magazzino') {
+      va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
+    } else if (sortColumn === 'ultimo_destinatario') {
+      va = (a.ultimo_destinatario || 'In magazzino').toLowerCase();
+      vb = (b.ultimo_destinatario || 'In magazzino').toLowerCase();
+    } else {
+      va = va.toString().toLowerCase();
+      vb = vb.toString().toLowerCase();
+    }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
 
   filtered.forEach(k => {
-    // 🔍 DEBUG: stampa il magazzino ID del kit
-    console.log('Kit ID', k.id, 'magazzino:', k.magazzino, 'magazzini disponibili:', magazzini);
-
+    // Cerca il nome del magazzino
     let magNome = 'Magazzino ' + k.magazzino;
     if (magazzini && magazzini.length > 0) {
       const found = magazzini.find(m => parseInt(m.id) === parseInt(k.magazzino));
       if (found) magNome = found.nome;
     }
 
-    // ... resto del render (inserimento celle)
+    const row = tbody.insertRow();
+
+    row.insertCell(0).innerText = k.id;
+    row.insertCell(1).innerText = k.codice_kit || '-';
+    row.insertCell(2).innerText = k.descrizione || '-';
+    row.insertCell(3).innerText = k.sigla_sci || 'NA';
+    row.insertCell(4).innerText = k.lunghezza_sci || '-';
+    row.insertCell(5).innerText = magNome;
+    row.insertCell(6).innerText = k.quantita || 0;
+
+    // Assegnato a
+    const tdAssegnato = row.insertCell(7);
+    const assegnato = k.ultimo_destinatario || 'In magazzino';
+    const span = document.createElement('span');
+    span.textContent = assegnato;
+    if (k.catena_assegnazioni && k.catena_assegnazioni.trim() !== '') {
+      span.className = 'assegnazione-tooltip';
+      span.setAttribute('data-tooltip', k.catena_assegnazioni);
+    }
+    tdAssegnato.appendChild(span);
+
+    row.insertCell(8).innerText = k.note || '';
+
+    // Azioni
+    const actions = row.insertCell(9);
+    actions.className = 'action-buttons';
+    const btnMod = document.createElement('button');
+    btnMod.textContent = '✏️';
+    btnMod.className = 'btn btn-sm';
+    btnMod.onclick = () => apriEditKitModal(k.id);
+    actions.appendChild(btnMod);
+    const btnDel = document.createElement('button');
+    btnDel.textContent = '🗑️';
+    btnDel.className = 'btn btn-danger btn-sm';
+    btnDel.onclick = () => eliminaKit(k.id);
+    actions.appendChild(btnDel);
   });
 }
 
