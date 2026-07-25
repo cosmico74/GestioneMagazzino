@@ -100,7 +100,7 @@ router.get('/', verifyToken, async (req, res) => {
          LIMIT 1) AS sigla_sci,
         u1.username AS creato_da_username,
         u2.username AS modificato_da_username,
-        -- Catena di assegnazioni
+        -- Catena di assegnazioni (tutti i nomi in ordine cronologico)
         (SELECT GROUP_CONCAT(
            CONCAT(
              COALESCE(sog.nome, ''),
@@ -120,7 +120,7 @@ router.get('/', verifyToken, async (req, res) => {
          ORDER BY cs.data_assegnazione DESC
          LIMIT 1
         ) AS ultimo_destinatario_nome,
-        -- Tipo e ID dell'ultimo destinatario
+        -- Tipo dell'ultimo destinatario
         (SELECT cs.destinazione_tipo FROM carico_sintesi cs
          WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
          ORDER BY cs.data_assegnazione DESC
@@ -139,15 +139,10 @@ router.get('/', verifyToken, async (req, res) => {
     `);
 
     const risultato = kits.map(k => {
-      let ultimoDestinatario;
-      if (k.ultimo_destinatario_nome && k.ultimo_destinatario_nome.trim() !== '') {
-        ultimoDestinatario = k.ultimo_destinatario_nome.trim();
-      } else if (k.ultimo_destinatario_tipo && k.ultimo_destinatario_id) {
-        ultimoDestinatario = k.ultimo_destinatario_tipo + ' ' + k.ultimo_destinatario_id;
-      } else {
-        // Se non c'è un destinatario, mostra il nome del magazzino
-        ultimoDestinatario = k.magazzino_nome || 'Magazzino ' + k.magazzino;
-      }
+      // Se il kit ha un ultimo destinatario, usa il suo nome, altrimenti usa il nome del magazzino
+      const ultimoDestinatario = (k.ultimo_destinatario_nome && k.ultimo_destinatario_nome.trim() !== '')
+        ? k.ultimo_destinatario_nome.trim()
+        : (k.magazzino_nome || 'Magazzino ' + k.magazzino);
 
       return {
         ...k,
@@ -343,7 +338,7 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/kit/da-carico - Crea kit da articoli in carico a un soggetto
+// POST /api/kit/da-carico
 // ============================================================
 router.post('/da-carico', verifyToken, async (req, res) => {
   const { soggettoTipo, soggettoId, oggetti, destinazioneTipo, destinazioneId, magazzinoId, note } = req.body;
@@ -534,7 +529,7 @@ async function getUserLevel(userId) {
 }
 
 // ============================================================
-// PUT /api/kit/:id - Modifica completa del kit (con controllo differenziato)
+// PUT /api/kit/:id
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
