@@ -108,7 +108,7 @@ async function canPromoterAssignTo(connection, promoterId, targetSoggettoId) {
 
 async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, quantita, provenienzaTipo, provenienzaId, dataAssegnazione) {
   
-  // 🔥 NON inserire righe con destinazione MAGAZZINO (il magazzino è lo stato di default, non un destinatario)
+  // 🔥 NON inserire righe con destinazione MAGAZZINO
   if (destinazioneTipo === 'MAGAZZINO') {
     console.log('⚠️ Tentativo di inserire carico_sintesi con destinazione MAGAZZINO - ignorato');
     return;
@@ -133,15 +133,20 @@ async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneI
     return;
   }
 
-  // Inserisci o aggiorna
+  // 🔥 Prima ELIMINA la riga esistente (se presente) per evitare duplicati
+  const deleteSql = `
+    DELETE FROM carico_sintesi 
+    WHERE destinazione_tipo = ? AND destinazione_id = ? 
+      AND tipo_oggetto = ? AND oggetto_id = ? 
+      AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))
+  `;
+  const deleteParams = [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, siglaId];
+  await connection.query(deleteSql, deleteParams);
+
+  // Poi INSERISCI la nuova riga
   await connection.query(
     `INSERT INTO carico_sintesi (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE 
-       quantita = VALUES(quantita),
-       provenienza_tipo = VALUES(provenienza_tipo),
-       provenienza_id = VALUES(provenienza_id),
-       data_assegnazione = VALUES(data_assegnazione)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || db.now()]
   );
 }

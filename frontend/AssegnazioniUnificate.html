@@ -1282,40 +1282,103 @@ function chiudiEditModal() {
   document.getElementById('editAssignmentModal').style.display = 'none';
   currentEditObj = null;
 }
+
+// ============================================================
+// 🔥 FUNZIONE MODIFICATA: gestisce trasferimento parziale
+// ============================================================
 async function confermaModificaSingola() {
   var obj = currentEditObj;
   if (!obj) return;
+  
   var nuovaQta = parseInt(document.getElementById('editQuantitaNuova').value);
   var dT = document.getElementById('editDestTipo').value;
   var dId = document.getElementById('editDestId').value;
   var note = document.getElementById('editNote').value;
-  if (isNaN(nuovaQta) || nuovaQta < 1) { showMessage('Quantità non valida', 'error'); return; }
-  if (!dT || !dId) { showMessage('Seleziona una destinazione', 'error'); return; }
-  var qta = obj.totale;
-  if (nuovaQta !== qta) {
-    showMessage('La modifica della quantità richiede un rientro parziale. Usa la sezione "Dividi e trasferisci" per trasferire una parte.', 'info');
-    return;
+  
+  if (isNaN(nuovaQta) || nuovaQta < 1) { 
+    showMessage('Quantità non valida', 'error'); 
+    return; 
   }
+  if (!dT || !dId) { 
+    showMessage('Seleziona una destinazione', 'error'); 
+    return; 
+  }
+  
+  var qtaAttuale = obj.totale;
+  
+  // 🔥 Se la nuova quantità è diversa, usa la logica di divisione
+  if (nuovaQta !== qtaAttuale) {
+    // Se stai trasferendo al magazzino (rientro parziale)
+    if (dT === 'MAGAZZINO') {
+      var quantitaDaTrasferire = qtaAttuale - nuovaQta; // Quanti togli dal soggetto
+      if (quantitaDaTrasferire <= 0) {
+        showMessage('La quantità da trasferire deve essere maggiore di 0', 'error');
+        return;
+      }
+      
+      // Usa la route /dividi per trasferire solo una parte
+      var payload = {
+        daTipo: obj.destinazioneTipo || 'PROMOTER',
+        daId: obj.destinazioneId || null,
+        aTipo: dT,
+        aId: parseInt(dId),
+        tipoOggetto: obj.tipoOggetto,
+        oggettoId: obj.oggettoId,
+        siglaId: obj.siglaId || null,
+        quantitaDaTrasferire: quantitaDaTrasferire,
+        quantitaRimanente: nuovaQta,
+        note: note
+      };
+      
+      try {
+        var r = await apiFetch('/assegnazioni/dividi', { method: 'POST', body: JSON.stringify(payload) });
+        if (r.success) {
+          showMessage('Trasferimento parziale completato! ' + quantitaDaTrasferire + ' unità trasferite a ' + dT + ' ' + dId, 'success');
+          chiudiEditModal();
+          caricaOggettiInCarico();
+        } else {
+          showMessage(r.message, 'error');
+        }
+      } catch(e) {
+        showMessage('Errore: ' + e.message, 'error');
+      }
+      return;
+    } else {
+      showMessage('Per trasferire solo una parte a un soggetto diverso, usa la sezione "✂️ Dividi e trasferisci"', 'info');
+      return;
+    }
+  }
+  
+  // Se la quantità è la stessa, fai il trasferimento completo
   var daTipo = obj.destinazioneTipo || 'PROMOTER';
   var daId = obj.destinazioneId || null;
-  if (!daId) { showMessage('Provenienza non valida', 'error'); return; }
+  if (!daId) { 
+    showMessage('Provenienza non valida', 'error'); 
+    return; 
+  }
+  
   var payload = {
     daTipo: daTipo,
     daId: daId,
     aTipo: dT,
     aId: parseInt(dId),
     magazzinoId: null,
-    oggetti: [{ tipoOggetto: obj.tipoOggetto, oggettoId: obj.oggettoId, siglaId: obj.siglaId || null, quantita: qta }],
+    oggetti: [{ tipoOggetto: obj.tipoOggetto, oggettoId: obj.oggettoId, siglaId: obj.siglaId || null, quantita: qtaAttuale }],
     note: note
   };
+  
   try {
     var r = await apiFetch('/assegnazioni/trasferimento', { method: 'POST', body: JSON.stringify(payload) });
     if (r.success) {
       showMessage('Trasferimento completato!', 'success');
       chiudiEditModal();
       caricaOggettiInCarico();
-    } else { showMessage(r.message, 'error'); }
-  } catch(e) { showMessage(e.message, 'error'); }
+    } else { 
+      showMessage(r.message, 'error'); 
+    }
+  } catch(e) { 
+    showMessage('Errore: ' + e.message, 'error'); 
+  }
 }
 
 // ============================================================
