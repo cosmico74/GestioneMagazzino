@@ -82,7 +82,9 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
   );
 }
 
-// GET /api/kit - Elenco kit con informazioni di assegnazione e catena e attacco
+// ============================================================
+// GET /api/kit - Elenco kit con informazioni di assegnazione, attacco e magazzino
+// ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
     const [kits] = await db.query(`
@@ -95,14 +97,17 @@ router.get('/', verifyToken, async (req, res) => {
          LEFT JOIN sigle_articoli s ON kd.sigla_id = s.id
          WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI'
          LIMIT 1) AS sigla_sci,
-        u1.username AS creato_da_username,
-        u2.username AS modificato_da_username,
-        -- Attacco
-        (SELECT JSON_OBJECT('id', a.articolo_id, 'descrizione', a.descrizione)
+        -- Attacco del kit (descrizione e sigla)
+        (SELECT GROUP_CONCAT(DISTINCT a.descrizione SEPARATOR ', ')
          FROM kit_dettaglio kd
          LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id
-         WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'ATTACCHI'
-         LIMIT 1) AS attacco_json,
+         WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'ATTACCHI') AS attacco_descrizione,
+        (SELECT GROUP_CONCAT(DISTINCT s.sigla SEPARATOR ', ')
+         FROM kit_dettaglio kd
+         LEFT JOIN sigle_articoli s ON kd.sigla_id = s.id
+         WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'ATTACCHI') AS sigla_attacco,
+        u1.username AS creato_da_username,
+        u2.username AS modificato_da_username,
         -- Catena di assegnazioni
         (SELECT GROUP_CONCAT(
            CONCAT(
@@ -123,7 +128,6 @@ router.get('/', verifyToken, async (req, res) => {
          ORDER BY cs.data_assegnazione DESC
          LIMIT 1
         ) AS ultimo_destinatario_nome,
-        -- Tipo e ID dell'ultimo destinatario
         (SELECT cs.destinazione_tipo FROM carico_sintesi cs
          WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
          ORDER BY cs.data_assegnazione DESC
@@ -148,19 +152,15 @@ router.get('/', verifyToken, async (req, res) => {
         ultimoDestinatario = k.ultimo_destinatario_tipo + ' ' + k.ultimo_destinatario_id;
       }
 
-      // Parse attacco
-      let attacco = null;
-      if (k.attacco_json) {
-        try {
-          attacco = JSON.parse(k.attacco_json);
-        } catch(e) {}
-      }
+      // Se l'attacco è vuoto, mostra "Nessuno"
+      const attacco = k.attacco_descrizione || 'Nessuno';
 
       return {
         ...k,
         lunghezza_sci: k.lunghezza_sci || '',
         sigla_sci: k.sigla_sci || '',
-        attacco: attacco,
+        attacco_descrizione: attacco,
+        sigla_attacco: k.sigla_attacco || '',
         catena_assegnazioni: k.catena_assegnazioni || null,
         ultimo_destinatario: ultimoDestinatario,
         ultimo_destinatario_tipo: k.ultimo_destinatario_tipo,
@@ -174,7 +174,6 @@ router.get('/', verifyToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 // ============================================================
 // GET /api/kit/sigle-usate - Sigle già utilizzate in kit
 // ============================================================

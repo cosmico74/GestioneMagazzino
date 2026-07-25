@@ -77,22 +77,6 @@
       font-size: 0.85rem;
       border-left: 3px solid #1a73e8;
     }
-    .badge-gruppo {
-      display: inline-block;
-      background: #17a2b8;
-      color: white;
-      border-radius: 12px;
-      padding: 1px 8px;
-      font-size: 0.65rem;
-      margin-left: 4px;
-    }
-    .btn-edit-gruppo {
-      background: #f39c12;
-      color: white;
-    }
-    .btn-edit-gruppo:hover {
-      background: #d68910;
-    }
   </style>
 </head>
 <body>
@@ -181,16 +165,16 @@
     <table id="tabellaKit">
       <thead>
         <tr>
-          <th>Kit</th>
-          <th>Codice</th>
-          <th>Descrizione</th>
-          <th>Sigla Sci</th>
-          <th>Lunghezza</th>
-          <th>Attacco</th>
-          <th>Magazzino</th>
-          <th>Quantità</th>
-          <th>Assegnato a</th>
-          <th>Nota</th>
+          <th data-sort="id">ID <span class="sort-arrow" id="sort-id">▲</span></th>
+          <th data-sort="codice_kit">Codice <span class="sort-arrow" id="sort-codice_kit">▲</span></th>
+          <th data-sort="descrizione">Descrizione <span class="sort-arrow" id="sort-descrizione">▲</span></th>
+          <th data-sort="sigla_sci">Sigla Sci <span class="sort-arrow" id="sort-sigla_sci">▲</span></th>
+          <th data-sort="attacco_descrizione">Attacco <span class="sort-arrow" id="sort-attacco_descrizione">▲</span></th>
+          <th data-sort="lunghezza_sci">Lunghezza <span class="sort-arrow" id="sort-lunghezza_sci">▲</span></th>
+          <th data-sort="magazzino">Magazzino <span class="sort-arrow" id="sort-magazzino">▲</span></th>
+          <th data-sort="quantita">Quantità <span class="sort-arrow" id="sort-quantita">▲</span></th>
+          <th data-sort="ultimo_destinatario">Assegnato a <span class="sort-arrow" id="sort-ultimo_destinatario">▲</span></th>
+          <th data-sort="note">Nota <span class="sort-arrow" id="sort-note">▲</span></th>
           <th>Azioni</th>
         </tr>
       </thead>
@@ -199,7 +183,7 @@
   </div>
 </div>
 
-<!-- MODALE MODIFICA KIT (singolo) -->
+<!-- MODALE MODIFICA KIT (semplificato) -->
 <div id="editKitModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -254,25 +238,6 @@
         <button type="button" class="btn btn-success" id="saveEditKitBtn" onclick="salvaEditKit()">💾 Aggiorna Kit</button>
       </div>
     </form>
-  </div>
-</div>
-
-<!-- MODALE MODIFICA BATCH (gruppo) -->
-<div id="batchEditModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3 id="batchEditTitle">✏️ Modifica quantità gruppo</h3>
-      <span class="close" onclick="chiudiBatchEditModal()">&times;</span>
-    </div>
-    <div id="batchEditRiepilogo" class="kit-riepilogo"></div>
-    <div class="form-group">
-      <label>Nuova quantità per tutti i kit del gruppo *</label>
-      <input type="number" id="batchQuantitaInput" class="form-control" min="0" step="1" required>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-secondary" onclick="chiudiBatchEditModal()">Annulla</button>
-      <button type="button" class="btn btn-success" id="saveBatchEditBtn" onclick="salvaBatchEdit()">💾 Aggiorna tutti</button>
-    </div>
   </div>
 </div>
 
@@ -342,7 +307,7 @@ const kitSciSelect = document.getElementById('kitSci');
 const filtroMagazzino = document.getElementById('filtroMagazzino');
 const filtroRicerca = document.getElementById('filtroRicerca');
 
-// Edit modal elements (singolo)
+// Edit modal elements
 const editKitId = document.getElementById('editKitId');
 const editQuantitaInput = document.getElementById('editQuantitaInput');
 const editKitNote = document.getElementById('editKitNote');
@@ -353,10 +318,6 @@ const editSiglaDisplay = document.getElementById('editSiglaDisplay');
 const editLunghezzaDisplay = document.getElementById('editLunghezzaDisplay');
 const editAttaccoDisplay = document.getElementById('editAttaccoDisplay');
 const editSkistopperDisplay = document.getElementById('editSkistopperDisplay');
-
-// Batch edit elements
-const batchEditRiepilogo = document.getElementById('batchEditRiepilogo');
-const batchQuantitaInput = document.getElementById('batchQuantitaInput');
 
 // ============================================================
 // HELPER: calcola giacenza reale
@@ -388,6 +349,8 @@ function getLabelSkistopper(skistopper) {
 async function caricaAnagrafiche() {
   try {
     magazzini = await apiFetch('/anagrafiche/magazzini');
+    console.log('📦 Magazzini caricati:', magazzini);
+
     const sel = filtroMagazzino;
     sel.innerHTML = '<option value="">Tutti</option>';
     magazzini.forEach(m => sel.appendChild(new Option(m.nome, m.id)));
@@ -812,7 +775,7 @@ function handleSort(col) {
 }
 
 // ============================================================
-// CARICA KIT (con raggruppamento)
+// CARICA KIT (ogni kit singolo, con attacco e magazzino)
 // ============================================================
 async function caricaKit() {
   try {
@@ -838,16 +801,17 @@ function popolaTabellaKit() {
     filtered = filtered.filter(k =>
       (k.codice_kit || '').toLowerCase().includes(search) ||
       (k.descrizione || '').toLowerCase().includes(search) ||
-      (k.sigla_sci || '').toLowerCase().includes(search)
+      (k.sigla_sci || '').toLowerCase().includes(search) ||
+      (k.attacco_descrizione || '').toLowerCase().includes(search)
     );
   }
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun kit trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
 
-  // ORDINAMENTO
+  // ORDINAMENTO (con attacco_descrizione)
   filtered.sort((a, b) => {
     if (sortColumn === 'descrizione') {
       const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
@@ -875,10 +839,9 @@ function popolaTabellaKit() {
     return 0;
   });
 
-  // RENDER: ogni kit su una riga
   filtered.forEach(k => {
-    // 🔥 CERCA IL NOME DEL MAGAZZINO (Race, West, ecc.)
-    let magNome = 'Magazzino ' + k.magazzino; // fallback
+    // Cerca il nome del magazzino
+    let magNome = 'Magazzino ' + k.magazzino;
     if (magazzini && magazzini.length > 0) {
       const found = magazzini.find(m => m.id == k.magazzino);
       if (found) magNome = found.nome;
@@ -890,12 +853,13 @@ function popolaTabellaKit() {
     row.insertCell(1).innerText = k.codice_kit || '-';
     row.insertCell(2).innerText = k.descrizione || '-';
     row.insertCell(3).innerText = k.sigla_sci || 'NA';
-    row.insertCell(4).innerText = k.lunghezza_sci || '-';
-    row.insertCell(5).innerText = magNome; // <- Colonna Magazzino (indice 5)
-    row.insertCell(6).innerText = k.quantita || 0;
+    row.insertCell(4).innerText = k.attacco_descrizione || 'Nessuno';
+    row.insertCell(5).innerText = k.lunghezza_sci || '-';
+    row.insertCell(6).innerText = magNome;
+    row.insertCell(7).innerText = k.quantita || 0;
 
-    // Colonna "Assegnato a"
-    const tdAssegnato = row.insertCell(7);
+    // Assegnato a
+    const tdAssegnato = row.insertCell(8);
     const assegnato = k.ultimo_destinatario || 'In magazzino';
     const span = document.createElement('span');
     span.textContent = assegnato;
@@ -905,10 +869,10 @@ function popolaTabellaKit() {
     }
     tdAssegnato.appendChild(span);
 
-    row.insertCell(8).innerText = k.note || '';
+    row.insertCell(9).innerText = k.note || '';
 
     // Azioni
-    const actions = row.insertCell(9);
+    const actions = row.insertCell(10);
     actions.className = 'action-buttons';
     const btnMod = document.createElement('button');
     btnMod.textContent = '✏️';
@@ -924,85 +888,7 @@ function popolaTabellaKit() {
 }
 
 // ============================================================
-// MODALE BATCH EDIT (modifica quantità gruppo)
-// ============================================================
-let currentBatchKits = [];
-
-function apriBatchEditModal(kits) {
-  currentBatchKits = kits;
-  const totalQuantita = kits.reduce((sum, k) => sum + k.quantita, 0);
-  const desc = kits[0]?.descrizione || 'Kit';
-  const attacco = kits[0]?.attacco?.descrizione || '';
-  const lunghezza = kits[0]?.lunghezza_sci || '';
-  batchEditRiepilogo.innerHTML = `
-    <strong>Gruppo di ${kits.length} kit</strong><br>
-    Descrizione: ${desc}<br>
-    Attacco: ${attacco} | Lunghezza: ${lunghezza} cm<br>
-    Quantità totale attuale: ${totalQuantita}
-  `;
-  // Imposta la quantità media? Meglio lasciare vuoto o 1
-  batchQuantitaInput.value = 1;
-  batchQuantitaInput.min = 0;
-  document.getElementById('batchEditTitle').textContent = `✏️ Modifica quantità gruppo (${kits.length} kit)`;
-  document.getElementById('batchEditModal').style.display = 'flex';
-}
-
-function chiudiBatchEditModal() {
-  document.getElementById('batchEditModal').style.display = 'none';
-  currentBatchKits = [];
-}
-
-async function salvaBatchEdit() {
-  if (!currentBatchKits.length) {
-    showMessage('Nessun kit selezionato', 'error');
-    return;
-  }
-  const nuovaQuantita = parseInt(batchQuantitaInput.value);
-  if (isNaN(nuovaQuantita) || nuovaQuantita < 0) {
-    showMessage('Inserisci una quantità valida (>= 0)', 'error');
-    return;
-  }
-
-  const ids = currentBatchKits.map(k => k.id);
-  const btn = document.getElementById('saveBatchEditBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Aggiornamento...';
-
-  try {
-    const res = await apiFetch('/kit/batch-quantita', {
-      method: 'PATCH',
-      body: JSON.stringify({ ids, quantita: nuovaQuantita })
-    });
-    if (res.success) {
-      showMessage('Quantità aggiornata per ' + ids.length + ' kit!', 'success');
-      chiudiBatchEditModal();
-      // Ricarica i dati
-      const categorie = await apiFetch('/anagrafiche/categorie');
-      const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
-      const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
-      const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
-      await caricaSci(sciCat);
-      await caricaArticoliPerCategoria(attCat, skCat);
-      await caricaSigleUsate();
-      if (kitSciSelect.value) {
-        await caricaSiglePerSci(kitSciSelect.value);
-      }
-      aggiornaTutteLeRighe();
-      await caricaKit();
-      resetForm();
-    } else {
-      showMessage(res.message, 'error');
-    }
-  } catch (err) {
-    showMessage('Errore: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '💾 Aggiorna tutti';
-  }
-}
-
-// ============================================================
-// MODALE MODIFICA KIT (singolo)
+// MODALE MODIFICA KIT (semplificato)
 // ============================================================
 async function apriEditKitModal(kitId) {
   try {
@@ -1012,8 +898,10 @@ async function apriEditKitModal(kitId) {
     editKitId.value = kitId;
     document.getElementById('editKitTitle').textContent = '✏️ Modifica Kit #' + kitId;
 
+    // Riepilogo descrizione
     editKitRiepilogo.innerHTML = `<strong>Kit #${kitId}</strong> — ${kit.descrizione || ''}`;
 
+    // Dettagli del kit in sola lettura
     const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
     const attDet = kit.dettagli.find(d => d.tipo_articolo === 'ATTACCHI');
     const skDet = kit.dettagli.find(d => d.tipo_articolo === 'SKISTOPPER');
@@ -1044,6 +932,7 @@ async function apriEditKitModal(kitId) {
     }
     editSkistopperDisplay.textContent = skText;
 
+    // Quantità
     editQuantitaInput.value = kit.quantita || 0;
     editQuantitaInput.min = 0;
     editKitNote.value = kit.note || '';
@@ -1059,7 +948,7 @@ function chiudiEditKitModal() {
 }
 
 // ============================================================
-// SALVA MODIFICA KIT (singolo)
+// SALVA MODIFICA KIT (dal modale semplificato)
 // ============================================================
 async function salvaEditKit() {
   const id = editKitId.value;
