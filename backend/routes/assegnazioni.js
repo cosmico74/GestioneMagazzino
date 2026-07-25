@@ -539,6 +539,9 @@ router.post('/oggetti', verifyToken, async (req, res) => {
 // ============================================================
 // OTTIENI OGGETTI INVIATI
 // ============================================================
+// ============================================================
+// OTTIENI OGGETTI INVIATI (escludendo quelli non trasferiti)
+// ============================================================
 router.get('/inviati', verifyToken, async (req, res) => {
   try {
     const { provenienza_tipo, provenienza_id } = req.query;
@@ -563,7 +566,9 @@ router.get('/inviati', verifyToken, async (req, res) => {
       LEFT JOIN kit k ON cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id
       LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
       LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
-      WHERE cs.provenienza_tipo = ? AND cs.provenienza_id = ? AND cs.quantita > 0
+      WHERE cs.provenienza_tipo = ? AND cs.provenienza_id = ? 
+        AND cs.quantita > 0
+        AND NOT (cs.destinazione_tipo = cs.provenienza_tipo AND cs.destinazione_id = cs.provenienza_id)
     `, [provenienza_tipo, provenienza_id]);
 
     const result = rows.map(row => ({
