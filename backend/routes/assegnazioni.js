@@ -104,10 +104,13 @@ async function canPromoterAssignTo(connection, promoterId, targetSoggettoId) {
   return false;
 }
 
-// ============================================================
-// HELPER: Aggiorna carico_sintesi (con log per il rientro)
-// ============================================================
 async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, quantita, provenienzaTipo, provenienzaId, dataAssegnazione) {
+  // 🔥 NON inserire righe con destinazione MAGAZZINO
+  if (destinazioneTipo === 'MAGAZZINO') {
+    console.log('⚠️ Tentativo di inserire carico_sintesi con destinazione MAGAZZINO - ignorato');
+    return;
+  }
+
   if (quantita === 0) {
     // ELIMINA la riga
     const deleteParams = [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, siglaId];
@@ -126,6 +129,7 @@ async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneI
     }
     return;
   }
+
   // Inserisci o aggiorna
   await connection.query(
     `INSERT INTO carico_sintesi (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
