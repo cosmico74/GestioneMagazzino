@@ -182,7 +182,7 @@
   </div>
 </div>
 
-<!-- MODALE MODIFICA KIT (semplificato) -->
+<!-- MODALE MODIFICA KIT -->
 <div id="editKitModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -528,7 +528,7 @@ async function caricaSiglePerSci(sciId) {
 }
 
 // ============================================================
-// GESTIONE RIGHE SIGLE (form principale)
+// GESTIONE RIGHE SIGLE
 // ============================================================
 function aggiungiRigaSigla(tbodyId = 'sigleTbody') {
   const tbody = document.getElementById(tbodyId);
@@ -633,7 +633,7 @@ function aggiornaTutteLeRighe() {
 }
 
 // ============================================================
-// RESET FORM (nuovo kit)
+// RESET FORM
 // ============================================================
 function resetForm() {
   if (formResetting) return;
@@ -655,7 +655,7 @@ function resetForm() {
 }
 
 // ============================================================
-// SALVA KIT (form principale)
+// SALVA KIT
 // ============================================================
 async function salvaKit() {
   const magazzino = kitMagazzinoSelect.value;
@@ -774,12 +774,11 @@ function handleSort(col) {
 }
 
 // ============================================================
-// CARICA KIT (funzionante)
+// CARICA KIT (con correzione per colonna Assegnato a)
 // ============================================================
 async function caricaKit() {
   try {
     const res = await apiFetch('/kit');
-    // Gestisce sia array diretto che oggetto con data
     if (Array.isArray(res)) {
       allKits = res;
     } else if (res.success && Array.isArray(res.data)) {
@@ -820,7 +819,6 @@ function popolaTabellaKit() {
     return;
   }
 
-  // ORDINAMENTO
   filtered.sort((a, b) => {
     if (sortColumn === 'descrizione') {
       const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
@@ -849,7 +847,6 @@ function popolaTabellaKit() {
   });
 
   filtered.forEach(k => {
-    // Cerca il nome del magazzino
     let magNome = 'Magazzino ' + k.magazzino;
     if (magazzini && magazzini.length > 0) {
       const found = magazzini.find(m => parseInt(m.id) === parseInt(k.magazzino));
@@ -866,9 +863,17 @@ function popolaTabellaKit() {
     row.insertCell(5).innerText = magNome;
     row.insertCell(6).innerText = k.quantita || 0;
 
-    // Assegnato a
+    // 🔥 COLONNA "Assegnato a" con sostituzione di "Magazzino X"
     const tdAssegnato = row.insertCell(7);
-    const assegnato = k.ultimo_destinatario || 'In magazzino';
+    let assegnato = k.ultimo_destinatario || 'In magazzino';
+    // Se è un fallback "Magazzino X", sostituisci con il nome reale dal magazzini
+    if (assegnato.startsWith('Magazzino ')) {
+      const magId = parseInt(assegnato.replace('Magazzino ', ''));
+      if (!isNaN(magId)) {
+        const found = magazzini.find(m => m.id === magId);
+        if (found) assegnato = found.nome;
+      }
+    }
     const span = document.createElement('span');
     span.textContent = assegnato;
     if (k.catena_assegnazioni && k.catena_assegnazioni.trim() !== '') {
@@ -879,7 +884,6 @@ function popolaTabellaKit() {
 
     row.insertCell(8).innerText = k.note || '';
 
-    // Azioni
     const actions = row.insertCell(9);
     actions.className = 'action-buttons';
     const btnMod = document.createElement('button');
@@ -896,7 +900,7 @@ function popolaTabellaKit() {
 }
 
 // ============================================================
-// MODALE MODIFICA KIT (semplificato)
+// MODALE MODIFICA KIT
 // ============================================================
 async function apriEditKitModal(kitId) {
   try {
@@ -906,10 +910,8 @@ async function apriEditKitModal(kitId) {
     editKitId.value = kitId;
     document.getElementById('editKitTitle').textContent = '✏️ Modifica Kit #' + kitId;
 
-    // Riepilogo descrizione
     editKitRiepilogo.innerHTML = `<strong>Kit #${kitId}</strong> — ${kit.descrizione || ''}`;
 
-    // Dettagli del kit in sola lettura
     const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
     const attDet = kit.dettagli.find(d => d.tipo_articolo === 'ATTACCHI');
     const skDet = kit.dettagli.find(d => d.tipo_articolo === 'SKISTOPPER');
@@ -940,7 +942,6 @@ async function apriEditKitModal(kitId) {
     }
     editSkistopperDisplay.textContent = skText;
 
-    // Quantità
     editQuantitaInput.value = kit.quantita || 0;
     editQuantitaInput.min = 0;
     editKitNote.value = kit.note || '';
@@ -956,7 +957,7 @@ function chiudiEditKitModal() {
 }
 
 // ============================================================
-// SALVA MODIFICA KIT (dal modale semplificato)
+// SALVA MODIFICA KIT
 // ============================================================
 async function salvaEditKit() {
   const id = editKitId.value;
@@ -1062,7 +1063,7 @@ async function eliminaKit(id) {
 }
 
 // ============================================================
-// MODIFICA NOTA KIT (modal)
+// MODIFICA NOTA KIT
 // ============================================================
 function apriModificaKit(id, codice, nota) {
   currentKitId = id;
