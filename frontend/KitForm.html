@@ -19,7 +19,6 @@
     .btn-success { background: #28a745; }
     .btn-secondary { background: #6c757d; }
     .btn-sm { padding: 2px 6px; font-size: 0.7rem; }
-    .btn-warning { background: #f39c12; color: white; }
     .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; }
     .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
     .form-group { flex: 1; min-width: 150px; }
@@ -108,29 +107,6 @@
       margin-bottom: 10px;
       font-size: 0.85rem;
       border-left: 3px solid #1a73e8;
-    }
-    .batch-quantita-container {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin: 10px 0;
-      padding: 8px 12px;
-      background: #fff3cd;
-      border-radius: 6px;
-      border-left: 3px solid #f39c12;
-    }
-    .batch-quantita-container input {
-      width: 100px;
-      padding: 4px 6px;
-      border: 1px solid #cbd5e0;
-      border-radius: 4px;
-      font-size: 0.8rem;
-    }
-    .batch-quantita-container label {
-      font-weight: 600;
-      font-size: 0.8rem;
-      margin: 0;
-      display: inline;
     }
   </style>
 </head>
@@ -237,7 +213,7 @@
   </div>
 </div>
 
-<!-- MODALE DETTAGLIO GRUPPO -->
+<!-- MODALE DETTAGLIO GRUPPO (senza batch) -->
 <div id="detailModal" class="modal">
   <div class="modal-content" style="max-width:1000px;">
     <div class="modal-header">
@@ -912,10 +888,9 @@ function popolaTabellaKit() {
     const mag = magazzini.find(m => m.id == group.magazzino)?.nome || group.magazzino;
     const row = tbody.insertRow();
 
-    // PRIMA COLONNA: per i gruppi mostra "N° kit (tot: X)", per i singoli l'ID
+    // PRIMA COLONNA: mostra il numero di kit
     if (group.kits.length > 1) {
-      const totale = group.quantita_totale;
-      row.insertCell(0).innerHTML = `<span class="badge-kit-count">${group.kits.length} kit (tot: ${totale})</span>`;
+      row.insertCell(0).innerHTML = `<span class="badge-kit-count">${group.kits.length} kit</span>`;
     } else {
       row.insertCell(0).innerText = firstKit.id;
     }
@@ -967,7 +942,7 @@ function popolaTabellaKit() {
 }
 
 // ============================================================
-// DETTAGLIO GRUPPO (una riga per kit, con batch)
+// DETTAGLIO GRUPPO (senza batch, una riga per kit)
 // ============================================================
 async function apriDettaglioGruppo(kits) {
   const modal = document.getElementById('detailModal');
@@ -977,13 +952,7 @@ async function apriDettaglioGruppo(kits) {
 
   const kitDetails = await Promise.all(kits.map(k => apiFetch('/kit/' + k.id)));
 
-  let html = '<div class="batch-quantita-container">';
-  html += '<label for="batchQuantitaInput">Modifica quantità gruppo:</label>';
-  html += '<input type="number" id="batchQuantitaInput" min="0" step="1" value="1">';
-  html += '<button class="btn btn-warning btn-sm" onclick="modificaQuantitaGruppo()">📦 Applica a tutti</button>';
-  html += '</div>';
-
-  html += '<table class="dettaglio-kit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
+  let html = '<table class="dettaglio-kit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
   html += `<tr style="background:#f1f5f9;">
     <th>ID</th>
     <th>Codice</th>
@@ -996,8 +965,6 @@ async function apriDettaglioGruppo(kits) {
     <th>Assegnato a</th>
     <th>Azioni</th>
   </tr>`;
-
-  window._batchKitIds = kitDetails.map(d => d.id);
 
   for (const det of kitDetails) {
     const sciDet = det.dettagli.find(d => d.tipo_articolo === 'SCI');
@@ -1040,47 +1007,6 @@ async function apriDettaglioGruppo(kits) {
   html += '</table>';
   body.innerHTML = html;
   modal.style.display = 'flex';
-}
-
-// ============================================================
-// MODIFICA QUANTITÀ GRUPPO (batch)
-// ============================================================
-async function modificaQuantitaGruppo() {
-  const ids = window._batchKitIds;
-  if (!ids || !ids.length) {
-    showMessage('Nessun kit nel gruppo', 'error');
-    return;
-  }
-
-  const input = document.getElementById('batchQuantitaInput');
-  const nuovaQuantita = parseInt(input.value);
-  if (isNaN(nuovaQuantita) || nuovaQuantita < 0) {
-    showMessage('Inserisci una quantità valida (>= 0)', 'error');
-    return;
-  }
-
-  const btn = document.querySelector('.batch-quantita-container .btn-warning');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
-
-  try {
-    const res = await apiFetch('/kit/batch-quantita', {
-      method: 'PATCH',
-      body: JSON.stringify({ ids, quantita: nuovaQuantita })
-    });
-    if (res.success) {
-      showMessage('Quantità aggiornata per ' + ids.length + ' kit!', 'success');
-      chiudiDetailModal();
-      caricaKit();
-    } else {
-      showMessage(res.message, 'error');
-    }
-  } catch (err) {
-    showMessage('Errore: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '📦 Applica a tutti';
-  }
 }
 
 // ============================================================
