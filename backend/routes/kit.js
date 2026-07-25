@@ -82,9 +82,7 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
   );
 }
 
-// ============================================================
-// GET /api/kit - Elenco kit con informazioni di assegnazione e catena
-// ============================================================
+// GET /api/kit - Elenco kit con informazioni di assegnazione e catena e attacco
 router.get('/', verifyToken, async (req, res) => {
   try {
     const [kits] = await db.query(`
@@ -99,7 +97,13 @@ router.get('/', verifyToken, async (req, res) => {
          LIMIT 1) AS sigla_sci,
         u1.username AS creato_da_username,
         u2.username AS modificato_da_username,
-        -- Catena di assegnazioni (tutti i nomi in ordine cronologico, separati da →)
+        -- Attacco
+        (SELECT JSON_OBJECT('id', a.articolo_id, 'descrizione', a.descrizione)
+         FROM kit_dettaglio kd
+         LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id
+         WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'ATTACCHI'
+         LIMIT 1) AS attacco_json,
+        -- Catena di assegnazioni
         (SELECT GROUP_CONCAT(
            CONCAT(
              COALESCE(sog.nome, ''),
@@ -109,7 +113,7 @@ router.get('/', verifyToken, async (req, res) => {
          LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
          WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
         ) AS catena_assegnazioni,
-        -- Ultimo destinatario (nome)
+        -- Ultimo destinatario
         (SELECT CONCAT(
            COALESCE(sog.nome, ''),
            IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
@@ -144,10 +148,19 @@ router.get('/', verifyToken, async (req, res) => {
         ultimoDestinatario = k.ultimo_destinatario_tipo + ' ' + k.ultimo_destinatario_id;
       }
 
+      // Parse attacco
+      let attacco = null;
+      if (k.attacco_json) {
+        try {
+          attacco = JSON.parse(k.attacco_json);
+        } catch(e) {}
+      }
+
       return {
         ...k,
         lunghezza_sci: k.lunghezza_sci || '',
         sigla_sci: k.sigla_sci || '',
+        attacco: attacco,
         catena_assegnazioni: k.catena_assegnazioni || null,
         ultimo_destinatario: ultimoDestinatario,
         ultimo_destinatario_tipo: k.ultimo_destinatario_tipo,
