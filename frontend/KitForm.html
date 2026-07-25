@@ -838,8 +838,7 @@ function popolaTabellaKit() {
     filtered = filtered.filter(k =>
       (k.codice_kit || '').toLowerCase().includes(search) ||
       (k.descrizione || '').toLowerCase().includes(search) ||
-      (k.sigla_sci || '').toLowerCase().includes(search) ||
-      (k.attacco?.descrizione || '').toLowerCase().includes(search)
+      (k.sigla_sci || '').toLowerCase().includes(search)
     );
   }
 
@@ -848,108 +847,79 @@ function popolaTabellaKit() {
     return;
   }
 
-  // Raggruppamento per descrizione, lunghezza_sci, attacco.id, ultimo_destinatario
-  const groups = {};
+  // ORDINAMENTO
+  filtered.sort((a, b) => {
+    if (sortColumn === 'descrizione') {
+      const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
+      const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
+      if (descA !== descB) return sortAsc ? (descA < descB ? -1 : 1) : (descA > descB ? -1 : 1);
+      const lA = parseFloat(a.lunghezza_sci) || 0;
+      const lB = parseFloat(b.lunghezza_sci) || 0;
+      if (lA !== lB) return sortAsc ? lA - lB : lB - lA;
+      const cA = (a.codice_kit || '').toLowerCase();
+      const cB = (b.codice_kit || '').toLowerCase();
+      return sortAsc ? (cA < cB ? -1 : 1) : (cA > cB ? -1 : 1);
+    }
+    let va = a[sortColumn] || '', vb = b[sortColumn] || '';
+    if (sortColumn === 'id' || sortColumn === 'quantita' || sortColumn === 'magazzino') {
+      va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
+    } else if (sortColumn === 'ultimo_destinatario') {
+      va = (a.ultimo_destinatario || 'In magazzino').toLowerCase();
+      vb = (b.ultimo_destinatario || 'In magazzino').toLowerCase();
+    } else {
+      va = va.toString().toLowerCase();
+      vb = vb.toString().toLowerCase();
+    }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  // RENDER: ogni kit su una riga
   filtered.forEach(k => {
-    const attaccoId = k.attacco?.id || 'nessuno';
-    const key = `${k.descrizione}|${k.lunghezza_sci || ''}|${k.sigla_sci || ''}|${attaccoId}|${k.ultimo_destinatario || 'In magazzino'}`;
-    if (!groups[key]) {
-      groups[key] = {
-        descrizione: k.descrizione || '',
-        lunghezza_sci: k.lunghezza_sci || '',
-        sigla_sci: k.sigla_sci || '',
-        attacco: k.attacco,
-        magazzino: k.magazzino,
-        ultimo_destinatario: k.ultimo_destinatario || 'In magazzino',
-        catena_assegnazioni: k.catena_assegnazioni,
-        quantita_totale: 0,
-        kits: [],
-        note: k.note || ''
-      };
+    // 🔥 CERCA IL NOME DEL MAGAZZINO (Race, West, ecc.)
+    let magNome = 'Magazzino ' + k.magazzino; // fallback
+    if (magazzini && magazzini.length > 0) {
+      const found = magazzini.find(m => m.id == k.magazzino);
+      if (found) magNome = found.nome;
     }
-    groups[key].quantita_totale += k.quantita || 0;
-    groups[key].kits.push(k);
-    // Usa la prima nota non vuota trovata
-    if (k.note && !groups[key].note) {
-      groups[key].note = k.note;
-    }
-  });
 
-  // Ordina i gruppi
-  const sortedGroups = Object.values(groups).sort((a, b) => {
-    const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
-    const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
-    if (descA !== descB) return descA < descB ? -1 : 1;
-    const lA = parseFloat(a.lunghezza_sci) || 0;
-    const lB = parseFloat(b.lunghezza_sci) || 0;
-    return lA - lB;
-  });
-
-  sortedGroups.forEach(group => {
-    const firstKit = group.kits[0];
-    const mag = magazzini.find(m => m.id == group.magazzino)?.nome || group.magazzino;
     const row = tbody.insertRow();
 
-    // Colonna Kit: mostra numero di kit
-    let kitDisplay = '';
-    if (group.kits.length > 1) {
-      kitDisplay = `<span class="badge-gruppo">${group.kits.length} kit</span>`;
-    } else {
-      kitDisplay = firstKit.id;
-    }
-    row.insertCell(0).innerHTML = kitDisplay;
+    row.insertCell(0).innerText = k.id;
+    row.insertCell(1).innerText = k.codice_kit || '-';
+    row.insertCell(2).innerText = k.descrizione || '-';
+    row.insertCell(3).innerText = k.sigla_sci || 'NA';
+    row.insertCell(4).innerText = k.lunghezza_sci || '-';
+    row.insertCell(5).innerText = magNome; // <- Colonna Magazzino (indice 5)
+    row.insertCell(6).innerText = k.quantita || 0;
 
-    row.insertCell(1).innerText = group.kits.length > 1 ? '—' : (firstKit.codice_kit || '-');
-    row.insertCell(2).innerText = group.descrizione || '-';
-    row.insertCell(3).innerText = group.sigla_sci || 'NA';
-    row.insertCell(4).innerText = group.lunghezza_sci || '-';
-    row.insertCell(5).innerText = group.attacco?.descrizione || '-';
-    row.insertCell(6).innerText = mag;
-    row.insertCell(7).innerText = group.quantita_totale || 0;
-
-    const tdAssegnato = row.insertCell(8);
-    const assegnato = group.ultimo_destinatario || 'In magazzino';
+    // Colonna "Assegnato a"
+    const tdAssegnato = row.insertCell(7);
+    const assegnato = k.ultimo_destinatario || 'In magazzino';
     const span = document.createElement('span');
     span.textContent = assegnato;
-    if (group.catena_assegnazioni && group.catena_assegnazioni.trim() !== '') {
+    if (k.catena_assegnazioni && k.catena_assegnazioni.trim() !== '') {
       span.className = 'assegnazione-tooltip';
-      span.setAttribute('data-tooltip', group.catena_assegnazioni);
+      span.setAttribute('data-tooltip', k.catena_assegnazioni);
     }
     tdAssegnato.appendChild(span);
 
-    row.insertCell(9).innerText = group.note || '';
+    row.insertCell(8).innerText = k.note || '';
 
     // Azioni
-    const actions = row.insertCell(10);
+    const actions = row.insertCell(9);
     actions.className = 'action-buttons';
-    if (group.kits.length > 1) {
-      // Pulsante per modifica batch
-      const btnBatch = document.createElement('button');
-      btnBatch.textContent = '✏️';
-      btnBatch.className = 'btn btn-edit-gruppo btn-sm';
-      btnBatch.title = 'Modifica quantità di tutti i kit del gruppo';
-      btnBatch.onclick = () => apriBatchEditModal(group.kits);
-      actions.appendChild(btnBatch);
-    } else {
-      // Singolo kit: modifica singola
-      const kit = group.kits[0];
-      const btnMod = document.createElement('button');
-      btnMod.textContent = '✏️';
-      btnMod.className = 'btn btn-sm';
-      btnMod.onclick = () => apriEditKitModal(kit.id);
-      actions.appendChild(btnMod);
-    }
-    // Pulsante elimina per ogni kit? Per i gruppi, eliminare tutti potrebbe essere pericoloso. Mettiamo solo per singoli.
-    if (group.kits.length === 1) {
-      const btnDel = document.createElement('button');
-      btnDel.textContent = '🗑️';
-      btnDel.className = 'btn btn-danger btn-sm';
-      btnDel.onclick = () => eliminaKit(group.kits[0].id);
-      actions.appendChild(btnDel);
-    } else {
-      // Per i gruppi, un pulsante per eliminare tutto il gruppo? Meglio non farlo, per sicurezza.
-      // Non aggiungiamo eliminazione batch.
-    }
+    const btnMod = document.createElement('button');
+    btnMod.textContent = '✏️';
+    btnMod.className = 'btn btn-sm';
+    btnMod.onclick = () => apriEditKitModal(k.id);
+    actions.appendChild(btnMod);
+    const btnDel = document.createElement('button');
+    btnDel.textContent = '🗑️';
+    btnDel.className = 'btn btn-danger btn-sm';
+    btnDel.onclick = () => eliminaKit(k.id);
+    actions.appendChild(btnDel);
   });
 }
 
