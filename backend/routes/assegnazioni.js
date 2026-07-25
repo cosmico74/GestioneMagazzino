@@ -79,7 +79,9 @@ router.get('/quantita-assegnata-kit', verifyToken, async (req, res) => {
   const { kit_id } = req.query;
   if (!kit_id) return res.status(400).json({ error: 'kit_id richiesto' });
   const [rows] = await pool.query(
-    'SELECT COALESCE(SUM(quantita), 0) AS quantita FROM carico_sintesi WHERE tipo_oggetto = \'KIT\' AND oggetto_id = ?',
+    `SELECT COALESCE(SUM(quantita), 0) AS quantita 
+     FROM carico_sintesi 
+     WHERE tipo_oggetto = 'KIT' AND oggetto_id = ? AND destinazione_tipo != 'MAGAZZINO'`,
     [kit_id]
   );
   res.json({ quantita: rows[0].quantita });
@@ -142,6 +144,7 @@ async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneI
     [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || db.now()]
   );
 }
+
 
 // ============================================================
 // USCITA BATCH (dal magazzino) - CON PERMESSI PER PROMOTER LIVELLO 1
