@@ -830,18 +830,19 @@ router.post('/:id/rientro', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Kit non trovato' });
     }
 
-    // 2. Elimina tutte le righe in carico_sintesi per questo kit
+    // 2. Elimina tutte le righe in carico_sintesi per questo kit (tranne quelle con destinazione MAGAZZINO)
     const [result] = await connection.query(
-      'DELETE FROM carico_sintesi WHERE tipo_oggetto = \'KIT\' AND oggetto_id = ?',
+      `DELETE FROM carico_sintesi 
+       WHERE tipo_oggetto = 'KIT' AND oggetto_id = ? AND destinazione_tipo != 'MAGAZZINO'`,
       [kitId]
     );
 
     if (result.affectedRows === 0) {
       await connection.rollback();
-      return res.status(404).json({ success: false, message: 'Nessuna riga in carico_sintesi trovata per questo kit' });
+      return res.status(404).json({ success: false, message: 'Nessuna riga in carico_sintesi trovata per questo kit (escluso MAGAZZINO)' });
     }
 
-    // 3. Registra un movimento di rientro (opzionale, ma utile per audit)
+    // 3. Registra un movimento di rientro
     const [user] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = user.length ? user[0].username : 'sconosciuto';
     await connection.query(
