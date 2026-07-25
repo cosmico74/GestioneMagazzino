@@ -48,11 +48,11 @@ async function generaDescrizioneKit(connection, sci, righe) {
       [attacco_id]
     );
     const attaccoDesc = attaccoRow.length ? attaccoRow[0].descrizione : 'Attacco sconosciuto';
-    let parte = `${descrizione} ${lunghezza || ''}`.trim();
-    parte += ` + ${attaccoDesc}`;
+    let parte = `${descrizione || 'Sci'} ${lunghezza || ''}`.trim();
+    parte += ` + ${attaccoDesc || 'Attacco'}`;
     parti.push(parte);
   }
-  return parti.join(' ; ');
+  return parti.join(' ; ') || 'Kit senza componenti';
 }
 
 // ============================================================
@@ -83,12 +83,13 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 }
 
 // ============================================================
-// GET /api/kit - Elenco kit con informazioni di assegnazione, attacco e magazzino
+// GET /api/kit - Elenco kit con nome magazzino e assegnazioni
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
     const [kits] = await db.query(`
       SELECT k.*,
+        m.nome AS magazzino_nome,
         (SELECT a.lunghezza FROM kit_dettaglio kd
          LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id
          WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI'
@@ -97,15 +98,6 @@ router.get('/', verifyToken, async (req, res) => {
          LEFT JOIN sigle_articoli s ON kd.sigla_id = s.id
          WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI'
          LIMIT 1) AS sigla_sci,
-        -- Attacco del kit (descrizione e sigla)
-        (SELECT GROUP_CONCAT(DISTINCT a.descrizione SEPARATOR ', ')
-         FROM kit_dettaglio kd
-         LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id
-         WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'ATTACCHI') AS attacco_descrizione,
-        (SELECT GROUP_CONCAT(DISTINCT s.sigla SEPARATOR ', ')
-         FROM kit_dettaglio kd
-         LEFT JOIN sigle_articoli s ON kd.sigla_id = s.id
-         WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'ATTACCHI') AS sigla_attacco,
         u1.username AS creato_da_username,
         u2.username AS modificato_da_username,
         -- Catena di assegnazioni
@@ -118,7 +110,7 @@ router.get('/', verifyToken, async (req, res) => {
          LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
          WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
         ) AS catena_assegnazioni,
-        -- Ultimo destinatario
+        -- Ultimo destinatario (nome)
         (SELECT CONCAT(
            COALESCE(sog.nome, ''),
            IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
@@ -128,6 +120,7 @@ router.get('/', verifyToken, async (req, res) => {
          ORDER BY cs.data_assegnazione DESC
          LIMIT 1
         ) AS ultimo_destinatario_nome,
+        -- Tipo e ID dell'ultimo destinatario
         (SELECT cs.destinazione_tipo FROM carico_sintesi cs
          WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
          ORDER BY cs.data_assegnazione DESC
@@ -139,32 +132,32 @@ router.get('/', verifyToken, async (req, res) => {
          LIMIT 1
         ) AS ultimo_destinatario_id
       FROM kit k
+      LEFT JOIN magazzini m ON k.magazzino = m.magazzino_id
       LEFT JOIN utenti u1 ON k.creato_da = u1.id
       LEFT JOIN utenti u2 ON k.modificato_da = u2.id
       ORDER BY k.id DESC
     `);
 
     const risultato = kits.map(k => {
-      let ultimoDestinatario = 'In magazzino';
+      let ultimoDestinatario;
       if (k.ultimo_destinatario_nome && k.ultimo_destinatario_nome.trim() !== '') {
         ultimoDestinatario = k.ultimo_destinatario_nome.trim();
       } else if (k.ultimo_destinatario_tipo && k.ultimo_destinatario_id) {
         ultimoDestinatario = k.ultimo_destinatario_tipo + ' ' + k.ultimo_destinatario_id;
+      } else {
+        // Se non c'è un destinatario, mostra il nome del magazzino
+        ultimoDestinatario = k.magazzino_nome || 'Magazzino ' + k.magazzino;
       }
-
-      // Se l'attacco è vuoto, mostra "Nessuno"
-      const attacco = k.attacco_descrizione || 'Nessuno';
 
       return {
         ...k,
         lunghezza_sci: k.lunghezza_sci || '',
         sigla_sci: k.sigla_sci || '',
-        attacco_descrizione: attacco,
-        sigla_attacco: k.sigla_attacco || '',
         catena_assegnazioni: k.catena_assegnazioni || null,
         ultimo_destinatario: ultimoDestinatario,
         ultimo_destinatario_tipo: k.ultimo_destinatario_tipo,
-        ultimo_destinatario_id: k.ultimo_destinatario_id
+        ultimo_destinatario_id: k.ultimo_destinatario_id,
+        magazzino_nome: k.magazzino_nome || 'Magazzino ' + k.magazzino
       };
     });
 
@@ -174,8 +167,9 @@ router.get('/', verifyToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 // ============================================================
-// GET /api/kit/sigle-usate - Sigle già utilizzate in kit
+// GET /api/kit/sigle-usate
 // ============================================================
 router.get('/sigle-usate', verifyToken, async (req, res) => {
   try {
@@ -194,7 +188,7 @@ router.get('/sigle-usate', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/kit/:id - Dettaglio kit (con lunghezza sci)
+// GET /api/kit/:id - Dettaglio kit
 // ============================================================
 router.get('/:id', verifyToken, async (req, res) => {
   try {
@@ -213,7 +207,6 @@ router.get('/:id', verifyToken, async (req, res) => {
       WHERE d.kit_id = ?
     `, [req.params.id]);
     
-    // Aggiungi anche sigla_sci e lunghezza_sci per comodità
     const sciDet = dettagli.find(d => d.tipo_articolo === 'SCI');
     const lunghezza_sci = sciDet ? sciDet.articolo_lunghezza || '' : '';
     const sigla_sci = sciDet ? sciDet.sigla || '' : '';
@@ -231,13 +224,9 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/kit - Crea un nuovo kit
+// POST /api/kit
 // ============================================================
-// ============================================================
-// PUT /api/kit/:id - Modifica completa del kit (con controllo differenziato)
-// ============================================================
-router.put('/:id', verifyToken, async (req, res) => {
-  const { id } = req.params;
+router.post('/', verifyToken, async (req, res) => {
   const { magazzino, sci_id, note, righe } = req.body;
   if (!magazzino || !sci_id || !righe || !righe.length) {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
@@ -251,83 +240,68 @@ router.put('/:id', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // Recupera il kit esistente per calcolare la quantità attuale
-    const [oldKit] = await connection.query('SELECT quantita FROM kit WHERE id = ?', [id]);
-    if (!oldKit.length) throw new Error('Kit non trovato');
-    const quantitaAttuale = oldKit[0].quantita;
-
-    // Calcola la nuova quantità totale
-    let nuovaQuantitaTotale = 0;
-    for (const riga of righe) {
-      nuovaQuantitaTotale += riga.quantita;
-    }
-
-    // 🔥 Se la nuova quantità è MINORE o UGUALE a quella attuale, saltiamo i controlli di giacenza
-    const isRiduzione = nuovaQuantitaTotale <= quantitaAttuale;
-
-    // Recupera i vecchi dati per audit
-    const [oldRow] = await connection.query('SELECT * FROM kit WHERE id = ?', [id]);
-
-    // 1. Recupera i vecchi dettagli e rimuovili (rilascia le quantità)
-    const [oldDetails] = await connection.query('SELECT * FROM kit_dettaglio WHERE kit_id = ?', [id]);
-    for (const det of oldDetails) {
-      await rimuoviDaKit(connection, det.articolo_id, det.quantita);
-    }
-    await connection.query('DELETE FROM kit_dettaglio WHERE kit_id = ?', [id]);
-
-    // 2. Se NON è una riduzione, esegui i controlli di giacenza
-    if (!isRiduzione) {
-      // Verifica giacenza dello sci
-      const giacenzaSci = await getGiacenzaArticolo(connection, sci_id);
-      let quantitaTotaleRichiesta = 0;
-      for (const riga of righe) {
-        quantitaTotaleRichiesta += riga.quantita;
-      }
-      if (quantitaTotaleRichiesta > giacenzaSci) {
-        await connection.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Quantità richiesta (${quantitaTotaleRichiesta}) supera la giacenza disponibile (${giacenzaSci}) per lo sci`
-        });
-      }
-
-      // Verifica giacenza di ogni sigla
-      for (const riga of righe) {
-        const { sigla_id, quantita } = riga;
-        const [sigla] = await connection.query(
-          'SELECT quantita FROM sigle_articoli WHERE id = ? AND attivo = 1',
-          [sigla_id]
-        );
-        if (!sigla.length) throw new Error(`Sigla ID ${sigla_id} non trovata`);
-        
-        const [usedInKit] = await connection.query(
-          'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
-          [sigla_id]
-        );
-        const [assegnato] = await connection.query(
-          'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
-          [sigla_id, 'ARTICOLO']
-        );
-        const giacenzaSigla = sigla[0].quantita - usedInKit[0].totale - assegnato[0].totale;
-        if (quantita > giacenzaSigla) {
-          await connection.rollback();
-          return res.status(400).json({
-            success: false,
-            message: `Quantità richiesta (${quantita}) per la sigla supera la giacenza disponibile (${giacenzaSigla})`
-          });
-        }
-      }
-    }
-
-    // 3. Inserisci i nuovi dettagli (con la nuova quantità)
     const [sci] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [sci_id]);
     if (!sci.length) throw new Error('Sci non trovato');
 
+    const giacenzaSci = await getGiacenzaArticolo(connection, sci_id);
+
+    let quantitaTotaleRichiesta = 0;
+    for (const riga of righe) {
+      quantitaTotaleRichiesta += riga.quantita;
+    }
+
+    if (quantitaTotaleRichiesta > giacenzaSci) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Quantità richiesta (${quantitaTotaleRichiesta}) supera la giacenza disponibile (${giacenzaSci}) per lo sci`
+      });
+    }
+
+    for (const riga of righe) {
+      const { sigla_id, quantita } = riga;
+      const [sigla] = await connection.query(
+        'SELECT quantita FROM sigle_articoli WHERE id = ? AND attivo = 1',
+        [sigla_id]
+      );
+      if (!sigla.length) throw new Error(`Sigla ID ${sigla_id} non trovata`);
+      
+      const [usedInKit] = await connection.query(
+        'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
+        [sigla_id]
+      );
+      const [assegnato] = await connection.query(
+        'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
+        [sigla_id, 'ARTICOLO']
+      );
+      const giacenzaSigla = sigla[0].quantita - usedInKit[0].totale - assegnato[0].totale;
+      if (quantita > giacenzaSigla) {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Quantità richiesta (${quantita}) per la sigla supera la giacenza disponibile (${giacenzaSigla})`
+        });
+      }
+    }
+
+    const [maxIdRow] = await connection.query('SELECT MAX(id) AS maxId FROM kit');
+    const nextSeq = (maxIdRow[0].maxId || 0) + 1;
+    const codiceKit = `KIT-${magazzino}-${String(nextSeq).padStart(4, '0')}`;
     const descKit = await generaDescrizioneKit(connection, sci[0], righe);
+
+    const now = db.now();
+    const [kitRes] = await connection.query(
+      `INSERT INTO kit (codice_kit, descrizione, quantita, magazzino, note, data_creazione, data_modifica, creato_da, modificato_da)
+       VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+      [codiceKit, descKit, magazzino, note || null, now, now, req.userId, req.userId]
+    );
+    const kitId = kitRes.insertId;
 
     let quantitaTotaleKit = 0;
     for (const riga of righe) {
       const { sigla_id, attacco_id, skistopper_id, quantita } = riga;
+      if (!sigla_id || !attacco_id) throw new Error('Ogni riga deve avere sigla e attacco');
+
       await aggiungiInKit(connection, sci_id, quantita);
       await aggiungiInKit(connection, attacco_id, quantita);
       if (skistopper_id) {
@@ -336,37 +310,32 @@ router.put('/:id', verifyToken, async (req, res) => {
 
       await connection.query(
         'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'SCI\', ?, ?, ?)',
-        [id, sci_id, sigla_id, quantita]
+        [kitId, sci_id, sigla_id, quantita]
       );
       await connection.query(
         'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'ATTACCHI\', ?, NULL, ?)',
-        [id, attacco_id, quantita]
+        [kitId, attacco_id, quantita]
       );
       if (skistopper_id) {
         await connection.query(
           'INSERT INTO kit_dettaglio (kit_id, tipo_articolo, articolo_id, sigla_id, quantita) VALUES (?, \'SKISTOPPER\', ?, NULL, ?)',
-          [id, skistopper_id, quantita]
+          [kitId, skistopper_id, quantita]
         );
       }
       quantitaTotaleKit += quantita;
     }
 
-    const now = db.now();
-    await connection.query(
-      `UPDATE kit SET magazzino = ?, note = ?, quantita = ?, descrizione = ?, data_modifica = NOW(), modificato_da = ? WHERE id = ?`,
-      [magazzino, note || null, quantitaTotaleKit, descKit, req.userId, id]
-    );
+    await connection.query('UPDATE kit SET quantita = ? WHERE id = ?', [quantitaTotaleKit, kitId]);
 
-    // Audit
-    const [newRow] = await connection.query('SELECT * FROM kit WHERE id = ?', [id]);
-    await registraAudit(connection, 'kit', 'MODIFICA', id, oldRow[0], newRow[0], req.userId);
+    const [newRow] = await connection.query('SELECT * FROM kit WHERE id = ?', [kitId]);
+    await registraAudit(connection, 'kit', 'CREAZIONE', kitId, null, newRow[0], req.userId);
 
     await connection.commit();
-    console.log(`✅ Kit ${id} aggiornato (${isRiduzione ? 'riduzione' : 'aumento'})`);
-    res.json({ success: true, message: 'Kit aggiornato' });
+    console.log(`✅ Kit creato con ID ${kitId}`);
+    res.json({ success: true, message: 'Kit creato con successo', kitId });
   } catch (err) {
     await connection.rollback();
-    console.error('❌ Errore PUT /kit:', err);
+    console.error('❌ Errore creazione kit:', err);
     res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
@@ -555,7 +524,7 @@ router.post('/da-carico', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// HELPER: livello utente per permessi (usato in /da-carico)
+// HELPER: livello utente per permessi
 // ============================================================
 async function getUserLevel(userId) {
   const [user] = await db.query('SELECT riferimento_id FROM utenti WHERE id = ?', [userId]);
@@ -565,7 +534,7 @@ async function getUserLevel(userId) {
 }
 
 // ============================================================
-// PUT /api/kit/:id - Modifica completa del kit
+// PUT /api/kit/:id - Modifica completa del kit (con controllo differenziato)
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
@@ -582,6 +551,17 @@ router.put('/:id', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
+    const [oldKit] = await connection.query('SELECT quantita FROM kit WHERE id = ?', [id]);
+    if (!oldKit.length) throw new Error('Kit non trovato');
+    const quantitaAttuale = oldKit[0].quantita;
+
+    let nuovaQuantitaTotale = 0;
+    for (const riga of righe) {
+      nuovaQuantitaTotale += riga.quantita;
+    }
+
+    const isRiduzione = nuovaQuantitaTotale <= quantitaAttuale;
+
     const [oldRow] = await connection.query('SELECT * FROM kit WHERE id = ?', [id]);
 
     const [oldDetails] = await connection.query('SELECT * FROM kit_dettaglio WHERE kit_id = ?', [id]);
@@ -590,49 +570,49 @@ router.put('/:id', verifyToken, async (req, res) => {
     }
     await connection.query('DELETE FROM kit_dettaglio WHERE kit_id = ?', [id]);
 
-    const [sci] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [sci_id]);
-    if (!sci.length) throw new Error('Sci non trovato');
-
-    const giacenzaSci = await getGiacenzaArticolo(connection, sci_id);
-
-    let quantitaTotaleRichiesta = 0;
-    for (const riga of righe) {
-      quantitaTotaleRichiesta += riga.quantita;
-    }
-
-    if (quantitaTotaleRichiesta > giacenzaSci) {
-      await connection.rollback();
-      return res.status(400).json({
-        success: false,
-        message: `Quantità richiesta (${quantitaTotaleRichiesta}) supera la giacenza disponibile (${giacenzaSci}) per lo sci`
-      });
-    }
-
-    for (const riga of righe) {
-      const { sigla_id, quantita } = riga;
-      const [sigla] = await connection.query(
-        'SELECT quantita FROM sigle_articoli WHERE id = ? AND attivo = 1',
-        [sigla_id]
-      );
-      if (!sigla.length) throw new Error(`Sigla ID ${sigla_id} non trovata`);
-      
-      const [usedInKit] = await connection.query(
-        'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
-        [sigla_id]
-      );
-      const [assegnato] = await connection.query(
-        'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
-        [sigla_id, 'ARTICOLO']
-      );
-      const giacenzaSigla = sigla[0].quantita - usedInKit[0].totale - assegnato[0].totale;
-      if (quantita > giacenzaSigla) {
+    if (!isRiduzione) {
+      const giacenzaSci = await getGiacenzaArticolo(connection, sci_id);
+      let quantitaTotaleRichiesta = 0;
+      for (const riga of righe) {
+        quantitaTotaleRichiesta += riga.quantita;
+      }
+      if (quantitaTotaleRichiesta > giacenzaSci) {
         await connection.rollback();
         return res.status(400).json({
           success: false,
-          message: `Quantità richiesta (${quantita}) per la sigla supera la giacenza disponibile (${giacenzaSigla})`
+          message: `Quantità richiesta (${quantitaTotaleRichiesta}) supera la giacenza disponibile (${giacenzaSci}) per lo sci`
         });
       }
+
+      for (const riga of righe) {
+        const { sigla_id, quantita } = riga;
+        const [sigla] = await connection.query(
+          'SELECT quantita FROM sigle_articoli WHERE id = ? AND attivo = 1',
+          [sigla_id]
+        );
+        if (!sigla.length) throw new Error(`Sigla ID ${sigla_id} non trovata`);
+        
+        const [usedInKit] = await connection.query(
+          'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
+          [sigla_id]
+        );
+        const [assegnato] = await connection.query(
+          'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
+          [sigla_id, 'ARTICOLO']
+        );
+        const giacenzaSigla = sigla[0].quantita - usedInKit[0].totale - assegnato[0].totale;
+        if (quantita > giacenzaSigla) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Quantità richiesta (${quantita}) per la sigla supera la giacenza disponibile (${giacenzaSigla})`
+          });
+        }
+      }
     }
+
+    const [sci] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [sci_id]);
+    if (!sci.length) throw new Error('Sci non trovato');
 
     const descKit = await generaDescrizioneKit(connection, sci[0], righe);
 
@@ -672,7 +652,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     await registraAudit(connection, 'kit', 'MODIFICA', id, oldRow[0], newRow[0], req.userId);
 
     await connection.commit();
-    console.log(`✅ Kit ${id} aggiornato`);
+    console.log(`✅ Kit ${id} aggiornato (${isRiduzione ? 'riduzione' : 'aumento'})`);
     res.json({ success: true, message: 'Kit aggiornato' });
   } catch (err) {
     await connection.rollback();
@@ -684,7 +664,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/kit/:id/note - Aggiorna solo la nota del kit
+// PATCH /api/kit/:id/note
 // ============================================================
 router.patch('/:id/note', verifyToken, async (req, res) => {
   const { note } = req.body;
@@ -709,59 +689,8 @@ router.patch('/:id/note', verifyToken, async (req, res) => {
   }
 });
 
-
 // ============================================================
-// PATCH /api/kit/batch-quantita - Modifica quantità di più kit
-// ============================================================
-router.patch('/batch-quantita', verifyToken, async (req, res) => {
-  const { ids, quantita } = req.body;
-  if (!ids || !ids.length || quantita === undefined) {
-    return res.status(400).json({ success: false, message: 'Parametri mancanti: ids e quantita' });
-  }
-  if (quantita < 0) {
-    return res.status(400).json({ success: false, message: 'La quantità non può essere negativa' });
-  }
-
-  const connection = await db.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    // Verifica che tutti i kit esistano
-    const placeholders = ids.map(() => '?').join(',');
-    const [existing] = await connection.query(
-      `SELECT id FROM kit WHERE id IN (${placeholders})`,
-      ids
-    );
-    if (existing.length !== ids.length) {
-      await connection.rollback();
-      return res.status(404).json({ success: false, message: 'Uno o più kit non trovati' });
-    }
-
-    // Aggiorna tutti i kit
-    await connection.query(
-      `UPDATE kit SET quantita = ?, data_modifica = NOW() WHERE id IN (${placeholders})`,
-      [quantita, ...ids]
-    );
-
-    // Audit per ogni kit modificato
-    for (const id of ids) {
-      const [newRow] = await connection.query('SELECT * FROM kit WHERE id = ?', [id]);
-      await registraAudit(connection, 'kit', 'MODIFICA_BATCH', id, null, newRow[0], req.userId);
-    }
-
-    await connection.commit();
-    res.json({ success: true, message: `Quantità aggiornata per ${ids.length} kit` });
-  } catch (err) {
-    await connection.rollback();
-    console.error('❌ Errore PATCH /kit/batch-quantita:', err);
-    res.status(500).json({ success: false, message: err.message });
-  } finally {
-    connection.release();
-  }
-});
-
-// ============================================================
-// DELETE /api/kit/:id - Elimina kit
+// DELETE /api/kit/:id
 // ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
