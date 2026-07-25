@@ -814,6 +814,53 @@ router.patch('/batch-quantita', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// POST /api/kit/:id/rientro - Rientro forzato (elimina riga in carico_sintesi)
+// ============================================================
+router.post('/:id/rientro', verifyToken, async (req, res) => {
+  const kitId = req.params.id;
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Verifica che il kit esista
+    const [kit] = await connection.query('SELECT * FROM kit WHERE id = ?', [kitId]);
+    if (!kit.length) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Kit non trovato' });
+    }
+
+    // 2. Elimina tutte le righe in carico_sintesi per questo kit
+    const [result] = await connection.query(
+      'DELETE FROM carico_sintesi WHERE tipo_oggetto = \'KIT\' AND oggetto_id = ?',
+      [kitId]
+    );
+
+    if (result.affectedRows === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Nessuna riga in carico_sintesi trovata per questo kit' });
+    }
+
+    // 3. Registra un movimento di rientro (opzionale, ma utile per audit)
+    const [user] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
+    const operatore = user.length ? user[0].username : 'sconosciuto';
+    await connection.query(
+      `INSERT INTO movimenti (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato)
+       VALUES (NOW(), 'RIENTRO', CONCAT('PROMOTER-', ?), CONCAT('MAGAZZINO-', ?), ?, 'KIT', ?, ?, 'Rientro forzato da API', 'COMPLETATO')`,
+      [req.userId, kit[0].magazzino, kitId, kit[0].quantita, operatore]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Rientro forzato effettuato con successo' });
+  } catch (err) {
+    await connection.rollback();
+    console.error('❌ Errore rientro forzato kit:', err);
+    res.status(500).json({ success: false, message: err.message });
+  } finally {
+    connection.release();
+  }
+});
+
 module.exports = router;
 
 // === ESPORTAZIONE PER AUDIT ===
