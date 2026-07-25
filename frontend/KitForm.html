@@ -780,10 +780,21 @@ function handleSort(col) {
 async function caricaKit() {
   try {
     const res = await apiFetch('/kit');
-    allKits = Array.isArray(res) ? res : [];
+    // Gestisce sia array diretto che oggetto con data
+    if (Array.isArray(res)) {
+      allKits = res;
+    } else if (res.success && Array.isArray(res.data)) {
+      allKits = res.data;
+    } else {
+      allKits = [];
+      console.warn('⚠️ Risposta /kit non riconosciuta:', res);
+    }
+    console.log('📦 Kit caricati:', allKits.length);
     popolaTabellaKit();
   } catch (err) {
     showMessage('Errore caricamento kit: ' + err.message, 'error');
+    allKits = [];
+    popolaTabellaKit();
   }
 }
 
