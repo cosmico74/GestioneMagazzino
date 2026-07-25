@@ -107,7 +107,8 @@ async function canPromoterAssignTo(connection, promoterId, targetSoggettoId) {
 }
 
 async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, quantita, provenienzaTipo, provenienzaId, dataAssegnazione) {
-  // 🔥 NON inserire righe con destinazione MAGAZZINO
+  
+  // 🔥 NON inserire righe con destinazione MAGAZZINO (il magazzino è lo stato di default, non un destinatario)
   if (destinazioneTipo === 'MAGAZZINO') {
     console.log('⚠️ Tentativo di inserire carico_sintesi con destinazione MAGAZZINO - ignorato');
     return;
@@ -144,6 +145,7 @@ async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneI
     [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || db.now()]
   );
 }
+
 
 
 // ============================================================
