@@ -105,16 +105,28 @@ async function canPromoterAssignTo(connection, promoterId, targetSoggettoId) {
 }
 
 // ============================================================
-// HELPER: Aggiorna carico_sintesi
+// HELPER: Aggiorna carico_sintesi (con log per il rientro)
 // ============================================================
 async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, quantita, provenienzaTipo, provenienzaId, dataAssegnazione) {
   if (quantita === 0) {
-    await connection.query(
-      'DELETE FROM carico_sintesi WHERE destinazione_tipo = ? AND destinazione_id = ? AND tipo_oggetto = ? AND oggetto_id = ? AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))',
-      [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, siglaId]
-    );
+    // ELIMINA la riga
+    const deleteParams = [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, siglaId];
+    const sql = `
+      DELETE FROM carico_sintesi 
+      WHERE destinazione_tipo = ? AND destinazione_id = ? 
+        AND tipo_oggetto = ? AND oggetto_id = ? 
+        AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))
+    `;
+    console.log('🗑️ DELETE da carico_sintesi:', sql, deleteParams);
+    const [result] = await connection.query(sql, deleteParams);
+    if (result.affectedRows === 0) {
+      console.warn('⚠️ Nessuna riga eliminata in carico_sintesi per:', { destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId });
+    } else {
+      console.log('✅ Riga eliminata da carico_sintesi');
+    }
     return;
   }
+  // Inserisci o aggiorna
   await connection.query(
     `INSERT INTO carico_sintesi (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -215,7 +227,7 @@ router.post('/uscita/batch', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// RIENTRO BATCH
+// RIENTRO BATCH (MODIFICATO CON LOG E CONTROLLI)
 // ============================================================
 router.post('/rientro/batch', verifyToken, async (req, res) => {
   const { magazzinoId, note, oggetti } = req.body;
@@ -239,8 +251,11 @@ router.post('/rientro/batch', verifyToken, async (req, res) => {
 
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, siglaId, quantita, daTipo, daId } = item;
+      // Usa daTipo/daId se presenti, altrimenti fallback a 'PROMOTER' e null (ma dovrebbero esserci)
       const provenienzaTipo = daTipo || 'PROMOTER';
       const provenienzaId = daId || null;
+
+      console.log(`🔄 Rientro: tipo=${tipoOggetto}, id=${oggettoId}, siglaId=${siglaId}, quantita=${quantita}, daTipo=${provenienzaTipo}, daId=${provenienzaId}`);
 
       if (tipoOggetto === 'ARTICOLO') {
         await aggiornaCaricoSintesi(connection, provenienzaTipo, provenienzaId, 'ARTICOLO', oggettoId, siglaId, 0, null, null, null);
@@ -248,6 +263,7 @@ router.post('/rientro/batch', verifyToken, async (req, res) => {
         await aggiornaCaricoSintesi(connection, provenienzaTipo, provenienzaId, 'KIT', oggettoId, null, 0, null, null, null);
       }
 
+      // Registra il movimento di rientro
       await connection.query(
         `INSERT INTO movimenti (data, tipo, da_magazzino, a_magazzino, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
          VALUES (?, 'RIENTRO', ?, ?, ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
@@ -298,12 +314,14 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
       const itemDaTipo = item.daTipo || daTipo;
       const itemDaId = item.daId || daId;
 
+      // Rimuovi dal vecchio destinatario
       if (tipoOggetto === 'ARTICOLO') {
         await aggiornaCaricoSintesi(connection, itemDaTipo, itemDaId, 'ARTICOLO', oggettoId, siglaId, 0, null, null, null);
       } else if (tipoOggetto === 'KIT') {
         await aggiornaCaricoSintesi(connection, itemDaTipo, itemDaId, 'KIT', oggettoId, null, 0, null, null, null);
       }
 
+      // Aggiungi al nuovo destinatario
       if (tipoOggetto === 'ARTICOLO') {
         let siglaDaUsare = siglaId;
         if (!siglaDaUsare) {
@@ -342,7 +360,6 @@ router.post('/trasferimento', verifyToken, async (req, res) => {
     connection.release();
   }
 });
-
 
 // ============================================================
 // DIVIDI E TRASFERISCI (quantità parziale)
@@ -423,6 +440,7 @@ router.post('/dividi', verifyToken, async (req, res) => {
     connection.release();
   }
 });
+
 // ============================================================
 // OTTIENI OGGETTI IN CARICO (con categoria)
 // ============================================================
@@ -536,9 +554,6 @@ router.post('/oggetti', verifyToken, async (req, res) => {
   }
 });
 
-// ============================================================
-// OTTIENI OGGETTI INVIATI
-// ============================================================
 // ============================================================
 // OTTIENI OGGETTI INVIATI (escludendo quelli non trasferiti)
 // ============================================================

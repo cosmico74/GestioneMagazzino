@@ -918,7 +918,9 @@ async function caricaOggettiDaMagazzino() {
         try {
           var assegnato = await apiFetch('/assegnazioni/quantita-assegnata-kit?kit_id=' + kit.id);
           dispKit = kit.quantita - (assegnato.quantita || 0);
-        } catch(e) {}
+        } catch(e) {
+          console.warn('⚠️ Errore nel recupero quantità assegnata per kit', kit.id, e);
+        }
         if (dispKit <= 0) continue;
         var lung = kit.lunghezza_sci || '';
         var sigla = kit.sigla_sci || '';
@@ -1386,7 +1388,7 @@ async function confermaDividi() {
 }
 
 // ============================================================
-// TRASFERIMENTO MASSIVO
+// TRASFERIMENTO MASSIVO (MODIFICATO per rientro corretto)
 // ============================================================
 var selectedMassive = [];
 
@@ -1460,20 +1462,32 @@ async function confermaMassive() {
       return { tipoOggetto: o.tipoOggetto, oggettoId: o.oggettoId, siglaId: o.siglaId || null, quantita: o.totale };
     });
   } else {
+    // Modalità "In carico": trasferimento o rientro
     if (dT === 'MAGAZZINO') {
+      // RIENTRO A MAGAZZINO
       endpoint = '/assegnazioni/rientro/batch';
       payload.magazzinoId = parseInt(dId);
       payload.oggetti = selectedMassive.map(function(o) {
+        // Assicuriamoci che daTipo e daId siano sempre presenti
+        var daTipo = o.destinazioneTipo || 'PROMOTER';
+        var daId = o.destinazioneId || null;
+        if (!daId) {
+          console.warn('⚠️ Oggetto senza destinazioneId:', o);
+          // Fallback: usa il soggetto selezionato
+          daTipo = sourceTipo.value;
+          daId = parseInt(sourceId.value);
+        }
         return {
           tipoOggetto: o.tipoOggetto,
           oggettoId: o.oggettoId,
           siglaId: o.siglaId || null,
           quantita: o.totale,
-          daTipo: o.destinazioneTipo,
-          daId: o.destinazioneId
+          daTipo: daTipo,
+          daId: daId
         };
       });
     } else {
+      // TRASFERIMENTO AD ALTRO SOGGETTO
       endpoint = '/assegnazioni/trasferimento';
       var magTrans = null;
       for (var i = 0; i < magazzini.length; i++) {
@@ -1498,7 +1512,9 @@ async function confermaMassive() {
       chiudiMassiveModal();
       caricaOggetti();
     } else { showMessage(r.message, 'error'); }
-  } catch(e) { showMessage('Errore durante il trasferimento massivo: ' + e.message, 'error'); }
+  } catch(e) {
+    showMessage('Errore durante il trasferimento massivo: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
@@ -1549,7 +1565,6 @@ function apriModalCreaKitDaCarico() {
     var desc = o.codice_sigla + ' - ' + o.descrizione;
     var disponibile = o.totale || 0;
     var inputId = 'qty_' + j;
-    // Default 1 se disponibile > 0, altrimenti 0
     var valoreDefault = disponibile > 0 ? 1 : 0;
     html += '<tr>';
     html += '<td><strong>' + tipoArticolo + '</strong></td>';
