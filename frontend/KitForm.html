@@ -18,6 +18,7 @@
     .btn-danger { background: #dc3545; }
     .btn-success { background: #28a745; }
     .btn-secondary { background: #6c757d; }
+    .btn-warning { background: #f39c12; color: white; }
     .btn-sm { padding: 2px 6px; font-size: 0.7rem; }
     .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; }
     .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -25,10 +26,10 @@
     label { display: block; font-weight: 600; font-size: 0.8rem; margin-bottom: 2px; }
     input, select, textarea { width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.8rem; background: #f9fafb; }
     input:read-only { background: #e9ecef; cursor: not-allowed; }
-    .table-wrapper { overflow-x: auto; margin-top: 20px; }
+    .table-wrapper { overflow-x: auto; margin-top: 20px; max-height: 70vh; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     th, td { border: 1px solid #ddd; padding: 6px; text-align: left; vertical-align: middle; }
-    th { background: #f8f9fa; cursor: pointer; user-select: none; }
+    th { background: #f8f9fa; cursor: pointer; user-select: none; position: sticky; top: 0; z-index: 10; }
     th:hover { background: #e2e8f0; }
     .sort-arrow { font-size: 0.7rem; margin-left: 4px; color: #aaa; }
     .sort-arrow.active { color: #1a73e8; font-weight: bold; }
@@ -76,6 +77,29 @@
       margin-bottom: 10px;
       font-size: 0.85rem;
       border-left: 3px solid #1a73e8;
+    }
+    .badge-kit-count {
+      display: inline-block;
+      background: #17a2b8;
+      color: white;
+      border-radius: 12px;
+      padding: 1px 8px;
+      font-size: 0.65rem;
+      margin-left: 4px;
+    }
+    .btn-dettaglio-gruppo {
+      background: #17a2b8;
+      color: white;
+    }
+    .btn-dettaglio-gruppo:hover {
+      background: #138496;
+    }
+    .group-quantity-input {
+      width: 100px;
+      padding: 4px 6px;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+      font-size: 0.8rem;
     }
   </style>
 </head>
@@ -160,20 +184,22 @@
     </form>
   </div>
 
-  <!-- LISTA KIT -->
+  <!-- LISTA KIT CON RAGGRUPPAMENTO -->
   <div class="table-wrapper">
     <table id="tabellaKit">
       <thead>
         <tr>
-          <th data-sort="id">ID <span class="sort-arrow" id="sort-id">▲</span></th>
-          <th data-sort="codice_kit">Codice <span class="sort-arrow" id="sort-codice_kit">▲</span></th>
-          <th data-sort="descrizione">Descrizione <span class="sort-arrow" id="sort-descrizione">▲</span></th>
-          <th data-sort="sigla_sci">Sigla Sci <span class="sort-arrow" id="sort-sigla_sci">▲</span></th>
-          <th data-sort="lunghezza_sci">Lunghezza <span class="sort-arrow" id="sort-lunghezza_sci">▲</span></th>
-          <th data-sort="magazzino">Magazzino <span class="sort-arrow" id="sort-magazzino">▲</span></th>
-          <th data-sort="quantita">Quantità <span class="sort-arrow" id="sort-quantita">▲</span></th>
-          <th data-sort="ultimo_destinatario">Assegnato a <span class="sort-arrow" id="sort-ultimo_destinatario">▲</span></th>
-          <th data-sort="note">Nota <span class="sort-arrow" id="sort-note">▲</span></th>
+          <th>ID / Gruppo</th>
+          <th>Codice</th>
+          <th>Descrizione</th>
+          <th>Sigla Sci</th>
+          <th>Attacco</th>
+          <th>Lunghezza</th>
+          <th>Skistopper</th>
+          <th>Magazzino</th>
+          <th>Quantità</th>
+          <th>Assegnato a</th>
+          <th>Nota</th>
           <th>Azioni</th>
         </tr>
       </thead>
@@ -182,61 +208,59 @@
   </div>
 </div>
 
-<!-- MODALE MODIFICA KIT -->
-<div id="editKitModal" class="modal">
+<!-- MODALE MODIFICA GRUPPO -->
+<div id="editGroupModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <h3 id="editKitTitle">✏️ Modifica Kit</h3>
-      <span class="close" onclick="chiudiEditKitModal()">&times;</span>
+      <h3 id="editGroupTitle">✏️ Modifica Gruppo</h3>
+      <span class="close" onclick="chiudiEditGroupModal()">&times;</span>
     </div>
-    <form id="editKitForm" onsubmit="return false;">
-      <input type="hidden" id="editKitId">
-      <div id="editKitRiepilogo" class="kit-riepilogo"></div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Magazzino</label>
-          <div id="editMagazzinoDisplay" class="readonly-info"></div>
-        </div>
-        <div class="form-group">
-          <label>Sci</label>
-          <div id="editSciDisplay" class="readonly-info"></div>
-        </div>
+    <div id="editGroupRiepilogo" class="kit-riepilogo"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Magazzino</label>
+        <div id="editGroupMagazzino" class="readonly-info"></div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Sigla Sci</label>
-          <div id="editSiglaDisplay" class="readonly-info"></div>
-        </div>
-        <div class="form-group">
-          <label>Lunghezza</label>
-          <div id="editLunghezzaDisplay" class="readonly-info"></div>
-        </div>
+      <div class="form-group">
+        <label>Sci</label>
+        <div id="editGroupSci" class="readonly-info"></div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Attacco</label>
-          <div id="editAttaccoDisplay" class="readonly-info"></div>
-        </div>
-        <div class="form-group">
-          <label>Skistopper</label>
-          <div id="editSkistopperDisplay" class="readonly-info"></div>
-        </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Sigla Sci</label>
+        <div id="editGroupSigla" class="readonly-info"></div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Quantità *</label>
-          <input type="number" id="editQuantitaInput" class="form-control" min="0" step="1" required>
-        </div>
-        <div class="form-group">
-          <label>Note</label>
-          <textarea id="editKitNote" rows="1" class="form-control"></textarea>
-        </div>
+      <div class="form-group">
+        <label>Lunghezza</label>
+        <div id="editGroupLunghezza" class="readonly-info"></div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="chiudiEditKitModal()">Annulla</button>
-        <button type="button" class="btn btn-success" id="saveEditKitBtn" onclick="salvaEditKit()">💾 Aggiorna Kit</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Attacco</label>
+        <div id="editGroupAttacco" class="readonly-info"></div>
       </div>
-    </form>
+      <div class="form-group">
+        <label>Skistopper</label>
+        <div id="editGroupSkistopper" class="readonly-info"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Assegnato a</label>
+        <div id="editGroupAssegnato" class="readonly-info"></div>
+      </div>
+      <div class="form-group">
+        <label>Quantità Totale *</label>
+        <input type="number" id="editGroupQuantita" class="form-control" min="0" step="1" required>
+        <small style="color:#666;">Numero di kit nel gruppo: <span id="editGroupNumeroKit"></span></small>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="chiudiEditGroupModal()">Annulla</button>
+      <button type="button" class="btn btn-success" id="saveEditGroupBtn" onclick="salvaEditGroup()">💾 Aggiorna Gruppo</button>
+    </div>
   </div>
 </div>
 
@@ -297,6 +321,7 @@ let currentSigleDisponibili = [];
 let currentKitId = null;
 let formResetting = false;
 let kitEditId = null;
+let groupKitIds = [];
 
 let sortColumn = 'descrizione';
 let sortAsc = true;
@@ -306,17 +331,17 @@ const kitSciSelect = document.getElementById('kitSci');
 const filtroMagazzino = document.getElementById('filtroMagazzino');
 const filtroRicerca = document.getElementById('filtroRicerca');
 
-// Edit modal elements
-const editKitId = document.getElementById('editKitId');
-const editQuantitaInput = document.getElementById('editQuantitaInput');
-const editKitNote = document.getElementById('editKitNote');
-const editKitRiepilogo = document.getElementById('editKitRiepilogo');
-const editMagazzinoDisplay = document.getElementById('editMagazzinoDisplay');
-const editSciDisplay = document.getElementById('editSciDisplay');
-const editSiglaDisplay = document.getElementById('editSiglaDisplay');
-const editLunghezzaDisplay = document.getElementById('editLunghezzaDisplay');
-const editAttaccoDisplay = document.getElementById('editAttaccoDisplay');
-const editSkistopperDisplay = document.getElementById('editSkistopperDisplay');
+// Edit group modal elements
+const editGroupRiepilogo = document.getElementById('editGroupRiepilogo');
+const editGroupMagazzino = document.getElementById('editGroupMagazzino');
+const editGroupSci = document.getElementById('editGroupSci');
+const editGroupSigla = document.getElementById('editGroupSigla');
+const editGroupLunghezza = document.getElementById('editGroupLunghezza');
+const editGroupAttacco = document.getElementById('editGroupAttacco');
+const editGroupSkistopper = document.getElementById('editGroupSkistopper');
+const editGroupAssegnato = document.getElementById('editGroupAssegnato');
+const editGroupQuantita = document.getElementById('editGroupQuantita');
+const editGroupNumeroKit = document.getElementById('editGroupNumeroKit');
 
 // ============================================================
 // HELPER: calcola giacenza reale
@@ -655,7 +680,7 @@ function resetForm() {
 }
 
 // ============================================================
-// SALVA KIT
+// SALVA KIT (form principale)
 // ============================================================
 async function salvaKit() {
   const magazzino = kitMagazzinoSelect.value;
@@ -755,26 +780,7 @@ async function salvaKit() {
 }
 
 // ============================================================
-// ORDINAMENTO TABELLA
-// ============================================================
-function handleSort(col) {
-  if (sortColumn === col) {
-    sortAsc = !sortAsc;
-  } else {
-    sortColumn = col;
-    sortAsc = true;
-  }
-  document.querySelectorAll('.sort-arrow').forEach(el => el.classList.remove('active'));
-  const arrow = document.getElementById('sort-' + col);
-  if (arrow) {
-    arrow.classList.add('active');
-    arrow.textContent = sortAsc ? '▲' : '▼';
-  }
-  caricaKit();
-}
-
-// ============================================================
-// CARICA KIT (con correzione per colonna Assegnato a)
+// CARICA KIT (con raggruppamento)
 // ============================================================
 async function caricaKit() {
   try {
@@ -815,165 +821,337 @@ function popolaTabellaKit() {
   }
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun kit trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
 
-  filtered.sort((a, b) => {
-    if (sortColumn === 'descrizione') {
-      const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
-      const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
-      if (descA !== descB) return sortAsc ? (descA < descB ? -1 : 1) : (descA > descB ? -1 : 1);
-      const lA = parseFloat(a.lunghezza_sci) || 0;
-      const lB = parseFloat(b.lunghezza_sci) || 0;
-      if (lA !== lB) return sortAsc ? lA - lB : lB - lA;
-      const cA = (a.codice_kit || '').toLowerCase();
-      const cB = (b.codice_kit || '').toLowerCase();
-      return sortAsc ? (cA < cB ? -1 : 1) : (cA > cB ? -1 : 1);
+  // Raggruppamento per descrizione, lunghezza, sigla, attacco, skistopper, ultimo_destinatario
+  const groups = {};
+  filtered.forEach(k => {
+    // Recupera attacco e skistopper dai dettagli (dobbiamo averli nel kit)
+    // Assumiamo che il backend abbia già questi campi
+    const attacco = k.attacco_descrizione || 'N/A';
+    const skistopper = k.skistopper_descrizione || 'Nessuno';
+    const key = `${k.descrizione}|${k.lunghezza_sci || ''}|${k.sigla_sci || ''}|${attacco}|${skistopper}|${k.ultimo_destinatario || 'In magazzino'}`;
+    if (!groups[key]) {
+      groups[key] = {
+        descrizione: k.descrizione || '',
+        lunghezza_sci: k.lunghezza_sci || '',
+        sigla_sci: k.sigla_sci || '',
+        attacco: attacco,
+        skistopper: skistopper,
+        magazzino: k.magazzino,
+        ultimo_destinatario: k.ultimo_destinatario || 'In magazzino',
+        quantita_totale: 0,
+        kits: [],
+        note: k.note || ''
+      };
     }
-    let va = a[sortColumn] || '', vb = b[sortColumn] || '';
-    if (sortColumn === 'id' || sortColumn === 'quantita' || sortColumn === 'magazzino') {
-      va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
-    } else if (sortColumn === 'ultimo_destinatario') {
-      va = (a.ultimo_destinatario || 'In magazzino').toLowerCase();
-      vb = (b.ultimo_destinatario || 'In magazzino').toLowerCase();
-    } else {
-      va = va.toString().toLowerCase();
-      vb = vb.toString().toLowerCase();
-    }
-    if (va < vb) return sortAsc ? -1 : 1;
-    if (va > vb) return sortAsc ? 1 : -1;
-    return 0;
+    groups[key].quantita_totale += k.quantita || 0;
+    groups[key].kits.push(k);
   });
 
-  filtered.forEach(k => {
-    let magNome = 'Magazzino ' + k.magazzino;
-    if (magazzini && magazzini.length > 0) {
-      const found = magazzini.find(m => parseInt(m.id) === parseInt(k.magazzino));
-      if (found) magNome = found.nome;
-    }
+  // Ordina i gruppi per descrizione (primi 8 caratteri) e lunghezza
+  const sortedGroups = Object.values(groups).sort((a, b) => {
+    const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
+    const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
+    if (descA !== descB) return descA < descB ? -1 : 1;
+    const lA = parseFloat(a.lunghezza_sci) || 0;
+    const lB = parseFloat(b.lunghezza_sci) || 0;
+    return lA - lB;
+  });
 
+  sortedGroups.forEach(group => {
+    const firstKit = group.kits[0];
+    const mag = magazzini.find(m => m.id == group.magazzino)?.nome || 'Magazzino ' + group.magazzino;
     const row = tbody.insertRow();
 
-    row.insertCell(0).innerText = k.id;
-    row.insertCell(1).innerText = k.codice_kit || '-';
-    row.insertCell(2).innerText = k.descrizione || '-';
-    row.insertCell(3).innerText = k.sigla_sci || 'NA';
-    row.insertCell(4).innerText = k.lunghezza_sci || '-';
-    row.insertCell(5).innerText = magNome;
-    row.insertCell(6).innerText = k.quantita || 0;
+    // Colonna ID / Gruppo
+    const idDisplay = group.kits.length > 1 ? 
+      `<span class="badge-kit-count">${group.kits.length} kit</span>` : 
+      firstKit.id;
+    row.insertCell(0).innerHTML = idDisplay;
 
-    // 🔥 COLONNA "Assegnato a" con sostituzione di "Magazzino X"
-    const tdAssegnato = row.insertCell(7);
-    let assegnato = k.ultimo_destinatario || 'In magazzino';
-    // Se è un fallback "Magazzino X", sostituisci con il nome reale dal magazzini
-    if (assegnato.startsWith('Magazzino ')) {
-      const magId = parseInt(assegnato.replace('Magazzino ', ''));
-      if (!isNaN(magId)) {
-        const found = magazzini.find(m => m.id === magId);
-        if (found) assegnato = found.nome;
-      }
-    }
+    row.insertCell(1).innerText = group.kits.length > 1 ? '—' : (firstKit.codice_kit || '-');
+    row.insertCell(2).innerText = group.descrizione || '-';
+    row.insertCell(3).innerText = group.sigla_sci || 'NA';
+    row.insertCell(4).innerText = group.attacco || 'N/A';
+    row.insertCell(5).innerText = group.lunghezza_sci || '-';
+    row.insertCell(6).innerText = group.skistopper || 'Nessuno';
+    row.insertCell(7).innerText = mag;
+    row.insertCell(8).innerText = group.quantita_totale || 0;
+
+    // Assegnato a
+    const tdAssegnato = row.insertCell(9);
+    const assegnato = group.ultimo_destinatario || 'In magazzino';
     const span = document.createElement('span');
     span.textContent = assegnato;
-    if (k.catena_assegnazioni && k.catena_assegnazioni.trim() !== '') {
+    if (firstKit.catena_assegnazioni && firstKit.catena_assegnazioni.trim() !== '') {
       span.className = 'assegnazione-tooltip';
-      span.setAttribute('data-tooltip', k.catena_assegnazioni);
+      span.setAttribute('data-tooltip', firstKit.catena_assegnazioni);
     }
     tdAssegnato.appendChild(span);
 
-    row.insertCell(8).innerText = k.note || '';
+    row.insertCell(10).innerText = group.note || '';
 
-    const actions = row.insertCell(9);
+    // Azioni
+    const actions = row.insertCell(11);
     actions.className = 'action-buttons';
-    const btnMod = document.createElement('button');
-    btnMod.textContent = '✏️';
-    btnMod.className = 'btn btn-sm';
-    btnMod.onclick = () => apriEditKitModal(k.id);
-    actions.appendChild(btnMod);
-    const btnDel = document.createElement('button');
-    btnDel.textContent = '🗑️';
-    btnDel.className = 'btn btn-danger btn-sm';
-    btnDel.onclick = () => eliminaKit(k.id);
-    actions.appendChild(btnDel);
+    if (group.kits.length > 1) {
+      // Pulsante per modificare il gruppo
+      const btnGroup = document.createElement('button');
+      btnGroup.textContent = '✏️';
+      btnGroup.className = 'btn btn-warning btn-sm';
+      btnGroup.title = 'Modifica quantità gruppo';
+      btnGroup.onclick = () => apriEditGroupModal(group.kits);
+      actions.appendChild(btnGroup);
+      
+      // Pulsante per dettaglio gruppo (mostra i singoli kit)
+      const btnDetail = document.createElement('button');
+      btnDetail.textContent = '📋';
+      btnDetail.className = 'btn btn-secondary btn-sm';
+      btnDetail.title = 'Dettaglio kit del gruppo';
+      btnDetail.onclick = () => apriDetailGroupModal(group.kits);
+      actions.appendChild(btnDetail);
+    } else {
+      // Singolo kit: pulsanti modifica/elimina
+      const kit = group.kits[0];
+      const btnMod = document.createElement('button');
+      btnMod.textContent = '✏️';
+      btnMod.className = 'btn btn-sm';
+      btnMod.onclick = () => apriEditKitModal(kit.id);
+      actions.appendChild(btnMod);
+      const btnDel = document.createElement('button');
+      btnDel.textContent = '🗑️';
+      btnDel.className = 'btn btn-danger btn-sm';
+      btnDel.onclick = () => eliminaKit(kit.id);
+      actions.appendChild(btnDel);
+    }
   });
 }
 
 // ============================================================
-// MODALE MODIFICA KIT
+// MODALE MODIFICA GRUPPO
+// ============================================================
+function apriEditGroupModal(kits) {
+  if (!kits || !kits.length) return;
+  
+  // Salva gli ID del gruppo
+  groupKitIds = kits.map(k => k.id);
+  
+  // Riepilogo
+  const firstKit = kits[0];
+  const desc = firstKit.descrizione || 'Kit';
+  const lung = firstKit.lunghezza_sci || '';
+  const sigla = firstKit.sigla_sci || 'NA';
+  const attacco = firstKit.attacco_descrizione || 'N/A';
+  const skistopper = firstKit.skistopper_descrizione || 'Nessuno';
+  const mag = magazzini.find(m => m.id == firstKit.magazzino)?.nome || 'Magazzino ' + firstKit.magazzino;
+  const assegnato = firstKit.ultimo_destinatario || 'In magazzino';
+  
+  editGroupRiepilogo.innerHTML = `
+    <strong>Gruppo (${kits.length} kit)</strong> — ${desc}<br>
+    <span style="font-size:0.8rem;color:#555;">
+      Sigla: ${sigla} | Lunghezza: ${lung} cm | Attacco: ${attacco} | Skistopper: ${skistopper}
+    </span>
+  `;
+  
+  editGroupMagazzino.textContent = mag;
+  editGroupSci.textContent = desc;
+  editGroupSigla.textContent = sigla;
+  editGroupLunghezza.textContent = lung ? lung + ' cm' : '-';
+  editGroupAttacco.textContent = attacco;
+  editGroupSkistopper.textContent = skistopper;
+  editGroupAssegnato.textContent = assegnato;
+  
+  // Quantità totale attuale
+  let totale = 0;
+  kits.forEach(k => totale += k.quantita || 0);
+  editGroupQuantita.value = totale;
+  editGroupNumeroKit.textContent = kits.length;
+  
+  document.getElementById('editGroupModal').style.display = 'flex';
+}
+
+function chiudiEditGroupModal() {
+  document.getElementById('editGroupModal').style.display = 'none';
+  groupKitIds = [];
+}
+
+async function salvaEditGroup() {
+  const ids = groupKitIds;
+  if (!ids || !ids.length) {
+    showMessage('Nessun kit selezionato', 'error');
+    return;
+  }
+  
+  const nuovaQuantita = parseInt(editGroupQuantita.value);
+  if (isNaN(nuovaQuantita) || nuovaQuantita < 0) {
+    showMessage('Inserisci una quantità valida (>= 0)', 'error');
+    return;
+  }
+  
+  const btn = document.getElementById('saveEditGroupBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Aggiornamento...';
+  
+  try {
+    const res = await apiFetch('/kit/batch-quantita', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids, quantita: nuovaQuantita })
+    });
+    if (res.success) {
+      showMessage('Quantità aggiornata per ' + ids.length + ' kit!', 'success');
+      chiudiEditGroupModal();
+      caricaKit();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch (err) {
+    showMessage('Errore: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '💾 Aggiorna Gruppo';
+  }
+}
+
+// ============================================================
+// MODALE DETTAGLIO GRUPPO (mostra i singoli kit)
+// ============================================================
+function apriDetailGroupModal(kits) {
+  // Ricarica i dettagli completi per ogni kit
+  Promise.all(kits.map(k => apiFetch('/kit/' + k.id)))
+    .then(details => {
+      let html = '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;">';
+      html += '<tr style="background:#f1f5f9;"><th>ID</th><th>Codice</th><th>Quantità</th><th>Magazzino</th><th>Assegnato a</th><th>Azioni</th></tr>';
+      details.forEach(k => {
+        const mag = magazzini.find(m => m.id == k.magazzino)?.nome || k.magazzino;
+        const assegnato = k.ultimo_destinatario || 'In magazzino';
+        html += `<tr>
+          <td>${k.id}</td>
+          <td>${k.codice_kit || '-'}</td>
+          <td>${k.quantita || 0}</td>
+          <td>${mag}</td>
+          <td>${assegnato}</td>
+          <td>
+            <button class="btn btn-sm" onclick="chiudiDetailModal(); apriEditKitModal(${k.id})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="chiudiDetailModal(); eliminaKit(${k.id})">🗑️</button>
+          </td>
+        </tr>`;
+      });
+      html += '</table>';
+      
+      // Mostra in un modale semplice
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width:800px;">
+          <div class="modal-header">
+            <h3>📋 Dettaglio Gruppo (${kits.length} kit)</h3>
+            <span class="close" onclick="this.closest('.modal').style.display='none'">&times;</span>
+          </div>
+          ${html}
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="this.closest('.modal').style.display='none'">Chiudi</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    })
+    .catch(err => showMessage('Errore caricamento dettagli: ' + err.message, 'error'));
+}
+
+function chiudiDetailModal() {
+  document.querySelectorAll('.modal').forEach(m => {
+    if (m.id !== 'editGroupModal' && m.id !== 'editKitModal' && m.id !== 'modalModificaKit') {
+      m.style.display = 'none';
+      m.remove();
+    }
+  });
+}
+
+// ============================================================
+// MODALE MODIFICA KIT (singolo)
 // ============================================================
 async function apriEditKitModal(kitId) {
   try {
     const kit = await apiFetch('/kit/' + kitId);
     if (!kit) return;
 
-    editKitId.value = kitId;
-    document.getElementById('editKitTitle').textContent = '✏️ Modifica Kit #' + kitId;
-
-    editKitRiepilogo.innerHTML = `<strong>Kit #${kitId}</strong> — ${kit.descrizione || ''}`;
-
+    // Usa il modale esistente o creane uno semplice
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    
     const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
     const attDet = kit.dettagli.find(d => d.tipo_articolo === 'ATTACCHI');
     const skDet = kit.dettagli.find(d => d.tipo_articolo === 'SKISTOPPER');
-
-    const magName = magazzini.find(m => m.id == kit.magazzino)?.nome || kit.magazzino;
-    editMagazzinoDisplay.textContent = magName || '-';
-
-    let sciText = 'N/A';
-    if (sciDet) {
-      const sciDesc = sciDet.articolo_descrizione || 'Sci ID ' + sciDet.articolo_id;
-      const lung = kit.lunghezza_sci || '';
-      sciText = `${sciDesc} ${lung ? '('+lung+' cm)' : ''}`;
-    }
-    editSciDisplay.textContent = sciText;
-
-    editSiglaDisplay.textContent = kit.sigla_sci || 'NA';
-    editLunghezzaDisplay.textContent = kit.lunghezza_sci ? kit.lunghezza_sci + ' cm' : '-';
-
-    let attText = 'N/A';
-    if (attDet) {
-      attText = attDet.articolo_descrizione || 'Attacco ID ' + attDet.articolo_id;
-    }
-    editAttaccoDisplay.textContent = attText;
-
-    let skText = 'Nessuno';
-    if (skDet) {
-      skText = skDet.articolo_descrizione || 'Skistopper ID ' + skDet.articolo_id;
-    }
-    editSkistopperDisplay.textContent = skText;
-
-    editQuantitaInput.value = kit.quantita || 0;
-    editQuantitaInput.min = 0;
-    editKitNote.value = kit.note || '';
-
-    document.getElementById('editKitModal').style.display = 'flex';
+    
+    const mag = magazzini.find(m => m.id == kit.magazzino)?.nome || kit.magazzino;
+    const sciDesc = sciDet ? sciDet.articolo_descrizione || 'Sci ID ' + sciDet.articolo_id : 'N/A';
+    const sciLung = kit.lunghezza_sci || '';
+    const sciSigla = kit.sigla_sci || 'NA';
+    const attDesc = attDet ? attDet.articolo_descrizione || 'Attacco ID ' + attDet.articolo_id : 'N/A';
+    const skDesc = skDet ? skDet.articolo_descrizione || 'Skistopper ID ' + skDet.articolo_id : 'Nessuno';
+    
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width:700px;">
+        <div class="modal-header">
+          <h3>✏️ Modifica Kit #${kitId}</h3>
+          <span class="close" onclick="this.closest('.modal').style.display='none'">&times;</span>
+        </div>
+        <div class="kit-riepilogo">
+          <strong>Kit #${kitId}</strong> — ${kit.descrizione || ''}
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Magazzino</label><div class="readonly-info">${mag}</div></div>
+          <div class="form-group"><label>Sci</label><div class="readonly-info">${sciDesc}</div></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Sigla Sci</label><div class="readonly-info">${sciSigla}</div></div>
+          <div class="form-group"><label>Lunghezza</label><div class="readonly-info">${sciLung ? sciLung + ' cm' : '-'}</div></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Attacco</label><div class="readonly-info">${attDesc}</div></div>
+          <div class="form-group"><label>Skistopper</label><div class="readonly-info">${skDesc}</div></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantità *</label>
+            <input type="number" id="editSingleQuantita" class="form-control" min="0" step="1" value="${kit.quantita || 0}">
+          </div>
+          <div class="form-group">
+            <label>Note</label>
+            <textarea id="editSingleNote" rows="1" class="form-control">${kit.note || ''}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').style.display='none'">Annulla</button>
+          <button type="button" class="btn btn-success" onclick="salvaEditKit(${kitId})">💾 Aggiorna Kit</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
   } catch (err) {
-    showMessage('Errore caricamento kit per modifica: ' + err.message, 'error');
+    showMessage('Errore caricamento kit: ' + err.message, 'error');
   }
 }
 
-function chiudiEditKitModal() {
-  document.getElementById('editKitModal').style.display = 'none';
-}
-
-// ============================================================
-// SALVA MODIFICA KIT
-// ============================================================
-async function salvaEditKit() {
-  const id = editKitId.value;
-  const nuovaQuantita = parseInt(editQuantitaInput.value);
-  const note = editKitNote.value.trim();
-
-  if (!id) { showMessage('Kit non valido', 'error'); return; }
-  if (isNaN(nuovaQuantita) || nuovaQuantita < 0) {
-    showMessage('Inserisci una quantità valida (>= 0)', 'error');
+async function salvaEditKit(kitId) {
+  const quantita = parseInt(document.getElementById('editSingleQuantita').value);
+  const note = document.getElementById('editSingleNote').value.trim();
+  
+  if (isNaN(quantita) || quantita < 0) {
+    showMessage('Quantità non valida', 'error');
     return;
   }
-
+  
   try {
-    const kit = await apiFetch('/kit/' + id);
+    // Recupera il kit completo
+    const kit = await apiFetch('/kit/' + kitId);
     if (!kit) throw new Error('Kit non trovato');
-
+    
     const righe = kit.dettagli
       .filter(d => d.tipo_articolo === 'ATTACCHI')
       .map(d => {
@@ -983,52 +1161,34 @@ async function salvaEditKit() {
           sigla_id: sci ? sci.sigla_id : null,
           attacco_id: d.articolo_id,
           skistopper_id: sk ? sk.articolo_id : null,
-          quantita: nuovaQuantita
+          quantita: quantita
         };
       });
-
+    
     if (!righe.length) {
       showMessage('Il kit non ha componenti validi', 'error');
       return;
     }
-
+    
     const payload = {
       magazzino: kit.magazzino,
       sci_id: kit.dettagli.find(d => d.tipo_articolo === 'SCI')?.articolo_id,
       note: note || null,
       righe: righe
     };
-
-    const btn = document.getElementById('saveEditKitBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Aggiornamento...';
-
-    const res = await apiFetch('/kit/' + id, { method: 'PUT', body: JSON.stringify(payload) });
+    
+    const res = await apiFetch('/kit/' + kitId, { method: 'PUT', body: JSON.stringify(payload) });
     if (res.success) {
       showMessage('Kit aggiornato!', 'success');
-      chiudiEditKitModal();
-      const categorie = await apiFetch('/anagrafiche/categorie');
-      const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
-      const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
-      const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
-      await caricaSci(sciCat);
-      await caricaArticoliPerCategoria(attCat, skCat);
-      await caricaSigleUsate();
-      if (kitSciSelect.value) {
-        await caricaSiglePerSci(kitSciSelect.value);
-      }
-      aggiornaTutteLeRighe();
-      await caricaKit();
-      resetForm();
+      // Chiudi il modale
+      const modal = document.querySelector('.modal:not([id])');
+      if (modal) modal.style.display = 'none';
+      caricaKit();
     } else {
       showMessage(res.message, 'error');
     }
   } catch (err) {
     showMessage('Errore: ' + err.message, 'error');
-  } finally {
-    const btn = document.getElementById('saveEditKitBtn');
-    btn.disabled = false;
-    btn.innerHTML = '💾 Aggiorna Kit';
   }
 }
 
@@ -1063,7 +1223,7 @@ async function eliminaKit(id) {
 }
 
 // ============================================================
-// MODIFICA NOTA KIT
+// MODIFICA NOTA KIT (modal)
 // ============================================================
 function apriModificaKit(id, codice, nota) {
   currentKitId = id;

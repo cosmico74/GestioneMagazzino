@@ -713,6 +713,107 @@ router.delete('/:id', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// PATCH /api/kit/batch-quantita - Modifica quantità di più kit (con controlli)
+// ============================================================
+router.patch('/batch-quantita', verifyToken, async (req, res) => {
+  const { ids, quantita } = req.body;
+  if (!ids || !ids.length || quantita === undefined) {
+    return res.status(400).json({ success: false, message: 'Parametri mancanti: ids e quantita' });
+  }
+  if (quantita < 0) {
+    return res.status(400).json({ success: false, message: 'La quantità deve essere >= 0' });
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Recupera i kit e le loro quantità attuali
+    const placeholders = ids.map(() => '?').join(',');
+    const [kits] = await connection.query(
+      `SELECT id, quantita FROM kit WHERE id IN (${placeholders})`,
+      ids
+    );
+    if (kits.length !== ids.length) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Uno o più kit non trovati' });
+    }
+
+    // Calcola la quantità attuale totale e la differenza
+    let quantitaAttualeTotale = 0;
+    kits.forEach(k => quantitaAttualeTotale += k.quantita);
+    const differenza = quantita - quantitaAttualeTotale;
+
+    // Se stiamo aumentando, verifica le giacenze
+    if (differenza > 0) {
+      // Per ogni kit, verifica che i componenti abbiano abbastanza giacenza
+      for (const id of ids) {
+        // Recupera i dettagli del kit (sci, attacco, skistopper)
+        const [dettagli] = await connection.query(
+          `SELECT d.*, a.quantita_totale, a.quantita_in_kit, a.quantita_obsoleta,
+           (SELECT COALESCE(SUM(quantita), 0) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = d.articolo_id) AS assegnato
+           FROM kit_dettaglio d
+           LEFT JOIN articoli a ON d.articolo_id = a.articolo_id
+           WHERE d.kit_id = ?`,
+          [id]
+        );
+
+        for (const det of dettagli) {
+          // Calcola la giacenza reale dell'articolo
+          const giacenza = det.quantita_totale - det.quantita_in_kit - det.quantita_obsoleta - det.assegnato;
+          // Per ogni kit, la quantità di ogni componente è det.quantita
+          // Se il kit ha quantità X, e vogliamo aumentare di differenza, per ogni componente servono differenza unità
+          if (giacenza < differenza) {
+            await connection.rollback();
+            const [art] = await connection.query('SELECT descrizione FROM articoli WHERE articolo_id = ?', [det.articolo_id]);
+            return res.status(400).json({
+              success: false,
+              message: `Giacenza insufficiente per l'articolo "${art[0].descrizione}" (richiesto ${differenza}, disponibile ${giacenza})`
+            });
+          }
+        }
+      }
+    }
+
+    // Se stiamo riducendo (differenza < 0), non facciamo controlli, basta rilasciare le quantità
+    // Aggiorna tutti i kit del gruppo con la nuova quantità
+    for (const id of ids) {
+      // Prima, rimuovi le quantità in kit per i componenti attuali
+      const [dettagli] = await connection.query(
+        'SELECT articolo_id, quantita FROM kit_dettaglio WHERE kit_id = ?',
+        [id]
+      );
+      for (const det of dettagli) {
+        await rimuoviDaKit(connection, det.articolo_id, det.quantita);
+      }
+
+      // Aggiorna la quantità del kit
+      await connection.query('UPDATE kit SET quantita = ? WHERE id = ?', [quantita, id]);
+
+      // Riadatta le quantità in kit per i componenti con la nuova quantità
+      for (const det of dettagli) {
+        await aggiungiInKit(connection, det.articolo_id, quantita);
+      }
+    }
+
+    // Audit per ogni kit modificato
+    for (const id of ids) {
+      const [newKit] = await connection.query('SELECT * FROM kit WHERE id = ?', [id]);
+      await registraAudit(connection, 'kit', 'MODIFICA_BATCH', id, null, newKit[0], req.userId);
+    }
+
+    await connection.commit();
+    res.json({ success: true, message: `Quantità aggiornata per ${ids.length} kit a ${quantita}` });
+  } catch (err) {
+    await connection.rollback();
+    console.error('❌ Errore PATCH /kit/batch-quantita:', err);
+    res.status(500).json({ success: false, message: err.message });
+  } finally {
+    connection.release();
+  }
+});
+
 module.exports = router;
 
 // === ESPORTAZIONE PER AUDIT ===
