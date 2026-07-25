@@ -136,17 +136,40 @@ async function aggiornaCaricoSintesi(connection, destinazioneTipo, destinazioneI
     return;
   }
 
-  // 🔥 Inserisci o aggiorna SOMMANDO la quantità (non sostituendo)
-  await connection.query(
-    `INSERT INTO carico_sintesi (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE 
-       quantita = quantita + VALUES(quantita),
-       provenienza_tipo = VALUES(provenienza_tipo),
-       provenienza_id = VALUES(provenienza_id),
-       data_assegnazione = VALUES(data_assegnazione)`,
-    [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || db.now()]
+  // 🔥 Verifica se esiste già una riga per questa combinazione
+  const [existing] = await connection.query(
+    `SELECT quantita FROM carico_sintesi 
+     WHERE destinazione_tipo = ? AND destinazione_id = ? 
+       AND tipo_oggetto = ? AND oggetto_id = ? 
+       AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))`,
+    [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, siglaId]
   );
+
+  if (existing.length > 0) {
+    // 🔥 Aggiorna SOMMANDO la quantità
+    await connection.query(
+      `UPDATE carico_sintesi 
+       SET quantita = quantita + ?, 
+           provenienza_tipo = ?, 
+           provenienza_id = ?, 
+           data_assegnazione = ?
+       WHERE destinazione_tipo = ? AND destinazione_id = ? 
+         AND tipo_oggetto = ? AND oggetto_id = ? 
+         AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))`,
+      [quantita, provenienzaTipo, provenienzaId, dataAssegnazione || db.now(),
+       destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId, siglaId]
+    );
+    console.log(`✅ Aggiornata quantità per ${tipoOggetto} ${oggettoId} a ${destinazioneTipo} ${destinazioneId}: +${quantita}`);
+  } else {
+    // 🔥 Inserisci nuova riga
+    await connection.query(
+      `INSERT INTO carico_sintesi 
+       (destinazione_tipo, destinazione_id, tipo_oggetto, oggetto_id, sigla_id, quantita, provenienza_tipo, provenienza_id, data_assegnazione)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [destinazioneTipo, destinazioneId, tipoOggetto, oggettoId, siglaId || null, quantita, provenienzaTipo, provenienzaId, dataAssegnazione || db.now()]
+    );
+    console.log(`✅ Inserita nuova riga per ${tipoOggetto} ${oggettoId} a ${destinazioneTipo} ${destinazioneId}: ${quantita}`);
+  }
 }
 
 // ============================================================
