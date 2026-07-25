@@ -220,15 +220,15 @@
     <table id="tabellaKit">
       <thead>
         <tr>
-          <th data-sort="id">ID <span class="sort-arrow" id="sort-id">▲</span></th>
-          <th data-sort="codice_kit">Codice <span class="sort-arrow" id="sort-codice_kit">▲</span></th>
-          <th data-sort="descrizione">Descrizione <span class="sort-arrow" id="sort-descrizione">▲</span></th>
-          <th data-sort="sigla_sci">Sigla Sci <span class="sort-arrow" id="sort-sigla_sci">▲</span></th>
-          <th data-sort="lunghezza_sci">Lunghezza <span class="sort-arrow" id="sort-lunghezza_sci">▲</span></th>
-          <th data-sort="magazzino">Magazzino <span class="sort-arrow" id="sort-magazzino">▲</span></th>
-          <th data-sort="quantita">Quantità <span class="sort-arrow" id="sort-quantita">▲</span></th>
-          <th data-sort="ultimo_destinatario">Assegnato a <span class="sort-arrow" id="sort-ultimo_destinatario">▲</span></th>
-          <th data-sort="note">Nota <span class="sort-arrow" id="sort-note">▲</span></th>
+          <th data-sort="id">ID / Gruppo</th>
+          <th data-sort="codice_kit">Codice</th>
+          <th data-sort="descrizione">Descrizione</th>
+          <th data-sort="sigla_sci">Sigla Sci</th>
+          <th data-sort="lunghezza_sci">Lunghezza</th>
+          <th data-sort="magazzino">Magazzino</th>
+          <th data-sort="quantita">Quantità</th>
+          <th data-sort="ultimo_destinatario">Assegnato a</th>
+          <th data-sort="note">Nota</th>
           <th>Azioni</th>
         </tr>
       </thead>
@@ -237,7 +237,7 @@
   </div>
 </div>
 
-<!-- MODALE DETTAGLIO GRUPPO (con Modifica quantità gruppo) -->
+<!-- MODALE DETTAGLIO GRUPPO -->
 <div id="detailModal" class="modal">
   <div class="modal-content" style="max-width:1000px;">
     <div class="modal-header">
@@ -252,7 +252,7 @@
   </div>
 </div>
 
-<!-- MODALE MODIFICA KIT (dedicato) -->
+<!-- MODALE MODIFICA KIT -->
 <div id="editKitModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -263,36 +263,15 @@
       <input type="hidden" id="editKitId">
       <div id="editKitRiepilogo" class="kit-riepilogo"></div>
       <div class="form-row">
-        <div class="form-group">
-          <label>Magazzino *</label>
-          <select id="editKitMagazzino" required></select>
-        </div>
-        <div class="form-group">
-          <label>Sci *</label>
-          <select id="editKitSci" required>
-            <option value="">Seleziona sci...</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Note</label>
-          <textarea id="editKitNote" rows="1"></textarea>
-        </div>
+        <div class="form-group"><label>Magazzino *</label><select id="editKitMagazzino" required></select></div>
+        <div class="form-group"><label>Sci *</label><select id="editKitSci" required><option value="">Seleziona sci...</option></select></div>
+        <div class="form-group"><label>Note</label><textarea id="editKitNote" rows="1"></textarea></div>
       </div>
-
       <h4>Configurazioni (Sigle e componenti)</h4>
       <table class="sigle-table" id="editSigleTable">
-        <thead>
-          <tr>
-            <th style="width:30%;">Sigla Sci (disponibilità)</th>
-            <th style="width:30%;">Attacco (disponibilità)</th>
-            <th style="width:25%;">Skistopper (disponibilità)</th>
-            <th style="width:10%;">Quantità</th>
-            <th style="width:5%;"></th>
-          </tr>
-        </thead>
+        <thead><tr><th style="width:30%;">Sigla Sci (disponibilità)</th><th style="width:30%;">Attacco (disponibilità)</th><th style="width:25%;">Skistopper (disponibilità)</th><th style="width:10%;">Quantità</th><th style="width:5%;"></th></tr></thead>
         <tbody id="editSigleTbody"></tbody>
       </table>
-
       <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <button type="button" class="btn btn-secondary" onclick="aggiungiRigaEdit()">➕ Aggiungi configurazione</button>
         <button type="button" class="btn btn-success" id="saveEditKitBtn" onclick="salvaEditKit()">💾 Aggiorna Kit</button>
@@ -305,17 +284,9 @@
 <!-- MODALE MODIFICA NOTA KIT -->
 <div id="modalModificaKit" class="modal">
   <div class="modal-content">
-    <div class="modal-header">
-      <h3>✏️ Modifica Nota Kit</h3>
-      <span class="close" onclick="chiudiModificaKit()">&times;</span>
-    </div>
-    <div class="form-group">
-      <label>Kit: <span id="modKitCodice"></span></label>
-    </div>
-    <div class="form-group">
-      <label>Nota</label>
-      <textarea id="modKitNota" rows="3" class="form-control"></textarea>
-    </div>
+    <div class="modal-header"><h3>✏️ Modifica Nota Kit</h3><span class="close" onclick="chiudiModificaKit()">&times;</span></div>
+    <div class="form-group"><label>Kit: <span id="modKitCodice"></span></label></div>
+    <div class="form-group"><label>Nota</label><textarea id="modKitNota" rows="3" class="form-control"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="chiudiModificaKit()">Annulla</button>
       <button class="btn btn-success" onclick="salvaNotaKit()">💾 Salva</button>
@@ -428,7 +399,6 @@ async function caricaAnagrafiche() {
       kitMagazzinoSelect.selectedIndex = 1;
     }
 
-    // Anche per edit modal
     editKitMagazzino.innerHTML = '<option value="">Seleziona magazzino</option>';
     magazzini.forEach(m => editKitMagazzino.appendChild(new Option(m.nome, m.id)));
 
@@ -470,7 +440,6 @@ async function caricaAnagrafiche() {
       caricaKit();
     });
 
-    // Anche per lo sci nel modale di modifica
     editKitSci.addEventListener('change', async () => {
       const sciId = editKitSci.value;
       if (sciId) {
@@ -528,7 +497,6 @@ async function caricaSci(sciCat) {
     kitSciSelect.appendChild(new Option(label, a.articolo_id));
   });
 
-  // Anche per edit modal
   editKitSci.innerHTML = '<option value="">Seleziona sci...</option>';
   articoliSci.forEach(a => {
     const label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
@@ -566,7 +534,7 @@ async function caricaArticoliPerCategoria(attCat, skCat) {
 }
 
 // ============================================================
-// CARICA SIGLE USATE (solo per debug, non più usato per filtro)
+// CARICA SIGLE USATE
 // ============================================================
 async function caricaSigleUsate() {
   try {
@@ -578,7 +546,7 @@ async function caricaSigleUsate() {
 }
 
 // ============================================================
-// CARICA SIGLE PER SCI (CORRETTA)
+// CARICA SIGLE PER SCI
 // ============================================================
 async function caricaSiglePerSci(sciId) {
   if (!sciId) {
@@ -612,7 +580,7 @@ async function caricaSiglePerSci(sciId) {
 }
 
 // ============================================================
-// GESTIONE RIGHE SIGLE
+// GESTIONE RIGHE SIGLE (form principale e modale edit)
 // ============================================================
 function aggiungiRigaSigla(tbodyId = 'sigleTbody') {
   const tbody = document.getElementById(tbodyId);
@@ -712,11 +680,9 @@ function aggiornaTutteLeRighe() {
     const siglaSelect = row.cells[0].querySelector('select');
     const attSelect = row.cells[1].querySelector('select');
     const skSelect = row.cells[2].querySelector('select');
-
     const curSigla = siglaSelect.value;
     const curAtt = attSelect.value;
     const curSk = skSelect.value;
-
     popolaSelectSigle(siglaSelect, curSigla);
     popolaSelectAttacco(attSelect, curAtt);
     popolaSelectSkistopper(skSelect, curSk);
@@ -728,11 +694,9 @@ function aggiornaTutteLeRigheEdit() {
     const siglaSelect = row.cells[0].querySelector('select');
     const attSelect = row.cells[1].querySelector('select');
     const skSelect = row.cells[2].querySelector('select');
-
     const curSigla = siglaSelect.value;
     const curAtt = attSelect.value;
     const curSk = skSelect.value;
-
     popolaSelectSigle(siglaSelect, curSigla);
     popolaSelectAttacco(attSelect, curAtt);
     popolaSelectSkistopper(skSelect, curSk);
@@ -762,7 +726,7 @@ function resetForm() {
 }
 
 // ============================================================
-// SALVA KIT (CREA O MODIFICA) - form principale
+// SALVA KIT (form principale)
 // ============================================================
 async function salvaKit() {
   const magazzino = kitMagazzinoSelect.value;
@@ -881,7 +845,7 @@ function handleSort(col) {
 }
 
 // ============================================================
-// CARICA KIT (con raggruppamento)
+// CARICA KIT (con raggruppamento e prima colonna migliorata)
 // ============================================================
 async function caricaKit() {
   try {
@@ -948,10 +912,13 @@ function popolaTabellaKit() {
     const mag = magazzini.find(m => m.id == group.magazzino)?.nome || group.magazzino;
     const row = tbody.insertRow();
 
-    const idDisplay = group.kits.length > 1 ? 
-      `<span class="badge-kit-count">${group.kits.length} kit</span>` : 
-      firstKit.id;
-    row.insertCell(0).innerHTML = idDisplay;
+    // PRIMA COLONNA: per i gruppi mostra "N° kit (tot: X)", per i singoli l'ID
+    if (group.kits.length > 1) {
+      const totale = group.quantita_totale;
+      row.insertCell(0).innerHTML = `<span class="badge-kit-count">${group.kits.length} kit (tot: ${totale})</span>`;
+    } else {
+      row.insertCell(0).innerText = firstKit.id;
+    }
 
     row.insertCell(1).innerText = group.kits.length > 1 ? '—' : (firstKit.codice_kit || '-');
     row.insertCell(2).innerText = group.descrizione || '-';
@@ -960,6 +927,7 @@ function popolaTabellaKit() {
     row.insertCell(5).innerText = mag;
     row.insertCell(6).innerText = group.quantita_totale || 0;
 
+    // Assegnato a
     const tdAssegnato = row.insertCell(7);
     const assegnato = group.ultimo_destinatario || 'In magazzino';
     const span = document.createElement('span');
@@ -972,6 +940,7 @@ function popolaTabellaKit() {
 
     row.insertCell(8).innerText = firstKit.note || '';
 
+    // Azioni
     const actions = row.insertCell(9);
     actions.className = 'action-buttons';
     if (group.kits.length > 1) {
@@ -998,7 +967,7 @@ function popolaTabellaKit() {
 }
 
 // ============================================================
-// DETTAGLIO GRUPPO (con Modifica quantità gruppo)
+// DETTAGLIO GRUPPO (una riga per kit, con batch)
 // ============================================================
 async function apriDettaglioGruppo(kits) {
   const modal = document.getElementById('detailModal');
@@ -1006,7 +975,6 @@ async function apriDettaglioGruppo(kits) {
   const body = document.getElementById('detailBody');
   title.textContent = '🔍 Dettaglio gruppo (' + kits.length + ' kit)';
 
-  // Recupera i dettagli completi di ogni kit in parallelo
   const kitDetails = await Promise.all(kits.map(k => apiFetch('/kit/' + k.id)));
 
   let html = '<div class="batch-quantita-container">';
@@ -1029,8 +997,7 @@ async function apriDettaglioGruppo(kits) {
     <th>Azioni</th>
   </tr>`;
 
-  // Salva gli ID dei kit del gruppo per la modifica batch
-  const kitIds = kitDetails.map(d => d.id);
+  window._batchKitIds = kitDetails.map(d => d.id);
 
   for (const det of kitDetails) {
     const sciDet = det.dettagli.find(d => d.tipo_articolo === 'SCI');
@@ -1072,10 +1039,6 @@ async function apriDettaglioGruppo(kits) {
 
   html += '</table>';
   body.innerHTML = html;
-
-  // Salva gli ID dei kit per la funzione di modifica batch
-  window._batchKitIds = kitIds;
-
   modal.style.display = 'flex';
 }
 
