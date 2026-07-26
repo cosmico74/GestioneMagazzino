@@ -51,7 +51,14 @@
     table { width: 100%; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; }
     th, td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
     th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; user-select: none; }
-    tr:hover td { background: #f8fafc; }
+    th:hover { background: #e2e8f0; }
+    .sort-arrow {
+      font-size: 0.7rem;
+      margin-left: 4px;
+      color: #aaa;
+      display: inline-block;
+    }
+    .sort-arrow.active { color: #1a73e8; font-weight: bold; }
     .checkbox-col { width: 30px; text-align: center; }
 
     .pagination-bar {
@@ -182,7 +189,9 @@
       </div>
       <div class="filter-group" style="min-width:150px;">
         <label>Soggetto</label>
-        <select id="sourceId" onchange="caricaOggetti()"><option value="">Seleziona...</option></select>
+        <select id="sourceId" onchange="caricaOggetti()">
+          <option value="">Seleziona...</option>
+        </select>
       </div>
     </div>
     <div class="filter-group" style="min-width:120px;">
@@ -219,15 +228,15 @@
       <thead>
         <tr>
           <th class="checkbox-col"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
-          <th>#</th>
-          <th>Tipo</th>
-          <th>Codice</th>
-          <th>Descrizione</th>
-          <th>Sigla</th>
-          <th>Lunghezza</th>
-          <th>Quantità</th>
-          <th>Stato</th>
-          <th>Magazzino / Soggetto</th>
+          <th data-sort="numero"># <span class="sort-arrow sort-asc active" data-col="numero">▲</span></th>
+          <th data-sort="tipo">Tipo <span class="sort-arrow" data-col="tipo">▲</span></th>
+          <th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th>
+          <th data-sort="descrizione">Descrizione <span class="sort-arrow" data-col="descrizione">▲</span></th>
+          <th data-sort="sigla">Sigla <span class="sort-arrow" data-col="sigla">▲</span></th>
+          <th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th>
+          <th data-sort="quantita">Quantità <span class="sort-arrow" data-col="quantita">▲</span></th>
+          <th data-sort="stato">Stato <span class="sort-arrow" data-col="stato">▲</span></th>
+          <th data-sort="magazzinoNome">Magazzino / Soggetto <span class="sort-arrow" data-col="magazzinoNome">▲</span></th>
         </tr>
       </thead>
       <tbody id="tabellaBody"><tr><td colspan="10" class="text-center">Caricamento...</td></tr></tbody>
@@ -411,6 +420,49 @@ function formatDate(d) {
 }
 
 // ============================================================
+// ORDINAMENTO
+// ============================================================
+let sortColumn = 'numero';
+let sortAsc = true;
+
+function sortTable(col) {
+  if (sortColumn === col) {
+    sortAsc = !sortAsc;
+  } else {
+    sortColumn = col;
+    sortAsc = true;
+  }
+  // Aggiorna le frecce
+  document.querySelectorAll('#tabellaOggetti thead th .sort-arrow').forEach(el => el.classList.remove('active'));
+  const arrow = document.querySelector(`#tabellaOggetti thead th[data-sort="${col}"] .sort-arrow`);
+  if (arrow) {
+    arrow.classList.add('active');
+    arrow.textContent = sortAsc ? '▲' : '▼';
+  }
+
+  // Ordina i dati
+  oggettiFiltrati.sort((a, b) => {
+    let va = a[col] || '';
+    let vb = b[col] || '';
+    if (col === 'numero') {
+      va = parseInt(va) || 0;
+      vb = parseInt(vb) || 0;
+    } else if (col === 'quantita') {
+      va = parseFloat(va) || 0;
+      vb = parseFloat(vb) || 0;
+    } else {
+      va = va.toString().toLowerCase();
+      vb = vb.toString().toLowerCase();
+    }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+  paginaCorrente = 1;
+  renderTabella();
+}
+
+// ============================================================
 // VARIABILI GLOBALI
 // ============================================================
 let currentUser = null;
@@ -422,7 +474,7 @@ let selezione = [];
 let storicoVendite = [];
 let storicoFiltrato = [];
 let paginaCorrente = 1, righePerPagina = 25;
-let userLevel = 0; // livello del soggetto associato all'utente
+let userLevel = 0;
 
 const sourceMag = document.getElementById('sourceMagazzino');
 const sourceSog = document.getElementById('sourceSoggetto');
@@ -464,6 +516,13 @@ async function caricaSoggetti() {
     const data = await apiFetch('/soggetti/tipo/' + tipo);
     const sel = sourceId;
     sel.innerHTML = '<option value="">Seleziona...</option>';
+    // Aggiungi opzione "Tutti" solo se l'utente è admin o promoter livello 1
+    if (currentUser.ruolo === 'admin' || (currentUser.ruolo === 'promoter' && userLevel === 1)) {
+      const optAll = document.createElement('option');
+      optAll.value = 'tutti';
+      optAll.textContent = '👥 Tutti i soggetti';
+      sel.appendChild(optAll);
+    }
     data.forEach(s => {
       const nome = s.tipo === 'PROMOTER' ? (s.nome + ' ' + (s.cognome||'')).trim() : s.nome;
       sel.appendChild(new Option(nome + ' (' + s.tipo + ')', s.id));
@@ -475,7 +534,6 @@ async function caricaSoggetti() {
 
     if (currentUser.ruolo !== 'admin') {
       if (currentUser.ruolo === 'promoter') {
-        // userLevel è stato caricato all'avvio
         if (userLevel !== 1) {
           disabled = true;
           defaultValue = currentUser.riferimento_id || '';
@@ -486,12 +544,10 @@ async function caricaSoggetti() {
           }
         }
       } else {
-        // Altri ruoli (negozio, cliente, agente) non possono selezionare altri
         disabled = true;
         defaultValue = currentUser.riferimento_id || '';
       }
     } else {
-      // Admin: abilitato
       sel.disabled = false;
       return;
     }
@@ -568,6 +624,7 @@ async function caricaOggetti() {
         if (disp <= 0) return;
         const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
         lista.push({
+          numero: lista.length + 1,
           id: a.articolo_id,
           tipo: 'ARTICOLO',
           codice: codiceMostrato,
@@ -600,6 +657,7 @@ async function caricaOggetti() {
           const siglaKit = k.sigla_sci || '';
           if (sigla && !siglaKit.toLowerCase().includes(sigla)) continue;
           lista.push({
+            numero: lista.length + 1,
             id: k.id,
             tipo: 'KIT',
             codice: k.codice_kit || '',
@@ -620,17 +678,32 @@ async function caricaOggetti() {
       // DA SOGGETTO
       const tipoS = sourceTipo.value;
       const idS = sourceId.value;
+
       if (!idS) {
-        showMessage('Seleziona un soggetto', 'info');
+        showMessage('Seleziona un soggetto o "Tutti"', 'info');
         oggetti = [];
         oggettiFiltrati = [];
         renderTabella();
         return;
       }
-      const body = { targetTipo: tipoS, targetId: parseInt(idS) };
-      const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) });
-      if (!r.success) throw new Error(r.message);
-      const oggettiCarico = r.oggetti || [];
+
+      let oggettiCarico = [];
+      if (idS === 'tutti') {
+        // Usa la nuova rotta per tutti i soggetti visibili
+        const r = await apiFetch('/assegnazioni/oggetti/tutti');
+        if (r.success) {
+          oggettiCarico = r.oggetti || [];
+        } else {
+          throw new Error(r.message);
+        }
+      } else {
+        // Singolo soggetto
+        const body = { targetTipo: tipoS, targetId: parseInt(idS) };
+        const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) });
+        if (!r.success) throw new Error(r.message);
+        oggettiCarico = r.oggetti || [];
+      }
+
       oggettiCarico.forEach(o => {
         if (o.quantita <= 0) return;
         if (tipo !== 'TUTTI' && o.tipo !== tipo) return;
@@ -638,6 +711,7 @@ async function caricaOggetti() {
         const siglaObj = o.SIGLA_CORRENTE || '';
         if (sigla && !siglaObj.toLowerCase().includes(sigla)) return;
         lista.push({
+          numero: lista.length + 1,
           id: o.ID,
           tipo: o.tipo,
           codice: o.codice || '',
@@ -649,8 +723,10 @@ async function caricaOggetti() {
           magazzino: null,
           magazzinoNome: o.destinatarioNome || 'Soggetto',
           sorgenteTipo: tipoS,
-          sorgenteId: parseInt(idS),
-          siglaId: o.siglaId || null
+          sorgenteId: idS === 'tutti' ? null : parseInt(idS),
+          siglaId: o.siglaId || null,
+          destinazioneTipo: o.destinazioneTipo,
+          destinazioneId: o.destinazioneId
         });
       });
     }
@@ -658,7 +734,18 @@ async function caricaOggetti() {
     oggetti = lista;
     oggettiFiltrati = [...oggetti];
     paginaCorrente = 1;
+    // Ordina per numero di default
+    sortColumn = 'numero';
+    sortAsc = true;
+    oggettiFiltrati.sort((a, b) => (a.numero || 0) - (b.numero || 0));
     renderTabella();
+    // Aggiorna freccia attiva
+    document.querySelectorAll('#tabellaOggetti thead th .sort-arrow').forEach(el => el.classList.remove('active'));
+    const defaultArrow = document.querySelector('#tabellaOggetti thead th[data-sort="numero"] .sort-arrow');
+    if (defaultArrow) {
+      defaultArrow.classList.add('active');
+      defaultArrow.textContent = '▲';
+    }
   } catch(e) {
     showMessage('Errore caricamento oggetti: ' + e.message, 'error');
     oggetti = [];
@@ -687,6 +774,7 @@ function renderTabella() {
   // Reset selezione
   selezione = [];
   document.getElementById('selectedContainer').style.display = 'none';
+  document.getElementById('selectAll').checked = false;
 
   pagina.forEach((obj, idx) => {
     const row = tbody.insertRow();
@@ -709,7 +797,7 @@ function renderTabella() {
     tdChk.appendChild(chk);
 
     const badge = obj.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
-    row.insertCell(1).innerText = start + idx + 1;
+    row.insertCell(1).innerText = obj.numero || (start + idx + 1);
     row.insertCell(2).innerHTML = '<span class="badge ' + badge + '">' + obj.tipo + '</span>';
     row.insertCell(3).innerText = obj.codice || '-';
     row.insertCell(4).innerText = obj.descrizione || '-';
@@ -809,6 +897,20 @@ function toggleSorgente() {
 }
 sourceMag.addEventListener('change', toggleSorgente);
 sourceSog.addEventListener('change', toggleSorgente);
+
+// ============================================================
+// ATTACCA EVENTI DI ORDINAMENTO
+// ============================================================
+function attachSortListeners() {
+  document.querySelectorAll('#tabellaOggetti thead th[data-sort]').forEach(th => {
+    th.addEventListener('click', function(e) {
+      // Ignora se il click è sulla checkbox
+      if (e.target.closest('input[type="checkbox"]')) return;
+      const col = this.getAttribute('data-sort');
+      if (col) sortTable(col);
+    });
+  });
+}
 
 // ============================================================
 // MODALE VENDITA
@@ -1055,6 +1157,7 @@ window.onload = async function() {
   document.getElementById('dataVenditaInput').value = iso;
 
   toggleSorgente();
+  attachSortListeners();
 };
 </script>
 </body>
