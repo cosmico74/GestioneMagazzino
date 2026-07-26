@@ -360,12 +360,15 @@ function formatDate(d) {
 }
 
 // ============================================================
-// ORDINAMENTO
+// VARIABILI DATI GLOBALI
 // ============================================================
 let austriaData = [];
 let italiaData = [];
 let soggettiData = [];
 
+// ============================================================
+// STATO ORDINAMENTO
+// ============================================================
 let sortAustria = { col: 'descrizione', asc: true };
 let sortItalia = { col: 'descrizione', asc: true };
 let sortSoggetti = { col: 'descrizione', asc: true };
@@ -406,19 +409,100 @@ function sortData(data, col, asc) {
   });
 }
 
+// ============================================================
+// FUNZIONI DI RENDER (accettano i dati come parametro)
+// ============================================================
+function renderAustria(data) {
+  const tbody = document.getElementById('austriaBody');
+  tbody.innerHTML = '';
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center">📭 Nessun dato</td></tr>';
+    return;
+  }
+  data.forEach((r, i) => {
+    const row = tbody.insertRow();
+    row.insertCell(0).innerText = r.codice || '-';
+    row.insertCell(1).innerText = r.codice_modello || '-';
+    row.insertCell(2).innerText = r.descrizione || '-';
+    row.insertCell(3).innerText = r.lunghezza || '-';
+    row.insertCell(4).innerText = r.nota || '';
+    row.insertCell(5).innerText = r.quantita_totale || 0;
+    row.insertCell(6).innerText = r.magazzino_nome || '-';
+  });
+}
+
+function renderItalia(data) {
+  const tbody = document.getElementById('italiaBody');
+  tbody.innerHTML = '';
+  const raggruppa = document.getElementById('raggruppaCheck').checked;
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun dato</td></tr>';
+    return;
+  }
+  data.forEach((r, i) => {
+    const row = tbody.insertRow();
+    const tipo = r.tipo_oggetto || 'ARTICOLO';
+    const badge = tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    const stato = r.stato || 'In magazzino';
+    const statoBadge = stato === 'In magazzino' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
+
+    row.insertCell(0).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
+    row.insertCell(1).innerText = r.codice || '-';
+    row.insertCell(2).innerText = r.descrizione || '-';
+    row.insertCell(3).innerText = r.lunghezza || '-';
+    if (tipo === 'KIT') {
+      row.insertCell(4).innerText = r.sigla_sci || 'NA';
+    } else {
+      row.insertCell(4).innerText = raggruppa ? (r.sigle || '') : '';
+    }
+    row.insertCell(5).innerText = r.nota || '';
+    row.insertCell(6).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    row.insertCell(7).innerText = r.destinatario || '-';
+    row.insertCell(8).innerText = r.quantita || 0;
+    row.insertCell(9).innerText = r.giacenza || 0;
+    row.insertCell(10).innerText = r.magazzino_nome || '-';
+  });
+}
+
+function renderSoggetti(data) {
+  const tbody = document.getElementById('soggettiBody');
+  tbody.innerHTML = '';
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center">📭 Nessun oggetto</td></tr>';
+    return;
+  }
+  data.forEach((r, i) => {
+    const row = tbody.insertRow();
+    const badge = r.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    const stato = r.stato || 'In carico';
+    const statoBadge = stato === 'In carico' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
+    
+    row.insertCell(0).innerHTML = '<span class="badge ' + badge + '">' + r.tipo + '</span>';
+    row.insertCell(1).innerText = r.codice_sigla || '-';
+    row.insertCell(2).innerText = r.descrizione || '-';
+    row.insertCell(3).innerText = r.lunghezza || '-';
+    row.insertCell(4).innerText = r.sigla || 'NA';
+    row.insertCell(5).innerText = r.nota || '';
+    row.insertCell(6).innerText = r.quantita || 0;
+    row.insertCell(7).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    row.insertCell(8).innerText = r.destinatario || '-';
+    row.insertCell(9).innerText = r.data ? formatDate(r.data) : '-';
+  });
+}
+
+// ============================================================
+// GESTIONE ORDINAMENTO
+// ============================================================
 function handleSort(table, col) {
-  let state, dataKey, renderFn;
+  let state, renderFn;
   if (table === 'austria') {
     state = sortAustria;
-    dataKey = 'austriaData';
     renderFn = renderAustria;
   } else if (table === 'italia') {
     state = sortItalia;
-    dataKey = 'italiaData';
     renderFn = renderItalia;
   } else if (table === 'soggetti') {
     state = sortSoggetti;
-    dataKey = 'soggettiData';
     renderFn = renderSoggetti;
   } else {
     return;
@@ -431,6 +515,7 @@ function handleSort(table, col) {
     state.asc = true;
   }
   
+  // Aggiorna le frecce
   const tableEl = document.getElementById(table + 'Table');
   if (tableEl) {
     tableEl.querySelectorAll('thead th .sort-arrow').forEach(el => el.classList.remove('active'));
@@ -441,9 +526,21 @@ function handleSort(table, col) {
     }
   }
   
-  const data = window[dataKey] || [];
+  // Ottieni i dati dalla variabile globale corretta
+  let data;
+  if (table === 'austria') data = austriaData;
+  else if (table === 'italia') data = italiaData;
+  else if (table === 'soggetti') data = soggettiData;
+  
+  // Ordina i dati
   const sorted = sortData(data, state.col, state.asc);
-  window[dataKey] = sorted;
+  
+  // Aggiorna la variabile globale
+  if (table === 'austria') austriaData = sorted;
+  else if (table === 'italia') italiaData = sorted;
+  else if (table === 'soggetti') soggettiData = sorted;
+  
+  // Renderizza con i dati ordinati
   renderFn(sorted);
 }
 
@@ -594,25 +691,6 @@ async function caricaAustria() {
   }
 }
 
-function renderAustria(data) {
-  const tbody = document.getElementById('austriaBody');
-  tbody.innerHTML = '';
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center">📭 Nessun dato</td></tr>';
-    return;
-  }
-  data.forEach((r, i) => {
-    const row = tbody.insertRow();
-    row.insertCell(0).innerText = r.codice || '-';
-    row.insertCell(1).innerText = r.codice_modello || '-';
-    row.insertCell(2).innerText = r.descrizione || '-';
-    row.insertCell(3).innerText = r.lunghezza || '-';
-    row.insertCell(4).innerText = r.nota || '';
-    row.insertCell(5).innerText = r.quantita_totale || 0;
-    row.insertCell(6).innerText = r.magazzino_nome || '-';
-  });
-}
-
 // ============================================================
 // REPORT ITALIA
 // ============================================================
@@ -649,39 +727,6 @@ async function caricaItalia() {
   }
 }
 
-function renderItalia(data) {
-  const tbody = document.getElementById('italiaBody');
-  tbody.innerHTML = '';
-  const raggruppa = document.getElementById('raggruppaCheck').checked;
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun dato</td></tr>';
-    return;
-  }
-  data.forEach((r, i) => {
-    const row = tbody.insertRow();
-    const tipo = r.tipo_oggetto || 'ARTICOLO';
-    const badge = tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
-    const stato = r.stato || 'In magazzino';
-    const statoBadge = stato === 'In magazzino' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-
-    row.insertCell(0).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
-    row.insertCell(1).innerText = r.codice || '-';
-    row.insertCell(2).innerText = r.descrizione || '-';
-    row.insertCell(3).innerText = r.lunghezza || '-';
-    if (tipo === 'KIT') {
-      row.insertCell(4).innerText = r.sigla_sci || 'NA';
-    } else {
-      row.insertCell(4).innerText = raggruppa ? (r.sigle || '') : '';
-    }
-    row.insertCell(5).innerText = r.nota || '';
-    row.insertCell(6).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
-    row.insertCell(7).innerText = r.destinatario || '-';
-    row.insertCell(8).innerText = r.quantita || 0;
-    row.insertCell(9).innerText = r.giacenza || 0;
-    row.insertCell(10).innerText = r.magazzino_nome || '-';
-  });
-}
-
 // ============================================================
 // REPORT SOGGETTI
 // ============================================================
@@ -712,32 +757,6 @@ async function caricaSoggetti() {
     showMessage(e.message, 'error');
     tbody.innerHTML = '<tr><td colspan="10" class="text-center">❌ Errore nel caricamento</td></tr>';
   }
-}
-
-function renderSoggetti(data) {
-  const tbody = document.getElementById('soggettiBody');
-  tbody.innerHTML = '';
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center">📭 Nessun oggetto</td></tr>';
-    return;
-  }
-  data.forEach((r, i) => {
-    const row = tbody.insertRow();
-    const badge = r.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
-    const stato = r.stato || 'In carico';
-    const statoBadge = stato === 'In carico' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-    
-    row.insertCell(0).innerHTML = '<span class="badge ' + badge + '">' + r.tipo + '</span>';
-    row.insertCell(1).innerText = r.codice_sigla || '-';
-    row.insertCell(2).innerText = r.descrizione || '-';
-    row.insertCell(3).innerText = r.lunghezza || '-';
-    row.insertCell(4).innerText = r.sigla || 'NA';
-    row.insertCell(5).innerText = r.nota || '';
-    row.insertCell(6).innerText = r.quantita || 0;
-    row.insertCell(7).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
-    row.insertCell(8).innerText = r.destinatario || '-';
-    row.insertCell(9).innerText = r.data ? formatDate(r.data) : '-';
-  });
 }
 
 // ============================================================
