@@ -682,6 +682,134 @@ router.get('/verifica-sigla', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// NUOVA ROTTA: GET /oggetti/tutti
+// ============================================================
+router.get('/oggetti/tutti', verifyToken, async (req, res) => {
+  try {
+    // 1. Ottieni i soggetti visibili per l'utente
+    let soggettiVisibili = [];
+    if (req.userRole === 'admin') {
+      const [rows] = await pool.query('SELECT id, tipo FROM soggetti WHERE attivo = 1');
+      soggettiVisibili = rows;
+    } else {
+      const [userRows] = await pool.query('SELECT riferimento_id, ruolo FROM utenti WHERE id = ?', [req.userId]);
+      if (userRows.length === 0) return res.status(404).json({ success: false, message: 'Utente non trovato' });
+      const user = userRows[0];
+      let livello = null, mioId = null;
+      if (user.riferimento_id) {
+        const [sog] = await pool.query('SELECT id, livello FROM soggetti WHERE id = ?', [user.riferimento_id]);
+        if (sog.length) { mioId = sog[0].id; livello = sog[0].livello; }
+      }
+      let query = 'SELECT s.id, s.tipo FROM soggetti s WHERE 1=1';
+      const params = [];
+      if (user.ruolo === 'promoter') {
+        query += ' AND (s.id = ? OR EXISTS (SELECT 1 FROM soggetti_referenti WHERE referente_id = ? AND soggetto_id = s.id)';
+        params.push(mioId, mioId);
+        if (livello !== null && livello > 1) { query += ' OR s.livello > ?'; params.push(livello); }
+        else if (livello === 1) { query += ' OR s.livello IN (2,3)'; }
+        query += ' )';
+      } else {
+        query += ' AND s.id = ?';
+        params.push(mioId);
+      }
+      query += ' AND s.attivo = 1';
+      const [rows] = await pool.query(query, params);
+      soggettiVisibili = rows;
+    }
+
+    if (soggettiVisibili.length === 0) {
+      return res.json({ success: true, oggetti: [] });
+    }
+
+    // 2. Costruisci la query per ottenere tutti gli oggetti in carico
+    const placeholders = soggettiVisibili.map(() => '(?, ?)').join(', ');
+    const paramsQuery = [];
+    soggettiVisibili.forEach(s => {
+      paramsQuery.push(s.tipo, s.id);
+    });
+
+    const sql = `
+      SELECT cs.*,
+        CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.descrizione ELSE k.descrizione END AS descrizione,
+        CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.codice ELSE k.codice_kit END AS codice,
+        a.lunghezza AS LUNGHEZZA,
+        a.durezza AS DUREZZA,
+        COALESCE(s.sigla, 
+          (SELECT s2.sigla FROM kit_dettaglio kd 
+           LEFT JOIN sigle_articoli s2 ON kd.sigla_id = s2.id 
+           WHERE kd.kit_id = cs.oggetto_id AND kd.tipo_articolo = 'SCI' LIMIT 1)
+        ) AS SIGLA_CORRENTE,
+        sog.nome AS destinatario_nome,
+        sog.cognome AS destinatario_cognome,
+        c.nome AS categoria_nome
+      FROM carico_sintesi cs
+      LEFT JOIN articoli a ON cs.tipo_oggetto = 'ARTICOLO' AND cs.oggetto_id = a.articolo_id
+      LEFT JOIN kit k ON cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id
+      LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
+      LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
+      LEFT JOIN categorie c ON a.categoria = c.categoria_id
+      WHERE (cs.destinazione_tipo, cs.destinazione_id) IN (${placeholders})
+        AND cs.quantita > 0
+    `;
+    const [rows] = await pool.query(sql, paramsQuery);
+
+    // 3. Formatta i risultati
+    const risultati = [];
+    for (const row of rows) {
+      let sigleDisponibili = [];
+      if (row.tipo_oggetto === 'ARTICOLO') {
+        const [sigle] = await pool.query(
+          'SELECT id, sigla, durezza, lunghezza, quantita FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1 AND quantita > 0',
+          [row.oggetto_id]
+        );
+        sigleDisponibili = sigle;
+      } else if (row.tipo_oggetto === 'KIT') {
+        const [sci] = await pool.query(
+          'SELECT articolo_id FROM kit_dettaglio WHERE kit_id = ? AND tipo_articolo = \'SCI\' LIMIT 1',
+          [row.oggetto_id]
+        );
+        if (sci.length) {
+          const [sigle] = await pool.query(
+            'SELECT id, sigla, durezza, lunghezza, quantita FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1 AND quantita > 0',
+            [sci[0].articolo_id]
+          );
+          sigleDisponibili = sigle;
+        }
+      }
+
+      const destinatarioNome = row.destinazione_tipo === 'PROMOTER'
+        ? ((row.destinatario_nome || '') + ' ' + (row.destinatario_cognome || '')).trim()
+        : (row.destinatario_nome || '');
+
+      risultati.push({
+        tipo: row.tipo_oggetto,
+        ID: row.oggetto_id,
+        siglaId: row.sigla_id,
+        descrizione: row.descrizione || '',
+        codice: row.codice || '',
+        quantita: row.quantita,
+        LUNGHEZZA: row.LUNGHEZZA || '',
+        DUREZZA: row.DUREZZA || '',
+        SIGLA_CORRENTE: row.SIGLA_CORRENTE || '',
+        destinazioneTipo: row.destinazione_tipo,
+        destinazioneId: row.destinazione_id,
+        destinatarioNome: destinatarioNome,
+        sigleDisponibili: sigleDisponibili,
+        provenienzaTipo: row.provenienza_tipo,
+        provenienzaId: row.provenienza_id,
+        dataAssegnazione: row.data_assegnazione,
+        categoriaNome: row.categoria_nome || null
+      });
+    }
+
+    res.json({ success: true, oggetti: risultati });
+  } catch (err) {
+    console.error('Errore GET /oggetti/tutti:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
 module.exports.aggiornaCaricoSintesi = aggiornaCaricoSintesi;
 module.exports.getDisponibilitaSigla = getDisponibilitaSigla;
