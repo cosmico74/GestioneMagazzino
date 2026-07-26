@@ -44,7 +44,7 @@
     </div>
     <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
       <span id="userBadge" class="user-badge">👤 </span>
-      <!-- PULSANTE BACKUP – visibile solo all'utente specifico "admin" -->
+      <!-- PULSANTE BACKUP – visibile solo all'utente admin (username = "admin") -->
       <button id="backupBtn" class="btn-warning" onclick="downloadBackup()" style="display:none;">💾 Backup</button>
       <button class="logout-btn" onclick="logout()">🚪 Logout</button>
     </div>
@@ -65,15 +65,35 @@ function logout() {
 
 async function downloadBackup() {
   if (!confirm('⚠️ Vuoi scaricare un backup completo del database? Il file potrebbe essere grande.')) return;
+  
+  const btn = document.getElementById('backupBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Backup...';
+
   try {
     const token = getToken();
     const response = await fetch('/api/backup', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
+
     if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.message || 'Errore durante il backup');
+      // Leggi il corpo della risposta (potrebbe essere JSON o HTML)
+      let errorMsg = 'Errore durante il backup';
+      try {
+        const data = await response.json();
+        errorMsg = data.message || errorMsg;
+      } catch(e) {
+        // Se non è JSON, prova a leggere il testo
+        const text = await response.text();
+        // Se contiene HTML, prendi solo il titolo
+        const match = text.match(/<title>(.*?)<\/title>/);
+        if (match) errorMsg = match[1];
+        else if (text.trim().startsWith('<!DOCTYPE')) errorMsg = 'Risposta non valida dal server (probabilmente errore 404 o 500)';
+        else errorMsg = text.slice(0, 200);
+      }
+      throw new Error(errorMsg);
     }
+
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -83,8 +103,12 @@ async function downloadBackup() {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
+    alert('✅ Backup scaricato con successo!');
   } catch (err) {
     alert('❌ Errore: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Backup';
   }
 }
 
@@ -94,7 +118,7 @@ async function loadMenu() {
   const user = JSON.parse(u);
   document.getElementById('userBadge').innerHTML = '👤 ' + (user.nome_visualizzato || user.username) + ' (' + user.ruolo + ')';
 
-  // Mostra pulsante backup SOLO se l'utente è specificamente "admin" (username admin)
+  // Mostra pulsante backup SOLO se l'username è "admin"
   if (user.username === 'admin') {
     document.getElementById('backupBtn').style.display = 'inline-block';
   }
@@ -116,6 +140,7 @@ async function loadMenu() {
     grid.appendChild(d);
   });
 }
+
 loadMenu();
 </script>
 </body>

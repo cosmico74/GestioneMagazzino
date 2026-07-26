@@ -1,27 +1,41 @@
 const express = require('express');
-const router = express.Router();
-const pool = require('../db');
-const { verifyToken } = require('../auth');
+const cors = require('cors');
+const path = require('path');
+require('dotenv').config();
 
-router.get('/', verifyToken, async (req, res) => {
-  // Solo l'utente specifico "admin" può fare il backup
-  // Verifichiamo sia il ruolo che lo username
-  if (req.userRole !== 'admin') {
-    return res.status(403).json({ success: false, message: 'Accesso negato: solo admin' });
-  }
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-  // Ottieni l'username dell'utente
-  const [rows] = await pool.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
-  if (rows.length === 0 || rows[0].username !== 'admin') {
-    return res.status(403).json({ success: false, message: 'Accesso negato: solo utente admin' });
-  }
+console.log('🚀 Avvio server...');
 
-  try {
-    // ... resto del codice invariato ...
-  } catch (err) {
-    console.error('❌ Errore backup:', err);
-    res.status(500).json({ success: false, message: err.message });
-  }
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+console.log('📦 Caricamento routes...');
+
+// ---- ROTTA PER LA ROOT ----
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend', 'Login.html'));
 });
 
-module.exports = router;
+try {
+    app.use('/api/auth', require('./routes/auth'));
+    app.use('/api/articoli', require('./routes/articoli'));
+    app.use('/api/kit', require('./routes/kit'));
+    app.use('/api/assegnazioni', require('./routes/assegnazioni'));
+    app.use('/api/vendite', require('./routes/vendite'));
+    app.use('/api/soggetti', require('./routes/soggetti'));
+    app.use('/api/utenti', require('./routes/utenti'));
+    app.use('/api/anagrafiche', require('./routes/anagrafiche'));
+    app.use('/api/report', require('./routes/report'));
+    app.use('/api/movimenti', require('./routes/movimenti'));
+    app.use('/api/audit', require('./routes/audit'));
+    app.use('/api/backup', require('./routes/backup'));   // ← NUOVA RIGA
+    console.log('✅ Routes caricate.');
+} catch (err) {
+    console.error('❌ Errore nel caricamento delle routes:', err);
+    process.exit(1);
+}
+
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
