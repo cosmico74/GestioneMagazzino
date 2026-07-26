@@ -661,6 +661,146 @@ router.get('/valori/:campo', verifyToken, async (req, res) => {
   res.json(rows);
 });
 
+// ============================================================
+// GET /api/articoli/valori/sigle - Elenco sigle (articoli + kit)
+// ============================================================
+router.get('/valori/sigle', verifyToken, async (req, res) => {
+  try {
+    const params = [];
+    let sql = `
+      SELECT DISTINCT codice_modello AS sigla FROM articoli 
+      WHERE codice_modello IS NOT NULL AND codice_modello != ''
+    `;
+    if (req.query.magazzino) {
+      sql += ' AND magazzino = ?';
+      params.push(req.query.magazzino);
+    }
+    if (req.query.lunghezza) {
+      sql += ' AND lunghezza = ?';
+      params.push(req.query.lunghezza);
+    }
+    if (req.query.descrizione) {
+      sql += ' AND descrizione LIKE ?';
+      params.push(`%${req.query.descrizione}%`);
+    }
+    
+    // Unione con sigle dei kit (sigla_sci)
+    sql += `
+      UNION
+      SELECT DISTINCT sigla_sci AS sigla FROM kit
+      WHERE sigla_sci IS NOT NULL AND sigla_sci != ''
+    `;
+    if (req.query.magazzino) {
+      sql += ' AND magazzino = ?';
+      params.push(req.query.magazzino);
+    }
+    if (req.query.lunghezza) {
+      sql += ' AND lunghezza_sci = ?';
+      params.push(req.query.lunghezza);
+    }
+    if (req.query.descrizione) {
+      sql += ' AND descrizione LIKE ?';
+      params.push(`%${req.query.descrizione}%`);
+    }
+    
+    sql += ' ORDER BY sigla';
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Errore /valori/sigle:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/articoli/valori/lunghezze - con filtri
+// ============================================================
+router.get('/valori/lunghezze', verifyToken, async (req, res) => {
+  try {
+    const params = [];
+    let sql = `
+      SELECT DISTINCT lunghezza FROM articoli 
+      WHERE lunghezza IS NOT NULL AND lunghezza != ''
+    `;
+    if (req.query.magazzino) {
+      sql += ' AND magazzino = ?';
+      params.push(req.query.magazzino);
+    }
+    if (req.query.descrizione) {
+      sql += ' AND descrizione LIKE ?';
+      params.push(`%${req.query.descrizione}%`);
+    }
+    if (req.query.sigla) {
+      sql += ' AND codice_modello LIKE ?';
+      params.push(`%${req.query.sigla}%`);
+    }
+    // Unione con lunghezze dei kit
+    sql += `
+      UNION
+      SELECT DISTINCT lunghezza_sci AS lunghezza FROM kit
+      WHERE lunghezza_sci IS NOT NULL AND lunghezza_sci != ''
+    `;
+    if (req.query.magazzino) {
+      sql += ' AND magazzino = ?';
+      params.push(req.query.magazzino);
+    }
+    if (req.query.descrizione) {
+      sql += ' AND descrizione LIKE ?';
+      params.push(`%${req.query.descrizione}%`);
+    }
+    if (req.query.sigla) {
+      sql += ' AND sigla_sci LIKE ?';
+      params.push(`%${req.query.sigla}%`);
+    }
+    sql += ' ORDER BY lunghezza';
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Errore /valori/lunghezze:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/articoli/valori/attacchi - Elenco attacchi disponibili
+// ============================================================
+router.get('/valori/attacchi', verifyToken, async (req, res) => {
+  try {
+    const params = [];
+    let sql = `
+      SELECT DISTINCT 
+        a.articolo_id, 
+        a.descrizione, 
+        a.codice,
+        a.lunghezza
+      FROM articoli a
+      INNER JOIN categorie c ON a.categoria = c.categoria_id
+      WHERE LOWER(c.nome) = 'attacchi' 
+        AND a.quantita_totale > 0
+        AND (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta - 
+             COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) > 0
+    `;
+    if (req.query.magazzino) {
+      sql += ' AND a.magazzino = ?';
+      params.push(req.query.magazzino);
+    }
+    if (req.query.descrizione) {
+      sql += ' AND a.descrizione LIKE ?';
+      params.push(`%${req.query.descrizione}%`);
+    }
+    if (req.query.lunghezza) {
+      sql += ' AND a.lunghezza = ?';
+      params.push(req.query.lunghezza);
+    }
+    sql += ' ORDER BY a.descrizione';
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Errore /valori/attacchi:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 module.exports.ricalcolaQuantitaTotale = ricalcolaQuantitaTotale;
 module.exports.canUserUseMagazzino = canUserUseMagazzino;

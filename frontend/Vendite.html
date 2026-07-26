@@ -122,6 +122,8 @@
       animation: spin 0.6s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .datalist-input { position: relative; }
+    .datalist-input input { width: 100%; }
     @media (max-width: 768px) {
       .filter-bar { flex-direction: column; align-items: stretch; }
       .radio-group { flex-direction: column; gap: 5px; }
@@ -172,12 +174,12 @@
     </div>
   </div>
 
-  <!-- Filtri interattivi con datalist -->
+  <!-- Filtri interattivi -->
   <div class="filter-bar">
     <div class="filter-group" style="min-width:120px;">
       <label>Magazzino</label>
       <select id="filtroMagazzino" onchange="caricaOggetti()">
-        <option value="">Caricamento...</option>
+        <option value="">Tutti</option>
       </select>
     </div>
     <div class="filter-group">
@@ -188,19 +190,20 @@
         <option value="KIT">Kit</option>
       </select>
     </div>
-    <div class="filter-group">
+    <div class="filter-group datalist-input">
       <label>Descrizione</label>
       <input type="text" id="filtroDescrizione" list="descrizioneList" placeholder="Cerca..." oninput="caricaOggetti()">
       <datalist id="descrizioneList"></datalist>
     </div>
-    <div class="filter-group">
-      <label>Sigla</label>
+    <div class="filter-group datalist-input">
+      <label>Sigla (modello / sigla sci)</label>
       <input type="text" id="filtroSigla" list="siglaList" placeholder="Cerca sigla..." oninput="caricaOggetti()">
       <datalist id="siglaList"></datalist>
     </div>
-    <div class="filter-group">
+    <div class="filter-group datalist-input">
       <label>Lunghezza</label>
-      <select id="filtroLunghezza" onchange="caricaOggetti()"><option value="">Tutte</option></select>
+      <input type="text" id="filtroLunghezza" list="lunghezzaList" placeholder="Cerca lunghezza..." oninput="caricaOggetti()">
+      <datalist id="lunghezzaList"></datalist>
     </div>
     <div class="filter-group">
       <label>Attacco (solo Kit)</label>
@@ -417,19 +420,18 @@ var filtroAttacco = document.getElementById('filtroAttacco');
 async function caricaAnagrafiche() {
   try {
     magazzini = await apiFetch('/anagrafiche/magazzini');
-    // Popola dropdown magazzini
     var selMag = filtroMagazzino;
     selMag.innerHTML = '<option value="">Tutti</option>';
     magazzini.forEach(function(m) {
       selMag.appendChild(new Option(m.nome, m.id));
     });
-    // Seleziona Race di default
     var race = magazzini.find(function(m) { return m.nome.toLowerCase() === 'race'; });
     if (race) selMag.value = race.id;
     else if (magazzini.length > 0) selMag.value = magazzini[0].id;
 
     await caricaSoggetti();
     await caricaClienti();
+    await caricaValoriFiltri();
     await caricaOggetti();
   } catch(e) {
     showMessage('Errore caricamento dati: ' + e.message, 'error');
@@ -485,59 +487,67 @@ async function caricaValoriFiltri() {
     if (filtroDescrizione.value) params.append('descrizione', filtroDescrizione.value);
     if (filtroSigla.value) params.append('sigla', filtroSigla.value);
 
-    // Descrizioni (datalist)
-    var descRes = await apiFetch('/articoli/valori/descrizioni?' + params.toString());
-    var descList = document.getElementById('descrizioneList');
-    descList.innerHTML = '';
-    descRes.forEach(function(item) {
-      var opt = document.createElement('option');
-      opt.value = item.descrizione;
-      descList.appendChild(opt);
-    });
+    // Descrizioni
+    try {
+      var descRes = await apiFetch('/articoli/valori/descrizioni?' + params.toString());
+      var descList = document.getElementById('descrizioneList');
+      descList.innerHTML = '';
+      descRes.forEach(function(item) {
+        var opt = document.createElement('option');
+        opt.value = item.descrizione;
+        descList.appendChild(opt);
+      });
+    } catch(e) { console.warn('Errore descrizioni:', e); }
 
-    // Sigle (datalist)
-    var siglaRes = await apiFetch('/articoli/valori/sigle?' + params.toString());
-    var siglaList = document.getElementById('siglaList');
-    siglaList.innerHTML = '';
-    siglaRes.forEach(function(item) {
-      var opt = document.createElement('option');
-      opt.value = item.sigla || item.codice_modello || '';
-      if (opt.value) siglaList.appendChild(opt);
-    });
+    // Sigle
+    try {
+      var siglaRes = await apiFetch('/articoli/valori/sigle?' + params.toString());
+      var siglaList = document.getElementById('siglaList');
+      siglaList.innerHTML = '';
+      siglaRes.forEach(function(item) {
+        var opt = document.createElement('option');
+        opt.value = item.sigla;
+        if (opt.value) siglaList.appendChild(opt);
+      });
+    } catch(e) { console.warn('Errore sigle:', e); }
 
     // Lunghezze
-    var lungRes = await apiFetch('/articoli/valori/lunghezze?' + params.toString());
-    var selLung = filtroLunghezza;
-    var currentLung = selLung.value;
-    selLung.innerHTML = '<option value="">Tutte</option>';
-    lungRes.forEach(function(item) {
-      if (item.lunghezza) {
-        var opt = document.createElement('option');
-        opt.value = item.lunghezza;
-        opt.textContent = item.lunghezza + ' cm';
-        selLung.appendChild(opt);
+    try {
+      var lungRes = await apiFetch('/articoli/valori/lunghezze?' + params.toString());
+      var selLung = filtroLunghezza;
+      var currentLung = selLung.value;
+      selLung.innerHTML = '';
+      lungRes.forEach(function(item) {
+        if (item.lunghezza) {
+          var opt = document.createElement('option');
+          opt.value = item.lunghezza;
+          opt.textContent = item.lunghezza + ' cm';
+          selLung.appendChild(opt);
+        }
+      });
+      if (currentLung && lungRes.some(function(l) { return l.lunghezza == currentLung; })) {
+        selLung.value = currentLung;
       }
-    });
-    if (currentLung && lungRes.some(function(l) { return l.lunghezza == currentLung; })) {
-      selLung.value = currentLung;
-    }
+    } catch(e) { console.warn('Errore lunghezze:', e); }
 
     // Attacchi (solo se il tipo include KIT)
     if (filtroTipoOggetto.value === 'TUTTI' || filtroTipoOggetto.value === 'KIT') {
-      var attRes = await apiFetch('/articoli/valori/attacchi?' + params.toString());
-      var selAtt = filtroAttacco;
-      var currentAtt = selAtt.value;
-      selAtt.innerHTML = '<option value="">Tutti</option>';
-      attRes.forEach(function(item) {
-        var opt = document.createElement('option');
-        opt.value = item.articolo_id;
-        opt.textContent = item.descrizione + (item.lunghezza ? ' (' + item.lunghezza + ' cm)' : '');
-        selAtt.appendChild(opt);
-      });
-      if (currentAtt && attRes.some(function(a) { return a.articolo_id == currentAtt; })) {
-        selAtt.value = currentAtt;
-      }
-      selAtt.disabled = false;
+      try {
+        var attRes = await apiFetch('/articoli/valori/attacchi?' + params.toString());
+        var selAtt = filtroAttacco;
+        var currentAtt = selAtt.value;
+        selAtt.innerHTML = '<option value="">Tutti</option>';
+        attRes.forEach(function(item) {
+          var opt = document.createElement('option');
+          opt.value = item.articolo_id;
+          opt.textContent = item.descrizione + (item.lunghezza ? ' (' + item.lunghezza + ' cm)' : '');
+          selAtt.appendChild(opt);
+        });
+        if (currentAtt && attRes.some(function(a) { return a.articolo_id == currentAtt; })) {
+          selAtt.value = currentAtt;
+        }
+        selAtt.disabled = false;
+      } catch(e) { console.warn('Errore attacchi:', e); }
     } else {
       filtroAttacco.innerHTML = '<option value="">Tutti</option>';
       filtroAttacco.disabled = true;
@@ -576,8 +586,8 @@ async function caricaOggetti() {
   var isMag = radioMagazzino.checked;
   var magId = filtroMagazzino.value;
   var tipoOggetto = filtroTipoOggetto.value;
-  var descrizione = filtroDescrizione.value.toLowerCase();
-  var sigla = filtroSigla.value.toLowerCase();
+  var descrizione = filtroDescrizione.value.toLowerCase().trim();
+  var sigla = filtroSigla.value.toLowerCase().trim();
   var lunghezza = filtroLunghezza.value;
   var attacco = filtroAttacco.value;
 
@@ -587,14 +597,21 @@ async function caricaOggetti() {
     if (isMag) {
       // Dal magazzino
       if (!magId) {
-        showMessage('Seleziona un magazzino', 'info');
-        return;
+        // Se nessun magazzino selezionato, usa il primo disponibile
+        if (magazzini.length > 0) {
+          magId = magazzini[0].id;
+          filtroMagazzino.value = magId;
+        } else {
+          showMessage('Nessun magazzino disponibile', 'error');
+          return;
+        }
       }
 
+      // ARTICOLI
       var params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
       if (lunghezza) params.append('lunghezza', lunghezza);
       if (descrizione) params.append('descrizione', descrizione);
-      if (sigla) params.append('sigla', sigla);
+      if (sigla) params.append('codice_modello', sigla);
       
       var artRes = await apiFetch('/articoli?' + params.toString());
       var articoli = artRes.success ? artRes.data : [];
@@ -603,14 +620,12 @@ async function caricaOggetti() {
         var disp = a.GIACENZA_REALE || 0;
         if (disp <= 0) continue;
         if (tipoOggetto !== 'TUTTI' && tipoOggetto !== 'ARTICOLO') continue;
-        var siglaArticolo = a.codice_modello || '';
-        if (sigla && !siglaArticolo.toLowerCase().includes(sigla)) continue;
         lista.push({
           id: a.articolo_id,
           tipo: 'ARTICOLO',
           codice: a.codice || a.codice_modello || '',
           descrizione: a.descrizione || '',
-          sigla: siglaArticolo,
+          sigla: a.codice_modello || '',
           lunghezza: a.lunghezza || '',
           attacco: '',
           quantita: disp,
@@ -623,7 +638,7 @@ async function caricaOggetti() {
         });
       }
 
-      // Kit dal magazzino
+      // KIT
       var kitRes = await apiFetch('/kit');
       var kits = kitRes.success ? kitRes.data : (Array.isArray(kitRes) ? kitRes : []);
       for (var k of kits) {
@@ -670,7 +685,7 @@ async function caricaOggetti() {
         });
       }
     } else {
-      // Da soggetto
+      // DA SOGGETTO
       var tipo = sourceTipo.value;
       var id = sourceId.value;
       if (!id) {
@@ -744,7 +759,6 @@ function resetFiltri() {
   filtroLunghezza.value = '';
   filtroAttacco.value = '';
   filtroTipoOggetto.value = 'TUTTI';
-  // Resetta magazzino a Race se disponibile
   var race = magazzini.find(function(m) { return m.nome.toLowerCase() === 'race'; });
   if (race) filtroMagazzino.value = race.id;
   else if (magazzini.length > 0) filtroMagazzino.value = magazzini[0].id;
@@ -886,8 +900,10 @@ function aggiornaSelezione() {
     row.insertCell(3).innerText = obj.quantita || 0;
     totali += obj.quantita;
   });
-  document.querySelector('#selectedContainer .selected-items strong').innerHTML = 
-    '📦 Oggetti selezionati (' + selezione.length + ' oggetti, totale ' + totali + ' unità):';
+  var strong = document.querySelector('#selectedContainer .selected-items strong');
+  if (strong) {
+    strong.innerHTML = '📦 Oggetti selezionati (' + selezione.length + ' oggetti, totale ' + totali + ' unità):';
+  }
 }
 
 // ============================================================
@@ -1061,10 +1077,10 @@ window.onload = async function() {
 
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
 
-  // Event listeners per filtri
+  // Event listeners per filtri - tutti chiamano caricaOggetti
   filtroDescrizione.addEventListener('input', caricaOggetti);
   filtroSigla.addEventListener('input', caricaOggetti);
-  filtroLunghezza.addEventListener('change', caricaOggetti);
+  filtroLunghezza.addEventListener('input', caricaOggetti);
   filtroAttacco.addEventListener('change', caricaOggetti);
   filtroTipoOggetto.addEventListener('change', caricaOggetti);
   filtroMagazzino.addEventListener('change', caricaOggetti);
