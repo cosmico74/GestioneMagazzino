@@ -362,12 +362,10 @@ function formatDate(d) {
 // ============================================================
 // ORDINAMENTO
 // ============================================================
-// Variabili per ogni tabella
 let austriaData = [];
 let italiaData = [];
 let soggettiData = [];
 
-// Stato ordinamento
 let sortAustria = { col: 'descrizione', asc: true };
 let sortItalia = { col: 'descrizione', asc: true };
 let sortSoggetti = { col: 'descrizione', asc: true };
@@ -376,7 +374,6 @@ function compareValues(a, b, col, asc) {
   let va = a[col] !== undefined ? a[col] : '';
   let vb = b[col] !== undefined ? b[col] : '';
   
-  // Per la lunghezza, converti a numero
   if (col === 'lunghezza' || col === 'quantita' || col === 'quantita_totale' || col === 'giacenza') {
     va = parseFloat(va) || 0;
     vb = parseFloat(vb) || 0;
@@ -395,15 +392,12 @@ function compareValues(a, b, col, asc) {
 
 function sortData(data, col, asc) {
   return data.slice().sort((a, b) => {
-    // Prima ordina per la colonna selezionata
     let r = compareValues(a, b, col, asc);
     if (r !== 0) return r;
-    // Se la colonna non è descrizione, ordina per descrizione come fallback
     if (col !== 'descrizione') {
       r = compareValues(a, b, 'descrizione', true);
       if (r !== 0) return r;
     }
-    // Poi per lunghezza (solo se la colonna non è già lunghezza)
     if (col !== 'lunghezza') {
       r = compareValues(a, b, 'lunghezza', true);
       if (r !== 0) return r;
@@ -430,7 +424,6 @@ function handleSort(table, col) {
     return;
   }
   
-  // Cambia direzione o colonna
   if (state.col === col) {
     state.asc = !state.asc;
   } else {
@@ -438,7 +431,6 @@ function handleSort(table, col) {
     state.asc = true;
   }
   
-  // Aggiorna le frecce
   const tableEl = document.getElementById(table + 'Table');
   if (tableEl) {
     tableEl.querySelectorAll('thead th .sort-arrow').forEach(el => el.classList.remove('active'));
@@ -449,7 +441,6 @@ function handleSort(table, col) {
     }
   }
   
-  // Ordina e renderizza
   const data = window[dataKey] || [];
   const sorted = sortData(data, state.col, state.asc);
   window[dataKey] = sorted;
@@ -457,7 +448,6 @@ function handleSort(table, col) {
 }
 
 function attachSortListeners() {
-  // Austria
   document.querySelectorAll('#austriaTable thead th[data-sort]').forEach(th => {
     th.addEventListener('click', function(e) {
       const col = this.getAttribute('data-sort');
@@ -465,7 +455,6 @@ function attachSortListeners() {
     });
   });
   
-  // Italia
   document.querySelectorAll('#italiaTable thead th[data-sort]').forEach(th => {
     th.addEventListener('click', function(e) {
       const col = this.getAttribute('data-sort');
@@ -473,7 +462,6 @@ function attachSortListeners() {
     });
   });
   
-  // Soggetti
   document.querySelectorAll('#soggettiTable thead th[data-sort]').forEach(th => {
     th.addEventListener('click', function(e) {
       const col = this.getAttribute('data-sort');
@@ -530,6 +518,25 @@ async function caricaSoggettiVisibili() {
     soggetti = data || [];
     const sel = document.getElementById('soggettoSelect');
     sel.innerHTML = '<option value="">Seleziona...</option>';
+    
+    // Aggiungi "Tutti" per admin e promoter livello 1
+    let canSeeAll = false;
+    if (currentUser.ruolo === 'admin') canSeeAll = true;
+    else if (currentUser.ruolo === 'promoter') {
+      if (currentUser.riferimento_id) {
+        try {
+          const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
+          if (sog.livello === 1) canSeeAll = true;
+        } catch(e) {}
+      }
+    }
+    if (canSeeAll) {
+      const optAll = document.createElement('option');
+      optAll.value = 'tutti';
+      optAll.textContent = '👥 Tutti i soggetti';
+      sel.appendChild(optAll);
+    }
+
     soggetti.forEach(s => {
       let nome;
       if (s.tipo === 'PROMOTER') {
@@ -574,12 +581,10 @@ async function caricaAustria() {
     const r = await apiFetch('/report/austria?' + params.toString());
     if (r.success) {
       austriaData = r.data || [];
-      // Ordina di default per descrizione (primi 8 caratteri) e lunghezza
       sortAustria.col = 'descrizione';
       sortAustria.asc = true;
       austriaData = sortData(austriaData, 'descrizione', true);
       renderAustria(austriaData);
-      // Aggiorna freccia attiva
       const arrow = document.querySelector('#austriaTable thead th[data-sort="descrizione"] .sort-arrow');
       if (arrow) { arrow.classList.add('active'); arrow.textContent = '▲'; }
     } else showMessage(r.message, 'error');
@@ -692,58 +697,17 @@ async function caricaSoggetti() {
   tbody.innerHTML = '<tr><td colspan="10" class="text-center">⏳ Caricamento...</td></tr>';
 
   try {
-    const soggetto = soggetti.find(s => s.id == soggettoId);
-    const tipo = soggetto ? soggetto.tipo : 'PROMOTER';
-    let risultati = [];
-
-    if (modeVal === 'incarico' || modeVal === 'entrambi') {
-      const body = { targetTipo: tipo, targetId: parseInt(soggettoId) };
-      const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) });
-      if (r.success) {
-        (r.oggetti || []).forEach(o => {
-          risultati.push({
-            tipo: o.tipo || 'ARTICOLO',
-            codice_sigla: o.codice || '',
-            descrizione: o.descrizione || '',
-            lunghezza: o.LUNGHEZZA || '',
-            sigla: o.SIGLA_CORRENTE || 'NA',
-            quantita: o.quantita || 0,
-            stato: 'In carico',
-            destinatario: o.destinatarioNome || 'Magazzino',
-            data: o.dataAssegnazione || null,
-            nota: ''
-          });
-        });
-      }
-    }
-
-    if (modeVal === 'inviati' || modeVal === 'entrambi') {
-      const r = await apiFetch('/assegnazioni/inviati?provenienza_tipo=' + tipo + '&provenienza_id=' + soggettoId);
-      if (Array.isArray(r)) {
-        r.forEach(o => {
-          risultati.push({
-            tipo: o.tipo_oggetto || 'ARTICOLO',
-            codice_sigla: o.codice || '',
-            descrizione: o.descrizione || '',
-            lunghezza: o.lunghezza || '',
-            sigla: o.sigla || 'NA',
-            quantita: o.quantita || 0,
-            stato: 'Assegnato',
-            destinatario: o.destinatarioNome || 'Magazzino',
-            data: o.data_assegnazione || null,
-            nota: ''
-          });
-        });
-      }
-    }
-
-    soggettiData = risultati || [];
-    sortSoggetti.col = 'descrizione';
-    sortSoggetti.asc = true;
-    soggettiData = sortData(soggettiData, 'descrizione', true);
-    renderSoggetti(soggettiData);
-    const arrow = document.querySelector('#soggettiTable thead th[data-sort="descrizione"] .sort-arrow');
-    if (arrow) { arrow.classList.add('active'); arrow.textContent = '▲'; }
+    const params = new URLSearchParams({ soggetto_id: soggettoId, modalita: modeVal });
+    const r = await apiFetch('/report/soggetti?' + params.toString());
+    if (r.success) {
+      soggettiData = r.data || [];
+      sortSoggetti.col = 'descrizione';
+      sortSoggetti.asc = true;
+      soggettiData = sortData(soggettiData, 'descrizione', true);
+      renderSoggetti(soggettiData);
+      const arrow = document.querySelector('#soggettiTable thead th[data-sort="descrizione"] .sort-arrow');
+      if (arrow) { arrow.classList.add('active'); arrow.textContent = '▲'; }
+    } else showMessage(r.message, 'error');
   } catch(e) {
     showMessage(e.message, 'error');
     tbody.innerHTML = '<tr><td colspan="10" class="text-center">❌ Errore nel caricamento</td></tr>';
@@ -777,7 +741,7 @@ function renderSoggetti(data) {
 }
 
 // ============================================================
-// GENERAZIONE PDF (invariata)
+// GENERAZIONE PDF
 // ============================================================
 async function generaPDF(tab, anteprima = false) {
   let data, columns, title, filename;
@@ -1043,7 +1007,6 @@ window.onload = async function() {
     }
   }
 
-  // Attacca i listener per l'ordinamento
   attachSortListeners();
 
   document.getElementById('soggettoSelect').addEventListener('change', function() {

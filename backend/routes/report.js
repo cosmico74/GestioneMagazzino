@@ -93,7 +93,7 @@ router.get('/italia', verifyToken, async (req, res) => {
       sqlMagazzino += ' ORDER BY a.codice';
       let [rowsMag] = await pool.query(sqlMagazzino, paramsMag);
 
-      // Filtra per giacenza > 0 (usando HAVING per sicurezza)
+      // Filtra per giacenza > 0
       rowsMag = rowsMag.filter(row => row.giacenza > 0);
 
       if (raggruppaAttivo) {
@@ -224,7 +224,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 
     // --- KIT ---
     if (includeKit) {
-      // 1. Kit in magazzino (giacenza > 0) - CORRETTO CON HAVING
+      // 1. Kit in magazzino (giacenza > 0)
       let sqlKitMagazzino = `
         SELECT 
           k.id AS articolo_id,
@@ -267,12 +267,12 @@ router.get('/italia', verifyToken, async (req, res) => {
       sqlKitMagazzino += ' ORDER BY k.codice_kit';
       let [rowsKitMag] = await pool.query(sqlKitMagazzino, paramsKitMag);
 
-      // 🔥 Filtra per giacenza > 0 (usando filter JavaScript perché HAVING non è supportato con subquery)
+      // Filtra per giacenza > 0
       rowsKitMag = rowsKitMag.filter(row => row.giacenza > 0);
 
       risultati = risultati.concat(rowsKitMag.map(r => ({ ...r, tipo_oggetto: 'KIT' })));
 
-      // 2. Kit assegnati (solo quelli con giacenza = 0 o parziale)
+      // 2. Kit assegnati
       let sqlKitAssegnati = `
         SELECT 
           k.id AS articolo_id,
@@ -319,7 +319,6 @@ router.get('/italia', verifyToken, async (req, res) => {
       risultati = risultati.concat(rowsKitAss.map(r => ({ ...r, tipo_oggetto: 'KIT' })));
     }
 
-    // Se raggruppamento attivo, per i kit lasciamo tutto invariato (non raggruppiamo)
     res.json({ success: true, data: risultati });
   } catch (err) {
     console.error('Errore report italia:', err);
@@ -328,10 +327,171 @@ router.get('/italia', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT SOGGETTI – oggetti in carico/inviati
+// REPORT SOGGETTI – oggetti in carico/inviati (con supporto "tutti")
 // ============================================================
 router.get('/soggetti', verifyToken, async (req, res) => {
-  // ... invariato
+  try {
+    const { soggetto_id, modalita } = req.query;
+    if (!soggetto_id) {
+      return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
+    }
+
+    let tipo, soggettoIds = [];
+    
+    if (soggetto_id === 'tutti') {
+      // Ottieni tutti i soggetti visibili per l'utente
+      let query = 'SELECT s.id, s.tipo FROM soggetti s WHERE s.attivo = 1';
+      const params = [];
+      if (req.userRole === 'admin') {
+        // Admin vede tutti
+      } else if (req.userRole === 'promoter') {
+        const [userRows] = await pool.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
+        if (userRows.length === 0 || !userRows[0].riferimento_id) {
+          return res.json({ success: true, data: [] });
+        }
+        const mioId = userRows[0].riferimento_id;
+        const [sog] = await pool.query('SELECT livello FROM soggetti WHERE id = ?', [mioId]);
+        const livello = sog.length ? sog[0].livello : 0;
+        query += ' AND (s.id = ? OR EXISTS (SELECT 1 FROM soggetti_referenti WHERE referente_id = ? AND soggetto_id = s.id)';
+        params.push(mioId, mioId);
+        if (livello === 1) {
+          query += ' OR s.livello IN (2,3)';
+        } else if (livello > 1) {
+          query += ' OR s.livello > ?';
+          params.push(livello);
+        }
+        query += ' )';
+      } else {
+        // Altri ruoli vedono solo sé stessi
+        const [userRows] = await pool.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
+        if (userRows.length === 0 || !userRows[0].riferimento_id) {
+          return res.json({ success: true, data: [] });
+        }
+        query += ' AND s.id = ?';
+        params.push(userRows[0].riferimento_id);
+      }
+      const [rows] = await pool.query(query, params);
+      soggettoIds = rows.map(r => r.id);
+      if (soggettoIds.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+    } else {
+      // Singolo soggetto
+      const [sog] = await pool.query('SELECT tipo FROM soggetti WHERE id = ?', [soggetto_id]);
+      if (!sog.length) {
+        return res.status(404).json({ success: false, message: 'Soggetto non trovato' });
+      }
+      tipo = sog[0].tipo;
+      soggettoIds = [parseInt(soggetto_id)];
+    }
+
+    let risultati = [];
+    const modalitaVal = modalita || 'incarico';
+
+    // Helper per ottenere dati per un singolo soggetto
+    async function getDataForSoggetto(sId, sTipo) {
+      let result = [];
+      if (modalitaVal === 'incarico' || modalitaVal === 'entrambi') {
+        const [rows] = await pool.query(`
+          SELECT cs.*,
+            CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.descrizione ELSE k.descrizione END AS descrizione,
+            CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.codice ELSE k.codice_kit END AS codice,
+            a.lunghezza,
+            COALESCE(s.sigla, 
+              (SELECT s2.sigla FROM kit_dettaglio kd 
+               LEFT JOIN sigle_articoli s2 ON kd.sigla_id = s2.id 
+               WHERE kd.kit_id = cs.oggetto_id AND kd.tipo_articolo = 'SCI' LIMIT 1)
+            ) AS sigla_corrente,
+            a.note AS nota_articolo,
+            k.note AS nota_kit,
+            sog.nome AS destinatario_nome,
+            sog.cognome AS destinatario_cognome
+          FROM carico_sintesi cs
+          LEFT JOIN articoli a ON cs.tipo_oggetto = 'ARTICOLO' AND cs.oggetto_id = a.articolo_id
+          LEFT JOIN kit k ON cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id
+          LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
+          LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
+          WHERE cs.destinazione_tipo = ? AND cs.destinazione_id = ? AND cs.quantita > 0
+        `, [sTipo, sId]);
+        rows.forEach(row => {
+          result.push({
+            tipo: row.tipo_oggetto,
+            codice_sigla: row.codice || '',
+            descrizione: row.descrizione || '',
+            lunghezza: row.lunghezza || '',
+            sigla: row.sigla_corrente || 'NA',
+            quantita: row.quantita,
+            stato: 'In carico',
+            destinatario: row.destinazione_tipo === 'PROMOTER'
+              ? ((row.destinatario_nome || '') + ' ' + (row.destinatario_cognome || '')).trim()
+              : (row.destinatario_nome || 'Magazzino'),
+            data: row.data_assegnazione,
+            nota: row.tipo_oggetto === 'ARTICOLO' ? row.nota_articolo : row.nota_kit
+          });
+        });
+      }
+
+      if (modalitaVal === 'inviati' || modalitaVal === 'entrambi') {
+        const [rows] = await pool.query(`
+          SELECT cs.*,
+            CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.descrizione ELSE k.descrizione END AS descrizione,
+            CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.codice ELSE k.codice_kit END AS codice,
+            a.lunghezza,
+            COALESCE(s.sigla, 
+              (SELECT s2.sigla FROM kit_dettaglio kd 
+               LEFT JOIN sigle_articoli s2 ON kd.sigla_id = s2.id 
+               WHERE kd.kit_id = cs.oggetto_id AND kd.tipo_articolo = 'SCI' LIMIT 1)
+            ) AS sigla_corrente,
+            a.note AS nota_articolo,
+            k.note AS nota_kit,
+            sog.nome AS destinatario_nome,
+            sog.cognome AS destinatario_cognome
+          FROM carico_sintesi cs
+          LEFT JOIN articoli a ON cs.tipo_oggetto = 'ARTICOLO' AND cs.oggetto_id = a.articolo_id
+          LEFT JOIN kit k ON cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id
+          LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
+          LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
+          WHERE cs.provenienza_tipo = ? AND cs.provenienza_id = ? AND cs.quantita > 0
+        `, [sTipo, sId]);
+        rows.forEach(row => {
+          result.push({
+            tipo: row.tipo_oggetto,
+            codice_sigla: row.codice || '',
+            descrizione: row.descrizione || '',
+            lunghezza: row.lunghezza || '',
+            sigla: row.sigla_corrente || 'NA',
+            quantita: row.quantita,
+            stato: 'Assegnato',
+            destinatario: row.destinazione_tipo === 'PROMOTER'
+              ? ((row.destinatario_nome || '') + ' ' + (row.destinatario_cognome || '')).trim()
+              : (row.destinatario_nome || 'Magazzino'),
+            data: row.data_assegnazione,
+            nota: row.tipo_oggetto === 'ARTICOLO' ? row.nota_articolo : row.nota_kit
+          });
+        });
+      }
+      return result;
+    }
+
+    // Se "tutti", itera su tutti i soggetti e combina i risultati
+    if (soggetto_id === 'tutti') {
+      for (const id of soggettoIds) {
+        const [sog] = await pool.query('SELECT tipo FROM soggetti WHERE id = ?', [id]);
+        if (sog.length) {
+          const data = await getDataForSoggetto(id, sog[0].tipo);
+          risultati = risultati.concat(data);
+        }
+      }
+    } else {
+      // Singolo soggetto
+      risultati = await getDataForSoggetto(parseInt(soggetto_id), tipo);
+    }
+
+    res.json({ success: true, data: risultati });
+  } catch (err) {
+    console.error('Errore report soggetti:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = router;
