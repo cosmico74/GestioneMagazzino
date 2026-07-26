@@ -9,21 +9,15 @@ const router = express.Router();
 // HELPER: Verifica se un promoter può vendere a un cliente
 // ============================================================
 async function canPromoterSellTo(connection, promoterId, clienteId) {
-  // Ottieni livello del promoter
   const [p] = await connection.query('SELECT livello FROM soggetti WHERE id = ?', [promoterId]);
   if (!p.length) return false;
   const livelloPromoter = p[0].livello;
 
-  // Ottieni tipo del cliente
   const [c] = await connection.query('SELECT tipo FROM soggetti WHERE id = ?', [clienteId]);
   if (!c.length) return false;
   const tipoCliente = c[0].tipo;
 
-  // I clienti possono essere di tipo CLIENTE o NEGOZIO (a volte anche AGENTE)
-  // Un promoter può sempre vendere a CLIENTE, NEGOZIO e AGENTE
-  // Ma se il cliente è un PROMOTER, applica le stesse regole di assegnazione
   if (tipoCliente === 'PROMOTER') {
-    // Usa la stessa logica di canPromoterAssignTo
     const [t] = await connection.query('SELECT livello FROM soggetti WHERE id = ?', [clienteId]);
     const livelloCliente = t[0]?.livello || 0;
     if (livelloPromoter === 1) return true;
@@ -31,12 +25,48 @@ async function canPromoterSellTo(connection, promoterId, clienteId) {
     if (livelloPromoter === 3) return false;
     return false;
   }
-  // Per clienti non promoter, permesso sempre
   return true;
 }
 
 // ============================================================
-// DECREMENTA ARTICOLO CON SIGLA (helper)
+// HELPER: Decrementa quantità in carico_sintesi
+// ============================================================
+async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, siglaId, quantita, sorgenteTipo, sorgenteId) {
+  if (sorgenteTipo === 'MAGAZZINO') return; // Non c'è carico_sintesi per magazzino
+
+  // Trova la riga in carico_sintesi
+  const [rows] = await connection.query(
+    `SELECT id, quantita FROM carico_sintesi 
+     WHERE destinazione_tipo = ? AND destinazione_id = ? 
+       AND tipo_oggetto = ? AND oggetto_id = ? 
+       AND (sigla_id = ? OR (sigla_id IS NULL AND ? IS NULL))`,
+    [sorgenteTipo, sorgenteId, tipoOggetto, oggettoId, siglaId, siglaId]
+  );
+  if (rows.length === 0) {
+    throw new Error(`Oggetto non trovato in carico al soggetto`);
+  }
+  const row = rows[0];
+  if (row.quantita < quantita) {
+    throw new Error(`Quantità richiesta (${quantita}) supera quella in carico (${row.quantita})`);
+  }
+  const nuovaQuantita = row.quantita - quantita;
+  if (nuovaQuantita === 0) {
+    await connection.query(
+      `DELETE FROM carico_sintesi WHERE id = ?`,
+      [row.id]
+    );
+    console.log(`🗑️ Riga eliminata da carico_sintesi per ${tipoOggetto} ${oggettoId} da ${sorgenteTipo} ${sorgenteId}`);
+  } else {
+    await connection.query(
+      `UPDATE carico_sintesi SET quantita = ? WHERE id = ?`,
+      [nuovaQuantita, row.id]
+    );
+    console.log(`📉 Aggiornata quantità in carico_sintesi per ${tipoOggetto} ${oggettoId}: ${nuovaQuantita}`);
+  }
+}
+
+// ============================================================
+// HELPER: Decrementa articolo con sigla
 // ============================================================
 async function decrementaArticoloConSigla(connection, articoloId, siglaId, quantita) {
   const [art] = await connection.query('SELECT quantita_totale, quantita_obsoleta FROM articoli WHERE articolo_id = ? FOR UPDATE', [articoloId]);
@@ -56,10 +86,10 @@ async function decrementaArticoloConSigla(connection, articoloId, siglaId, quant
 }
 
 // ============================================================
-// VENDITA (con controllo di livello)
+// POST /api/vendite - Registra vendita
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
-  const { oggetti, clienteId, note, importo } = req.body;
+  const { oggetti, clienteId, note, importo, data, sorgenteTipo, sorgenteId, magazzinoId } = req.body;
   if (!oggetti || !oggetti.length) return res.status(400).json({ success: false, message: 'Nessun oggetto da vendere' });
   if (!clienteId) return res.status(400).json({ success: false, message: 'Seleziona un cliente' });
 
@@ -80,30 +110,41 @@ router.post('/', verifyToken, async (req, res) => {
 
     const [user] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = user[0].username;
-    const now = db.now();
+    const now = data ? new Date(data) : new Date();
+    const dataVendita = now.toISOString().slice(0, 19).replace('T', ' ');
 
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, quantita, siglaId } = item;
       if (!quantita || quantita <= 0) continue;
 
-      if (tipoOggetto === 'ARTICOLO') {
-        await decrementaArticoloConSigla(connection, oggettoId, siglaId || null, quantita);
-      } else if (tipoOggetto === 'KIT') {
-        const [kit] = await connection.query('SELECT quantita FROM kit WHERE id = ? FOR UPDATE', [oggettoId]);
-        if (!kit.length || kit[0].quantita < quantita) throw new Error(`Quantità kit ${oggettoId} insufficiente`);
-        await connection.query('UPDATE kit SET quantita = quantita - ? WHERE id = ?', [quantita, oggettoId]);
+      // 1. Se l'oggetto proviene da un soggetto, rimuovi da carico_sintesi
+      if (sorgenteTipo && sorgenteTipo !== 'MAGAZZINO') {
+        await decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, siglaId || null, quantita, sorgenteTipo, sorgenteId);
+      } else if (sorgenteTipo === 'MAGAZZINO' && magazzinoId) {
+        // Da magazzino: verifica la giacenza e riduci le quantità
+        if (tipoOggetto === 'ARTICOLO') {
+          await decrementaArticoloConSigla(connection, oggettoId, siglaId || null, quantita);
+        } else if (tipoOggetto === 'KIT') {
+          const [kit] = await connection.query('SELECT quantita FROM kit WHERE id = ? FOR UPDATE', [oggettoId]);
+          if (!kit.length || kit[0].quantita < quantita) throw new Error(`Quantità kit ${oggettoId} insufficiente`);
+          await connection.query('UPDATE kit SET quantita = quantita - ? WHERE id = ?', [quantita, oggettoId]);
+        }
+      } else {
+        throw new Error('Sorgente non specificata correttamente');
       }
 
+      // 2. Registra il movimento
       const [movRes] = await connection.query(
         `INSERT INTO movimenti (data, tipo, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
          VALUES (?, 'VENDITA', ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
-        [now, oggettoId, tipoOggetto, quantita, operatore, note || 'Vendita', siglaId || null]
+        [dataVendita, oggettoId, tipoOggetto, quantita, operatore, note || 'Vendita', siglaId || null]
       );
 
+      // 3. Registra nella tabella vendite
       await connection.query(
         `INSERT INTO vendite (cliente_id, movimento_id, importo, note, data)
          VALUES (?, ?, ?, ?, ?)`,
-        [clienteId, movRes.insertId, importo || null, note || null, now]
+        [clienteId, movRes.insertId, importo || null, note || null, dataVendita]
       );
     }
 
@@ -111,6 +152,7 @@ router.post('/', verifyToken, async (req, res) => {
     res.json({ success: true, message: `Vendita registrata per ${oggetti.length} oggetti` });
   } catch (err) {
     await connection.rollback();
+    console.error('Errore vendita:', err);
     res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
