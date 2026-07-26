@@ -20,8 +20,6 @@
     .btn-danger { background: #dc3545; }
     .btn-secondary { background: #6c757d; }
     .btn-warning { background: #f39c12; color: white; }
-    .btn-massive { background: #8b5cf6; color: white; font-weight: bold; padding: 6px 16px; border-radius: 8px; }
-    .btn-massive:hover { background: #7c3aed; }
     .btn-sm { padding: 3px 8px; font-size: 0.7rem; }
 
     .filter-bar {
@@ -38,7 +36,6 @@
     .filter-group { flex: 1; min-width: 140px; }
     .filter-group label { display: block; font-weight: 600; font-size: 0.65rem; text-transform: uppercase; color: #2c3e50; margin-bottom: 2px; }
     .filter-group input, .filter-group select { width: 100%; padding: 5px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: white; }
-
     .radio-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
     .radio-group label { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; font-weight: normal; cursor: pointer; }
     .radio-group input[type="radio"] { cursor: pointer; }
@@ -109,12 +106,7 @@
       margin-bottom: 15px;
     }
     .modal-header h3 { margin: 0; }
-    .close {
-      font-size: 1.5rem;
-      font-weight: bold;
-      cursor: pointer;
-      color: #aaa;
-    }
+    .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
     .close:hover { color: black; }
     .modal-footer {
       border-top: 1px solid #e2e8f0;
@@ -174,6 +166,25 @@
 
   <!-- FILTRI -->
   <div class="filter-bar">
+    <div class="radio-group" style="flex:1; gap:20px;">
+      <label><input type="radio" name="source" id="sourceMagazzino" value="magazzino" checked> 🏭 Dal magazzino</label>
+      <label><input type="radio" name="source" id="sourceSoggetto" value="soggetto"> 👤 Da soggetto</label>
+    </div>
+    <div id="soggettoSection" style="display:none; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+      <div class="filter-group" style="min-width:120px;">
+        <label>Tipo</label>
+        <select id="sourceTipo" onchange="caricaSoggetti()">
+          <option value="PROMOTER">Promoter</option>
+          <option value="NEGOZIO">Negozio</option>
+          <option value="CLIENTE">Cliente</option>
+          <option value="AGENTE">Agente</option>
+        </select>
+      </div>
+      <div class="filter-group" style="min-width:150px;">
+        <label>Soggetto</label>
+        <select id="sourceId" onchange="caricaOggetti()"><option value="">Seleziona...</option></select>
+      </div>
+    </div>
     <div class="filter-group" style="min-width:120px;">
       <label>Magazzino</label>
       <select id="filtroMagazzino" onchange="caricaOggetti()">
@@ -192,7 +203,7 @@
       <label>Descrizione</label>
       <input type="text" id="filtroDescrizione" placeholder="Cerca..." oninput="caricaOggetti()">
     </div>
-    <div class="filter-group" style="min-width:100px;">
+    <div class="filter-group">
       <label>Sigla</label>
       <input type="text" id="filtroSigla" placeholder="Sigla..." oninput="caricaOggetti()">
     </div>
@@ -216,7 +227,7 @@
           <th>Lunghezza</th>
           <th>Quantità</th>
           <th>Stato</th>
-          <th>Magazzino</th>
+          <th>Magazzino / Soggetto</th>
         </tr>
       </thead>
       <tbody id="tabellaBody"><tr><td colspan="10" class="text-center">Caricamento...</td></tr></tbody>
@@ -412,6 +423,11 @@ let storicoVendite = [];
 let storicoFiltrato = [];
 let paginaCorrente = 1, righePerPagina = 25;
 
+const sourceMag = document.getElementById('sourceMagazzino');
+const sourceSog = document.getElementById('sourceSoggetto');
+const soggettoSection = document.getElementById('soggettoSection');
+const sourceTipo = document.getElementById('sourceTipo');
+const sourceId = document.getElementById('sourceId');
 const filtroMagazzino = document.getElementById('filtroMagazzino');
 const filtroTipo = document.getElementById('filtroTipo');
 const filtroDescrizione = document.getElementById('filtroDescrizione');
@@ -426,15 +442,37 @@ async function caricaMagazzini() {
     const sel = filtroMagazzino;
     sel.innerHTML = '<option value="">Tutti</option>';
     magazzini.forEach(m => sel.appendChild(new Option(m.nome, m.id)));
-    // Seleziona il primo magazzino disponibile (Race se esiste)
     if (magazzini.length > 0) {
       const race = magazzini.find(m => m.nome.toLowerCase() === 'race');
       sel.value = race ? race.id : magazzini[0].id;
+    } else {
+      showMessage('Nessun magazzino disponibile per il tuo profilo', 'info');
+      sel.innerHTML = '<option value="">Nessun magazzino</option>';
+      sel.disabled = true;
     }
   } catch(e) {
     console.error('Errore magazzini:', e);
     showMessage('Impossibile caricare i magazzini', 'error');
   }
+}
+
+async function caricaSoggetti() {
+  const tipo = sourceTipo.value;
+  try {
+    const data = await apiFetch('/soggetti/tipo/' + tipo);
+    const sel = sourceId;
+    sel.innerHTML = '<option value="">Seleziona...</option>';
+    data.forEach(s => {
+      const nome = s.tipo === 'PROMOTER' ? (s.nome + ' ' + (s.cognome||'')).trim() : s.nome;
+      sel.appendChild(new Option(nome + ' (' + s.tipo + ')', s.id));
+    });
+    if (currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
+      sel.value = currentUser.riferimento_id;
+      sel.disabled = true;
+    } else {
+      sel.disabled = false;
+    }
+  } catch(e) { console.error(e); }
 }
 
 async function caricaClienti() {
@@ -454,6 +492,7 @@ async function caricaClienti() {
 // CARICAMENTO OGGETTI (tabella principale)
 // ============================================================
 async function caricaOggetti() {
+  const isMag = sourceMag.checked;
   const magId = filtroMagazzino.value;
   const tipo = filtroTipo.value;
   const desc = filtroDescrizione.value.toLowerCase().trim();
@@ -462,71 +501,103 @@ async function caricaOggetti() {
   let lista = [];
 
   try {
-    if (!magId) {
-      if (magazzini.length) filtroMagazzino.value = magazzini[0].id;
-      else { showMessage('Nessun magazzino disponibile', 'error'); return; }
-    }
+    if (isMag) {
+      // DA MAGAZZINO
+      if (!magId) {
+        if (magazzini.length) filtroMagazzino.value = magazzini[0].id;
+        else { showMessage('Nessun magazzino disponibile', 'error'); return; }
+      }
+      const params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
+      if (desc) params.append('descrizione', desc);
+      if (sigla) params.append('codice_modello', sigla);
+      if (tipo !== 'TUTTI') params.append('tipo', tipo);
 
-    // ARTICOLI
-    const params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
-    if (desc) params.append('descrizione', desc);
-    if (sigla) params.append('codice_modello', sigla);
-    if (tipo !== 'TUTTI') params.append('tipo', tipo);
-
-    const res = await apiFetch('/articoli?' + params.toString());
-    const articoli = res.success ? res.data : [];
-    articoli.forEach(a => {
-      const disp = a.GIACENZA_REALE || 0;
-      if (disp <= 0) return;
-      const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
-      lista.push({
-        id: a.articolo_id,
-        tipo: 'ARTICOLO',
-        codice: codiceMostrato,
-        descrizione: a.descrizione || '',
-        sigla: codiceMostrato,
-        lunghezza: a.lunghezza || '',
-        quantita: disp,
-        stato: a.stato || 'Disponibile',
-        magazzino: a.magazzino,
-        magazzinoNome: magazzini.find(m => m.id == a.magazzino)?.nome || 'Magazzino ' + a.magazzino,
-        sorgenteTipo: 'MAGAZZINO',
-        sorgenteId: a.magazzino,
-        siglaId: null
-      });
-    });
-
-    // KIT
-    if (tipo === 'TUTTI' || tipo === 'KIT') {
-      const kits = await apiFetch('/kit');
-      const kitArray = Array.isArray(kits) ? kits : (kits.success ? kits.data : []);
-      for (const k of kitArray) {
-        if (k.magazzino != magId) continue;
-        let dispKit = k.quantita;
-        try {
-          const assegnato = await apiFetch('/assegnazioni/quantita-assegnata-kit?kit_id=' + k.id);
-          dispKit = k.quantita - (assegnato.quantita || 0);
-        } catch(e) {}
-        if (dispKit <= 0) continue;
-        if (desc && !k.descrizione.toLowerCase().includes(desc)) continue;
-        const siglaKit = k.sigla_sci || '';
-        if (sigla && !siglaKit.toLowerCase().includes(sigla)) continue;
+      const res = await apiFetch('/articoli?' + params.toString());
+      const articoli = res.success ? res.data : [];
+      articoli.forEach(a => {
+        const disp = a.GIACENZA_REALE || 0;
+        if (disp <= 0) return;
+        const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
         lista.push({
-          id: k.id,
-          tipo: 'KIT',
-          codice: k.codice_kit || '',
-          descrizione: k.descrizione || '',
-          sigla: siglaKit,
-          lunghezza: k.lunghezza_sci || '',
-          quantita: dispKit,
-          stato: 'Disponibile',
-          magazzino: k.magazzino,
-          magazzinoNome: magazzini.find(m => m.id == k.magazzino)?.nome || 'Magazzino ' + k.magazzino,
+          id: a.articolo_id,
+          tipo: 'ARTICOLO',
+          codice: codiceMostrato,
+          descrizione: a.descrizione || '',
+          sigla: codiceMostrato,
+          lunghezza: a.lunghezza || '',
+          quantita: disp,
+          stato: a.stato || 'Disponibile',
+          magazzino: a.magazzino,
+          magazzinoNome: magazzini.find(m => m.id == a.magazzino)?.nome || 'Magazzino ' + a.magazzino,
           sorgenteTipo: 'MAGAZZINO',
-          sorgenteId: k.magazzino,
+          sorgenteId: a.magazzino,
           siglaId: null
         });
+      });
+
+      // KIT
+      if (tipo === 'TUTTI' || tipo === 'KIT') {
+        const kits = await apiFetch('/kit');
+        const kitArray = Array.isArray(kits) ? kits : (kits.success ? kits.data : []);
+        for (const k of kitArray) {
+          if (k.magazzino != magId) continue;
+          let dispKit = k.quantita;
+          try {
+            const assegnato = await apiFetch('/assegnazioni/quantita-assegnata-kit?kit_id=' + k.id);
+            dispKit = k.quantita - (assegnato.quantita || 0);
+          } catch(e) {}
+          if (dispKit <= 0) continue;
+          if (desc && !k.descrizione.toLowerCase().includes(desc)) continue;
+          const siglaKit = k.sigla_sci || '';
+          if (sigla && !siglaKit.toLowerCase().includes(sigla)) continue;
+          lista.push({
+            id: k.id,
+            tipo: 'KIT',
+            codice: k.codice_kit || '',
+            descrizione: k.descrizione || '',
+            sigla: siglaKit,
+            lunghezza: k.lunghezza_sci || '',
+            quantita: dispKit,
+            stato: 'Disponibile',
+            magazzino: k.magazzino,
+            magazzinoNome: magazzini.find(m => m.id == k.magazzino)?.nome || 'Magazzino ' + k.magazzino,
+            sorgenteTipo: 'MAGAZZINO',
+            sorgenteId: k.magazzino,
+            siglaId: null
+          });
+        }
       }
+    } else {
+      // DA SOGGETTO
+      const tipoS = sourceTipo.value;
+      const idS = sourceId.value;
+      if (!idS) { showMessage('Seleziona un soggetto', 'info'); return; }
+      const body = { targetTipo: tipoS, targetId: parseInt(idS) };
+      const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) });
+      if (!r.success) throw new Error(r.message);
+      const oggettiCarico = r.oggetti || [];
+      oggettiCarico.forEach(o => {
+        if (o.quantita <= 0) return;
+        if (tipo !== 'TUTTI' && o.tipo !== tipo) return;
+        if (desc && !o.descrizione.toLowerCase().includes(desc)) return;
+        const siglaObj = o.SIGLA_CORRENTE || '';
+        if (sigla && !siglaObj.toLowerCase().includes(sigla)) return;
+        lista.push({
+          id: o.ID,
+          tipo: o.tipo,
+          codice: o.codice || '',
+          descrizione: o.descrizione || '',
+          sigla: siglaObj,
+          lunghezza: o.LUNGHEZZA || '',
+          quantita: o.quantita,
+          stato: 'In carico',
+          magazzino: null,
+          magazzinoNome: o.destinatarioNome || 'Soggetto',
+          sorgenteTipo: tipoS,
+          sorgenteId: parseInt(idS),
+          siglaId: o.siglaId || null
+        });
+      });
     }
 
     oggetti = lista;
@@ -546,7 +617,7 @@ function renderTabella() {
   tbody.innerHTML = '';
   const totali = oggettiFiltrati.length;
   if (totali === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun oggetto disponibile in magazzino</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun oggetto disponibile</td></tr>';
     updatePagination(0,0,0);
     return;
   }
@@ -674,6 +745,17 @@ function resetFiltri() {
 }
 
 // ============================================================
+// TOGGLE SORGENTE
+// ============================================================
+function toggleSorgente() {
+  const isMag = sourceMag.checked;
+  soggettoSection.style.display = isMag ? 'none' : 'flex';
+  caricaOggetti();
+}
+sourceMag.addEventListener('change', toggleSorgente);
+sourceSog.addEventListener('change', toggleSorgente);
+
+// ============================================================
 // MODALE VENDITA
 // ============================================================
 function apriModaleVendita() {
@@ -721,6 +803,10 @@ async function confermaVendita() {
 
   const oggettiVendita = [];
   const unique = [...new Set(selezione)];
+  let sorgenteTipo = null;
+  let sorgenteId = null;
+  let magazzinoId = null;
+
   unique.forEach(idx => {
     const obj = oggettiFiltrati[idx];
     if (!obj) return;
@@ -728,10 +814,13 @@ async function confermaVendita() {
       tipoOggetto: obj.tipo,
       oggettoId: obj.id,
       siglaId: obj.siglaId || null,
-      quantita: obj.quantita,
-      sorgenteTipo: obj.sorgenteTipo || 'MAGAZZINO',
-      sorgenteId: obj.sorgenteId || parseInt(filtroMagazzino.value)
+      quantita: obj.quantita
     });
+    if (!sorgenteTipo) {
+      sorgenteTipo = obj.sorgenteTipo;
+      sorgenteId = obj.sorgenteId;
+      if (sorgenteTipo === 'MAGAZZINO') magazzinoId = obj.sorgenteId;
+    }
   });
 
   const payload = {
@@ -740,9 +829,9 @@ async function confermaVendita() {
     importo: importo ? parseFloat(importo) : null,
     data: data || null,
     note: note || null,
-    sorgenteTipo: 'MAGAZZINO',
-    sorgenteId: parseInt(filtroMagazzino.value),
-    magazzinoId: parseInt(filtroMagazzino.value)
+    sorgenteTipo: sorgenteTipo,
+    sorgenteId: sorgenteId,
+    magazzinoId: magazzinoId
   };
 
   const btn = document.getElementById('btnConfermaVendita');
@@ -890,8 +979,14 @@ window.onload = async function() {
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
 
   await caricaMagazzini();
+  await caricaSoggetti();
   await caricaClienti();
   await caricaOggetti();
+
+  // Imposta la data nel modale vendita
+  const now = new Date();
+  const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('dataVenditaInput').value = iso;
 };
 </script>
 </body>
