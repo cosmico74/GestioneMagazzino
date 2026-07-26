@@ -634,8 +634,9 @@ router.post('/:id/obsoleto', verifyToken, async (req, res) => {
 });
 
 
+
 // ============================================================
-// GET /api/articoli/valori/sigle - Elenco sigle (articoli + kit)
+// GET /api/articoli/valori/sigle - Elenco sigle (da articoli)
 // ============================================================
 router.get('/valori/sigle', verifyToken, async (req, res) => {
   try {
@@ -656,26 +657,6 @@ router.get('/valori/sigle', verifyToken, async (req, res) => {
       sql += ' AND descrizione LIKE ?';
       params.push(`%${req.query.descrizione}%`);
     }
-    
-    // Unione con sigle dei kit (sigla_sci)
-    sql += `
-      UNION
-      SELECT DISTINCT sigla_sci AS sigla FROM kit
-      WHERE sigla_sci IS NOT NULL AND sigla_sci != ''
-    `;
-    if (req.query.magazzino) {
-      sql += ' AND magazzino = ?';
-      params.push(req.query.magazzino);
-    }
-    if (req.query.lunghezza) {
-      sql += ' AND lunghezza_sci = ?';
-      params.push(req.query.lunghezza);
-    }
-    if (req.query.descrizione) {
-      sql += ' AND descrizione LIKE ?';
-      params.push(`%${req.query.descrizione}%`);
-    }
-    
     sql += ' ORDER BY sigla';
     const [rows] = await db.query(sql, params);
     res.json(rows);
@@ -686,7 +667,7 @@ router.get('/valori/sigle', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/articoli/valori/lunghezze - con filtri
+// GET /api/articoli/valori/lunghezze - Elenco lunghezze (da articoli)
 // ============================================================
 router.get('/valori/lunghezze', verifyToken, async (req, res) => {
   try {
@@ -707,24 +688,6 @@ router.get('/valori/lunghezze', verifyToken, async (req, res) => {
       sql += ' AND codice_modello LIKE ?';
       params.push(`%${req.query.sigla}%`);
     }
-    // Unione con lunghezze dei kit
-    sql += `
-      UNION
-      SELECT DISTINCT lunghezza_sci AS lunghezza FROM kit
-      WHERE lunghezza_sci IS NOT NULL AND lunghezza_sci != ''
-    `;
-    if (req.query.magazzino) {
-      sql += ' AND magazzino = ?';
-      params.push(req.query.magazzino);
-    }
-    if (req.query.descrizione) {
-      sql += ' AND descrizione LIKE ?';
-      params.push(`%${req.query.descrizione}%`);
-    }
-    if (req.query.sigla) {
-      sql += ' AND sigla_sci LIKE ?';
-      params.push(`%${req.query.sigla}%`);
-    }
     sql += ' ORDER BY lunghezza';
     const [rows] = await db.query(sql, params);
     res.json(rows);
@@ -739,7 +702,7 @@ router.get('/valori/lunghezze', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/valori/attacchi', verifyToken, async (req, res) => {
   try {
-    const [rows] = await db.query(`
+    let sql = `
       SELECT DISTINCT 
         a.articolo_id, 
         a.descrizione, 
@@ -751,14 +714,19 @@ router.get('/valori/attacchi', verifyToken, async (req, res) => {
         AND (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta - 
              COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) > 0
       ORDER BY a.descrizione
-    `);
+    `;
+    const params = [];
+    if (req.query.magazzino) {
+      sql = sql.replace('ORDER BY a.descrizione', 'AND a.magazzino = ? ORDER BY a.descrizione');
+      params.push(req.query.magazzino);
+    }
+    const [rows] = await db.query(sql, params);
     res.json(rows);
   } catch (err) {
     console.error('❌ Errore /valori/attacchi:', err);
     res.status(500).json({ error: err.message });
   }
 });
-
 // ============================================================
 // VALORI PER DATALIST
 // ============================================================
