@@ -1,9 +1,21 @@
 const express = require('express');
 const { verifyToken } = require('../auth');
 const pool = require('../db');
+const db = require('../db');
 const { ricalcolaQuantitaTotale } = require('./articoli');
 
 const router = express.Router();
+
+// ============================================================
+// HELPER: registra audit log
+// ============================================================
+async function registraAudit(connection, tabella, operazione, rigaId, datiPrima, datiDopo, utenteId) {
+  await connection.query(
+    `INSERT INTO audit_log (tabella, operazione, riga_id, dati_prima, dati_dopo, utente_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [tabella, operazione, rigaId, JSON.stringify(datiPrima), JSON.stringify(datiDopo), utenteId]
+  );
+}
 
 // ============================================================
 // HELPER: Verifica se un promoter può vendere a un cliente
@@ -29,12 +41,13 @@ async function canPromoterSellTo(connection, promoterId, clienteId) {
 }
 
 // ============================================================
-// HELPER: Decrementa quantità in carico_sintesi
+// HELPER: Decrementa quantità in carico_sintesi (rimuove da assegnazione)
 // ============================================================
 async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, siglaId, quantita, sorgenteTipo, sorgenteId) {
-  if (sorgenteTipo === 'MAGAZZINO') return; // Non c'è carico_sintesi per magazzino
+  // Se la sorgente è MAGAZZINO, non c'è carico_sintesi da gestire
+  if (sorgenteTipo === 'MAGAZZINO') return;
 
-  // Trova la riga in carico_sintesi
+  // Cerca la riga in carico_sintesi
   const [rows] = await connection.query(
     `SELECT id, quantita FROM carico_sintesi 
      WHERE destinazione_tipo = ? AND destinazione_id = ? 
@@ -43,7 +56,7 @@ async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, sigla
     [sorgenteTipo, sorgenteId, tipoOggetto, oggettoId, siglaId, siglaId]
   );
   if (rows.length === 0) {
-    throw new Error(`Oggetto non trovato in carico al soggetto`);
+    throw new Error(`Oggetto non trovato in carico al soggetto (${sorgenteTipo} ${sorgenteId})`);
   }
   const row = rows[0];
   if (row.quantita < quantita) {
@@ -51,35 +64,41 @@ async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, sigla
   }
   const nuovaQuantita = row.quantita - quantita;
   if (nuovaQuantita === 0) {
-    await connection.query(
-      `DELETE FROM carico_sintesi WHERE id = ?`,
-      [row.id]
-    );
+    await connection.query(`DELETE FROM carico_sintesi WHERE id = ?`, [row.id]);
     console.log(`🗑️ Riga eliminata da carico_sintesi per ${tipoOggetto} ${oggettoId} da ${sorgenteTipo} ${sorgenteId}`);
   } else {
-    await connection.query(
-      `UPDATE carico_sintesi SET quantita = ? WHERE id = ?`,
-      [nuovaQuantita, row.id]
-    );
+    await connection.query(`UPDATE carico_sintesi SET quantita = ? WHERE id = ?`, [nuovaQuantita, row.id]);
     console.log(`📉 Aggiornata quantità in carico_sintesi per ${tipoOggetto} ${oggettoId}: ${nuovaQuantita}`);
   }
 }
 
 // ============================================================
-// HELPER: Decrementa articolo con sigla
+// HELPER: Decrementa articolo con sigla (da magazzino)
 // ============================================================
 async function decrementaArticoloConSigla(connection, articoloId, siglaId, quantita) {
-  const [art] = await connection.query('SELECT quantita_totale, quantita_obsoleta FROM articoli WHERE articolo_id = ? FOR UPDATE', [articoloId]);
+  const [art] = await connection.query(
+    'SELECT quantita_totale, quantita_obsoleta FROM articoli WHERE articolo_id = ? FOR UPDATE',
+    [articoloId]
+  );
   const giacenza = art[0].quantita_totale - (art[0].quantita_obsoleta || 0);
-  if (giacenza < quantita) throw new Error('Quantità insufficiente');
+  if (giacenza < quantita) throw new Error(`Quantità insufficiente per articolo ${articoloId}`);
 
   if (siglaId) {
-    const [sigla] = await connection.query('SELECT quantita FROM sigle_articoli WHERE id = ? AND articolo_id = ? AND attivo = 1 FOR UPDATE', [siglaId, articoloId]);
-    if (!sigla.length || sigla[0].quantita < quantita) throw new Error('Quantità insufficiente per la sigla');
+    const [sigla] = await connection.query(
+      'SELECT quantita FROM sigle_articoli WHERE id = ? AND articolo_id = ? AND attivo = 1 FOR UPDATE',
+      [siglaId, articoloId]
+    );
+    if (!sigla.length || sigla[0].quantita < quantita) {
+      throw new Error(`Quantità insufficiente per la sigla ${siglaId}`);
+    }
     await connection.query('UPDATE sigle_articoli SET quantita = quantita - ? WHERE id = ?', [quantita, siglaId]);
   } else {
-    const [sigla] = await connection.query('SELECT id FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1 AND quantita >= ? FOR UPDATE', [articoloId, quantita]);
-    if (!sigla.length) throw new Error('Nessuna sigla con quantità sufficiente');
+    // Se non è specificata una sigla, usa la prima disponibile
+    const [sigla] = await connection.query(
+      'SELECT id FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1 AND quantita >= ? FOR UPDATE',
+      [articoloId, quantita]
+    );
+    if (!sigla.length) throw new Error(`Nessuna sigla con quantità sufficiente per articolo ${articoloId}`);
     await connection.query('UPDATE sigle_articoli SET quantita = quantita - ? WHERE id = ?', [quantita, sigla[0].id]);
   }
   await ricalcolaQuantitaTotale(connection, articoloId);
@@ -90,8 +109,12 @@ async function decrementaArticoloConSigla(connection, articoloId, siglaId, quant
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   const { oggetti, clienteId, note, importo, data, sorgenteTipo, sorgenteId, magazzinoId } = req.body;
-  if (!oggetti || !oggetti.length) return res.status(400).json({ success: false, message: 'Nessun oggetto da vendere' });
-  if (!clienteId) return res.status(400).json({ success: false, message: 'Seleziona un cliente' });
+  if (!oggetti || !oggetti.length) {
+    return res.status(400).json({ success: false, message: 'Nessun oggetto da vendere' });
+  }
+  if (!clienteId) {
+    return res.status(400).json({ success: false, message: 'Seleziona un cliente' });
+  }
 
   const connection = await pool.getConnection();
   await connection.beginTransaction();
@@ -113,6 +136,8 @@ router.post('/', verifyToken, async (req, res) => {
     const now = data ? new Date(data) : new Date();
     const dataVendita = now.toISOString().slice(0, 19).replace('T', ' ');
 
+    let totaleVendita = 0;
+
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, quantita, siglaId } = item;
       if (!quantita || quantita <= 0) continue;
@@ -126,7 +151,9 @@ router.post('/', verifyToken, async (req, res) => {
           await decrementaArticoloConSigla(connection, oggettoId, siglaId || null, quantita);
         } else if (tipoOggetto === 'KIT') {
           const [kit] = await connection.query('SELECT quantita FROM kit WHERE id = ? FOR UPDATE', [oggettoId]);
-          if (!kit.length || kit[0].quantita < quantita) throw new Error(`Quantità kit ${oggettoId} insufficiente`);
+          if (!kit.length || kit[0].quantita < quantita) {
+            throw new Error(`Quantità kit ${oggettoId} insufficiente (disponibile ${kit[0]?.quantita || 0})`);
+          }
           await connection.query('UPDATE kit SET quantita = quantita - ? WHERE id = ?', [quantita, oggettoId]);
         }
       } else {
@@ -146,14 +173,22 @@ router.post('/', verifyToken, async (req, res) => {
          VALUES (?, ?, ?, ?, ?)`,
         [clienteId, movRes.insertId, importo || null, note || null, dataVendita]
       );
+
+      // 4. 🔥 Audit log per la vendita (registra la creazione)
+      const [venditaRow] = await connection.query('SELECT * FROM vendite WHERE movimento_id = ?', [movRes.insertId]);
+      if (venditaRow.length) {
+        await registraAudit(connection, 'vendite', 'CREAZIONE', movRes.insertId, null, venditaRow[0], req.userId);
+      }
+
+      totaleVendita += quantita;
     }
 
     await connection.commit();
-    res.json({ success: true, message: `Vendita registrata per ${oggetti.length} oggetti` });
+    res.json({ success: true, message: `Vendita registrata per ${oggetti.length} oggetti (${totaleVendita} unità totali)` });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore vendita:', err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('❌ Errore vendita:', err);
+    res.status(500).json({ success: false, message: err.message, stack: err.stack });
   } finally {
     connection.release();
   }
