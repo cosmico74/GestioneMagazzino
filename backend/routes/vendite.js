@@ -186,4 +186,40 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// GET /api/vendite - Storico vendite
+// ============================================================
+router.get('/', verifyToken, async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        v.id,
+        v.data,
+        v.importo,
+        v.note AS vendita_note,
+        s.nome AS cliente_nome,
+        s.cognome AS cliente_cognome,
+        m.tipo AS movimento_tipo,
+        m.tipo_oggetto,
+        m.quantita,
+        m.id_articolo_kit AS oggetto_id,
+        m.note AS movimento_note,
+        m.operatore,
+        COALESCE(a.descrizione, k.descrizione) AS oggetto_descrizione,
+        COALESCE(a.codice, k.codice_kit) AS oggetto_codice
+      FROM vendite v
+      LEFT JOIN movimenti m ON v.movimento_id = m.id
+      LEFT JOIN soggetti s ON v.cliente_id = s.id
+      LEFT JOIN articoli a ON m.id_articolo_kit = a.articolo_id AND m.tipo_oggetto = 'ARTICOLO'
+      LEFT JOIN kit k ON m.id_articolo_kit = k.id AND m.tipo_oggetto = 'KIT'
+      ORDER BY v.data DESC
+    `;
+    const [rows] = await pool.query(sql);
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('Errore GET /vendite:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
