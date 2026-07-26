@@ -633,33 +633,6 @@ router.post('/:id/obsoleto', verifyToken, async (req, res) => {
   }
 });
 
-// ============================================================
-// VALORI PER DATALIST
-// ============================================================
-router.get('/valori/:campo', verifyToken, async (req, res) => {
-  const campo = req.params.campo;
-  const map = { descrizioni: 'descrizione', lunghezze: 'lunghezza', durezze: 'durezza', modelli: 'codice_modello' };
-  const col = map[campo] || campo;
-  let sql = `SELECT DISTINCT ${col} AS ${col} FROM articoli WHERE ${col} IS NOT NULL AND ${col} != ''`;
-  const params = [];
-
-  if (req.query.magazzino) { sql += ' AND magazzino = ?'; params.push(req.query.magazzino); }
-  if (req.query.settore) { sql += ' AND settore = ?'; params.push(req.query.settore); }
-  if (req.query.categoria) { sql += ' AND categoria = ?'; params.push(req.query.categoria); }
-  if (req.query.marca) { sql += ' AND marca = ?'; params.push(req.query.marca); }
-
-  const filterableFields = ['descrizione', 'codice_modello', 'lunghezza', 'durezza'];
-  for (const f of filterableFields) {
-    if (f !== col && req.query[f]) {
-      sql += ` AND ${f} = ?`;
-      params.push(req.query[f]);
-    }
-  }
-
-  sql += ` ORDER BY ${col}`;
-  const [rows] = await db.query(sql, params);
-  res.json(rows);
-});
 
 // ============================================================
 // GET /api/articoli/valori/sigle - Elenco sigle (articoli + kit)
@@ -766,12 +739,10 @@ router.get('/valori/lunghezze', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/valori/attacchi', verifyToken, async (req, res) => {
   try {
-    const params = [];
-    let sql = `
+    const [rows] = await db.query(`
       SELECT DISTINCT 
         a.articolo_id, 
         a.descrizione, 
-        a.codice,
         a.lunghezza
       FROM articoli a
       INNER JOIN categorie c ON a.categoria = c.categoria_id
@@ -779,26 +750,41 @@ router.get('/valori/attacchi', verifyToken, async (req, res) => {
         AND a.quantita_totale > 0
         AND (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta - 
              COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) > 0
-    `;
-    if (req.query.magazzino) {
-      sql += ' AND a.magazzino = ?';
-      params.push(req.query.magazzino);
-    }
-    if (req.query.descrizione) {
-      sql += ' AND a.descrizione LIKE ?';
-      params.push(`%${req.query.descrizione}%`);
-    }
-    if (req.query.lunghezza) {
-      sql += ' AND a.lunghezza = ?';
-      params.push(req.query.lunghezza);
-    }
-    sql += ' ORDER BY a.descrizione';
-    const [rows] = await db.query(sql, params);
+      ORDER BY a.descrizione
+    `);
     res.json(rows);
   } catch (err) {
     console.error('❌ Errore /valori/attacchi:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ============================================================
+// VALORI PER DATALIST
+// ============================================================
+router.get('/valori/:campo', verifyToken, async (req, res) => {
+  const campo = req.params.campo;
+  const map = { descrizioni: 'descrizione', lunghezze: 'lunghezza', durezze: 'durezza', modelli: 'codice_modello' };
+  const col = map[campo] || campo;
+  let sql = `SELECT DISTINCT ${col} AS ${col} FROM articoli WHERE ${col} IS NOT NULL AND ${col} != ''`;
+  const params = [];
+
+  if (req.query.magazzino) { sql += ' AND magazzino = ?'; params.push(req.query.magazzino); }
+  if (req.query.settore) { sql += ' AND settore = ?'; params.push(req.query.settore); }
+  if (req.query.categoria) { sql += ' AND categoria = ?'; params.push(req.query.categoria); }
+  if (req.query.marca) { sql += ' AND marca = ?'; params.push(req.query.marca); }
+
+  const filterableFields = ['descrizione', 'codice_modello', 'lunghezza', 'durezza'];
+  for (const f of filterableFields) {
+    if (f !== col && req.query[f]) {
+      sql += ` AND ${f} = ?`;
+      params.push(req.query[f]);
+    }
+  }
+
+  sql += ` ORDER BY ${col}`;
+  const [rows] = await db.query(sql, params);
+  res.json(rows);
 });
 
 module.exports = router;
