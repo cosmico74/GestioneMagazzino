@@ -174,6 +174,12 @@
 
   <!-- Filtri interattivi con datalist -->
   <div class="filter-bar">
+    <div class="filter-group" style="min-width:120px;">
+      <label>Magazzino</label>
+      <select id="filtroMagazzino" onchange="caricaOggetti()">
+        <option value="">Caricamento...</option>
+      </select>
+    </div>
     <div class="filter-group">
       <label>Tipo oggetto</label>
       <select id="filtroTipoOggetto" onchange="caricaOggetti()">
@@ -186,6 +192,11 @@
       <label>Descrizione</label>
       <input type="text" id="filtroDescrizione" list="descrizioneList" placeholder="Cerca..." oninput="caricaOggetti()">
       <datalist id="descrizioneList"></datalist>
+    </div>
+    <div class="filter-group">
+      <label>Sigla</label>
+      <input type="text" id="filtroSigla" list="siglaList" placeholder="Cerca sigla..." oninput="caricaOggetti()">
+      <datalist id="siglaList"></datalist>
     </div>
     <div class="filter-group">
       <label>Lunghezza</label>
@@ -210,8 +221,8 @@
           <th>Tipo</th>
           <th>Codice</th>
           <th>Descrizione</th>
-          <th>Lunghezza</th>
           <th>Sigla</th>
+          <th>Lunghezza</th>
           <th>Attacco</th>
           <th>Quantità</th>
           <th>Stato</th>
@@ -393,8 +404,10 @@ var radioSoggetto = document.getElementById('sourceSoggetto');
 var soggettoSection = document.getElementById('soggettoSection');
 var sourceTipo = document.getElementById('sourceTipo');
 var sourceId = document.getElementById('sourceId');
+var filtroMagazzino = document.getElementById('filtroMagazzino');
 var filtroTipoOggetto = document.getElementById('filtroTipoOggetto');
 var filtroDescrizione = document.getElementById('filtroDescrizione');
+var filtroSigla = document.getElementById('filtroSigla');
 var filtroLunghezza = document.getElementById('filtroLunghezza');
 var filtroAttacco = document.getElementById('filtroAttacco');
 
@@ -404,6 +417,17 @@ var filtroAttacco = document.getElementById('filtroAttacco');
 async function caricaAnagrafiche() {
   try {
     magazzini = await apiFetch('/anagrafiche/magazzini');
+    // Popola dropdown magazzini
+    var selMag = filtroMagazzino;
+    selMag.innerHTML = '<option value="">Tutti</option>';
+    magazzini.forEach(function(m) {
+      selMag.appendChild(new Option(m.nome, m.id));
+    });
+    // Seleziona Race di default
+    var race = magazzini.find(function(m) { return m.nome.toLowerCase() === 'race'; });
+    if (race) selMag.value = race.id;
+    else if (magazzini.length > 0) selMag.value = magazzini[0].id;
+
     await caricaSoggetti();
     await caricaClienti();
     await caricaOggetti();
@@ -452,11 +476,14 @@ async function caricaClienti() {
 async function caricaValoriFiltri() {
   try {
     var params = new URLSearchParams();
+    var magId = filtroMagazzino.value;
+    if (magId) params.append('magazzino', magId);
     var tipo = filtroTipoOggetto.value;
     if (tipo !== 'TUTTI') params.append('tipo', tipo);
     if (filtroLunghezza.value) params.append('lunghezza', filtroLunghezza.value);
     if (filtroAttacco.value) params.append('attacco', filtroAttacco.value);
     if (filtroDescrizione.value) params.append('descrizione', filtroDescrizione.value);
+    if (filtroSigla.value) params.append('sigla', filtroSigla.value);
 
     // Descrizioni (datalist)
     var descRes = await apiFetch('/articoli/valori/descrizioni?' + params.toString());
@@ -466,6 +493,16 @@ async function caricaValoriFiltri() {
       var opt = document.createElement('option');
       opt.value = item.descrizione;
       descList.appendChild(opt);
+    });
+
+    // Sigle (datalist)
+    var siglaRes = await apiFetch('/articoli/valori/sigle?' + params.toString());
+    var siglaList = document.getElementById('siglaList');
+    siglaList.innerHTML = '';
+    siglaRes.forEach(function(item) {
+      var opt = document.createElement('option');
+      opt.value = item.sigla || item.codice_modello || '';
+      if (opt.value) siglaList.appendChild(opt);
     });
 
     // Lunghezze
@@ -537,8 +574,10 @@ async function caricaOggetti() {
   aggiornaSelezione();
 
   var isMag = radioMagazzino.checked;
+  var magId = filtroMagazzino.value;
   var tipoOggetto = filtroTipoOggetto.value;
   var descrizione = filtroDescrizione.value.toLowerCase();
+  var sigla = filtroSigla.value.toLowerCase();
   var lunghezza = filtroLunghezza.value;
   var attacco = filtroAttacco.value;
 
@@ -546,13 +585,16 @@ async function caricaOggetti() {
     var lista = [];
 
     if (isMag) {
-      // Dal magazzino - prendi il primo magazzino disponibile (Race)
-      var magId = magazzini.length > 0 ? magazzini[0].id : null;
-      if (!magId) { showMessage('Nessun magazzino disponibile', 'error'); return; }
+      // Dal magazzino
+      if (!magId) {
+        showMessage('Seleziona un magazzino', 'info');
+        return;
+      }
 
       var params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
       if (lunghezza) params.append('lunghezza', lunghezza);
       if (descrizione) params.append('descrizione', descrizione);
+      if (sigla) params.append('sigla', sigla);
       
       var artRes = await apiFetch('/articoli?' + params.toString());
       var articoli = artRes.success ? artRes.data : [];
@@ -561,13 +603,15 @@ async function caricaOggetti() {
         var disp = a.GIACENZA_REALE || 0;
         if (disp <= 0) continue;
         if (tipoOggetto !== 'TUTTI' && tipoOggetto !== 'ARTICOLO') continue;
+        var siglaArticolo = a.codice_modello || '';
+        if (sigla && !siglaArticolo.toLowerCase().includes(sigla)) continue;
         lista.push({
           id: a.articolo_id,
           tipo: 'ARTICOLO',
           codice: a.codice || a.codice_modello || '',
           descrizione: a.descrizione || '',
+          sigla: siglaArticolo,
           lunghezza: a.lunghezza || '',
-          sigla: '',
           attacco: '',
           quantita: disp,
           stato: 'In magazzino',
@@ -592,6 +636,8 @@ async function caricaOggetti() {
         if (dispKit <= 0) continue;
         if (tipoOggetto !== 'TUTTI' && tipoOggetto !== 'KIT') continue;
         if (descrizione && !k.descrizione.toLowerCase().includes(descrizione)) continue;
+        var siglaKit = k.sigla_sci || '';
+        if (sigla && !siglaKit.toLowerCase().includes(sigla)) continue;
         if (lunghezza && k.lunghezza_sci != lunghezza) continue;
         if (attacco) {
           try {
@@ -611,8 +657,8 @@ async function caricaOggetti() {
           tipo: 'KIT',
           codice: k.codice_kit || '',
           descrizione: k.descrizione || '',
+          sigla: siglaKit,
           lunghezza: k.lunghezza_sci || '',
-          sigla: k.sigla_sci || '',
           attacco: attaccoDesc,
           quantita: dispKit,
           stato: 'In magazzino',
@@ -640,6 +686,8 @@ async function caricaOggetti() {
         if (o.quantita <= 0) continue;
         if (tipoOggetto !== 'TUTTI' && o.tipo !== tipoOggetto) continue;
         if (descrizione && !o.descrizione.toLowerCase().includes(descrizione)) continue;
+        var siglaObj = o.SIGLA_CORRENTE || '';
+        if (sigla && !siglaObj.toLowerCase().includes(sigla)) continue;
         if (lunghezza && o.LUNGHEZZA != lunghezza) continue;
         if (attacco && o.tipo === 'KIT') {
           try {
@@ -661,8 +709,8 @@ async function caricaOggetti() {
           tipo: o.tipo,
           codice: o.codice || '',
           descrizione: o.descrizione || '',
+          sigla: siglaObj,
           lunghezza: o.LUNGHEZZA || '',
-          sigla: o.SIGLA_CORRENTE || 'NA',
           attacco: attaccoDesc,
           quantita: o.quantita,
           stato: 'In carico',
@@ -692,9 +740,14 @@ async function caricaOggetti() {
 
 function resetFiltri() {
   filtroDescrizione.value = '';
+  filtroSigla.value = '';
   filtroLunghezza.value = '';
   filtroAttacco.value = '';
   filtroTipoOggetto.value = 'TUTTI';
+  // Resetta magazzino a Race se disponibile
+  var race = magazzini.find(function(m) { return m.nome.toLowerCase() === 'race'; });
+  if (race) filtroMagazzino.value = race.id;
+  else if (magazzini.length > 0) filtroMagazzino.value = magazzini[0].id;
   caricaOggetti();
 }
 
@@ -757,8 +810,8 @@ function popolaTabella() {
     row.insertCell(2).innerHTML = '<span class="badge ' + badge + '">' + obj.tipo + '</span>';
     row.insertCell(3).innerText = obj.codice || '-';
     row.insertCell(4).innerText = obj.descrizione || '-';
-    row.insertCell(5).innerText = obj.lunghezza || '-';
-    row.insertCell(6).innerText = obj.sigla || 'NA';
+    row.insertCell(5).innerText = obj.sigla || 'NA';
+    row.insertCell(6).innerText = obj.lunghezza || '-';
     row.insertCell(7).innerText = obj.attacco || 'N/A';
     row.insertCell(8).innerText = obj.quantita;
     row.insertCell(9).innerText = obj.stato || '-';
@@ -1010,9 +1063,11 @@ window.onload = async function() {
 
   // Event listeners per filtri
   filtroDescrizione.addEventListener('input', caricaOggetti);
+  filtroSigla.addEventListener('input', caricaOggetti);
   filtroLunghezza.addEventListener('change', caricaOggetti);
   filtroAttacco.addEventListener('change', caricaOggetti);
   filtroTipoOggetto.addEventListener('change', caricaOggetti);
+  filtroMagazzino.addEventListener('change', caricaOggetti);
 
   await caricaAnagrafiche();
 
