@@ -243,6 +243,7 @@
       <table id="italiaTable">
         <thead>
           <tr>
+            <th>#</th>
             <th data-sort="tipo_oggetto">Tipo <span class="sort-arrow" data-col="tipo_oggetto">▲</span></th>
             <th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th>
             <th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th>
@@ -256,7 +257,7 @@
             <th data-sort="magazzino_nome">Magazzino <span class="sort-arrow" data-col="magazzino_nome">▲</span></th>
           </tr>
         </thead>
-        <tbody id="italiaBody"><tr><td colspan="11" class="text-center">Caricare il report</td></tr></tbody>
+        <tbody id="italiaBody"><tr><td colspan="12" class="text-center">Caricare il report</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -284,6 +285,7 @@
       <table id="soggettiTable">
         <thead>
           <tr>
+            <th>#</th>
             <th data-sort="tipo">Tipo <span class="sort-arrow" data-col="tipo">▲</span></th>
             <th data-sort="codice_sigla">Codice / Sigla <span class="sort-arrow" data-col="codice_sigla">▲</span></th>
             <th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th>
@@ -296,7 +298,7 @@
             <th data-sort="data">Data <span class="sort-arrow" data-col="data">▲</span></th>
           </tr>
         </thead>
-        <tbody id="soggettiBody"><tr><td colspan="10" class="text-center">Seleziona un soggetto e carica</td></tr></tbody>
+        <tbody id="soggettiBody"><tr><td colspan="11" class="text-center">Seleziona un soggetto e carica</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -360,15 +362,12 @@ function formatDate(d) {
 }
 
 // ============================================================
-// VARIABILI DATI GLOBALI
+// ORDINAMENTO
 // ============================================================
 let austriaData = [];
 let italiaData = [];
 let soggettiData = [];
 
-// ============================================================
-// STATO ORDINAMENTO
-// ============================================================
 let sortAustria = { col: 'descrizione', asc: true };
 let sortItalia = { col: 'descrizione', asc: true };
 let sortSoggetti = { col: 'descrizione', asc: true };
@@ -376,6 +375,10 @@ let sortSoggetti = { col: 'descrizione', asc: true };
 function compareValues(a, b, col, asc) {
   let va = a[col] !== undefined ? a[col] : '';
   let vb = b[col] !== undefined ? b[col] : '';
+  
+  // Gestione null/undefined
+  if (va === null || va === undefined) va = '';
+  if (vb === null || vb === undefined) vb = '';
   
   if (col === 'lunghezza' || col === 'quantita' || col === 'quantita_totale' || col === 'giacenza') {
     va = parseFloat(va) || 0;
@@ -409,100 +412,19 @@ function sortData(data, col, asc) {
   });
 }
 
-// ============================================================
-// FUNZIONI DI RENDER (accettano i dati come parametro)
-// ============================================================
-function renderAustria(data) {
-  const tbody = document.getElementById('austriaBody');
-  tbody.innerHTML = '';
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center">📭 Nessun dato</td></tr>';
-    return;
-  }
-  data.forEach((r, i) => {
-    const row = tbody.insertRow();
-    row.insertCell(0).innerText = r.codice || '-';
-    row.insertCell(1).innerText = r.codice_modello || '-';
-    row.insertCell(2).innerText = r.descrizione || '-';
-    row.insertCell(3).innerText = r.lunghezza || '-';
-    row.insertCell(4).innerText = r.nota || '';
-    row.insertCell(5).innerText = r.quantita_totale || 0;
-    row.insertCell(6).innerText = r.magazzino_nome || '-';
-  });
-}
-
-function renderItalia(data) {
-  const tbody = document.getElementById('italiaBody');
-  tbody.innerHTML = '';
-  const raggruppa = document.getElementById('raggruppaCheck').checked;
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun dato</td></tr>';
-    return;
-  }
-  data.forEach((r, i) => {
-    const row = tbody.insertRow();
-    const tipo = r.tipo_oggetto || 'ARTICOLO';
-    const badge = tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
-    const stato = r.stato || 'In magazzino';
-    const statoBadge = stato === 'In magazzino' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-
-    row.insertCell(0).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
-    row.insertCell(1).innerText = r.codice || '-';
-    row.insertCell(2).innerText = r.descrizione || '-';
-    row.insertCell(3).innerText = r.lunghezza || '-';
-    if (tipo === 'KIT') {
-      row.insertCell(4).innerText = r.sigla_sci || 'NA';
-    } else {
-      row.insertCell(4).innerText = raggruppa ? (r.sigle || '') : '';
-    }
-    row.insertCell(5).innerText = r.nota || '';
-    row.insertCell(6).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
-    row.insertCell(7).innerText = r.destinatario || '-';
-    row.insertCell(8).innerText = r.quantita || 0;
-    row.insertCell(9).innerText = r.giacenza || 0;
-    row.insertCell(10).innerText = r.magazzino_nome || '-';
-  });
-}
-
-function renderSoggetti(data) {
-  const tbody = document.getElementById('soggettiBody');
-  tbody.innerHTML = '';
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center">📭 Nessun oggetto</td></tr>';
-    return;
-  }
-  data.forEach((r, i) => {
-    const row = tbody.insertRow();
-    const badge = r.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
-    const stato = r.stato || 'In carico';
-    const statoBadge = stato === 'In carico' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-    
-    row.insertCell(0).innerHTML = '<span class="badge ' + badge + '">' + r.tipo + '</span>';
-    row.insertCell(1).innerText = r.codice_sigla || '-';
-    row.insertCell(2).innerText = r.descrizione || '-';
-    row.insertCell(3).innerText = r.lunghezza || '-';
-    row.insertCell(4).innerText = r.sigla || 'NA';
-    row.insertCell(5).innerText = r.nota || '';
-    row.insertCell(6).innerText = r.quantita || 0;
-    row.insertCell(7).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
-    row.insertCell(8).innerText = r.destinatario || '-';
-    row.insertCell(9).innerText = r.data ? formatDate(r.data) : '-';
-  });
-}
-
-// ============================================================
-// GESTIONE ORDINAMENTO
-// ============================================================
 function handleSort(table, col) {
-  let state, renderFn;
+  let state, dataKey, renderFn;
   if (table === 'austria') {
     state = sortAustria;
+    dataKey = 'austriaData';
     renderFn = renderAustria;
   } else if (table === 'italia') {
     state = sortItalia;
+    dataKey = 'italiaData';
     renderFn = renderItalia;
   } else if (table === 'soggetti') {
     state = sortSoggetti;
+    dataKey = 'soggettiData';
     renderFn = renderSoggetti;
   } else {
     return;
@@ -515,7 +437,6 @@ function handleSort(table, col) {
     state.asc = true;
   }
   
-  // Aggiorna le frecce
   const tableEl = document.getElementById(table + 'Table');
   if (tableEl) {
     tableEl.querySelectorAll('thead th .sort-arrow').forEach(el => el.classList.remove('active'));
@@ -526,21 +447,9 @@ function handleSort(table, col) {
     }
   }
   
-  // Ottieni i dati dalla variabile globale corretta
-  let data;
-  if (table === 'austria') data = austriaData;
-  else if (table === 'italia') data = italiaData;
-  else if (table === 'soggetti') data = soggettiData;
-  
-  // Ordina i dati
+  const data = window[dataKey] || [];
   const sorted = sortData(data, state.col, state.asc);
-  
-  // Aggiorna la variabile globale
-  if (table === 'austria') austriaData = sorted;
-  else if (table === 'italia') italiaData = sorted;
-  else if (table === 'soggetti') soggettiData = sorted;
-  
-  // Renderizza con i dati ordinati
+  window[dataKey] = sorted;
   renderFn(sorted);
 }
 
@@ -616,7 +525,6 @@ async function caricaSoggettiVisibili() {
     const sel = document.getElementById('soggettoSelect');
     sel.innerHTML = '<option value="">Seleziona...</option>';
     
-    // Aggiungi "Tutti" per admin e promoter livello 1
     let canSeeAll = false;
     if (currentUser.ruolo === 'admin') canSeeAll = true;
     else if (currentUser.ruolo === 'promoter') {
@@ -691,6 +599,25 @@ async function caricaAustria() {
   }
 }
 
+function renderAustria(data) {
+  const tbody = document.getElementById('austriaBody');
+  tbody.innerHTML = '';
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center">📭 Nessun dato</td></tr>';
+    return;
+  }
+  data.forEach((r, i) => {
+    const row = tbody.insertRow();
+    row.insertCell(0).innerText = r.codice || '-';
+    row.insertCell(1).innerText = r.codice_modello || '-';
+    row.insertCell(2).innerText = r.descrizione || '-';
+    row.insertCell(3).innerText = r.lunghezza || '-';
+    row.insertCell(4).innerText = r.nota || '';
+    row.insertCell(5).innerText = r.quantita_totale || 0;
+    row.insertCell(6).innerText = r.magazzino_nome || '-';
+  });
+}
+
 // ============================================================
 // REPORT ITALIA
 // ============================================================
@@ -702,7 +629,7 @@ async function caricaItalia() {
   const filtroDescrizione = document.getElementById('filtroDescrizione').value;
   const filtroLunghezza = document.getElementById('filtroLunghezza').value;
   const tbody = document.getElementById('italiaBody');
-  tbody.innerHTML = '<tr><td colspan="11" class="text-center">⏳ Caricamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>';
   try {
     const params = new URLSearchParams();
     if (magazzino) params.append('magazzino', magazzino);
@@ -723,8 +650,46 @@ async function caricaItalia() {
     } else showMessage(r.message, 'error');
   } catch(e) {
     showMessage(e.message, 'error');
-    tbody.innerHTML = '<tr><td colspan="11" class="text-center">❌ Errore nel caricamento</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center">❌ Errore nel caricamento</td></tr>';
   }
+}
+
+function renderItalia(data) {
+  const tbody = document.getElementById('italiaBody');
+  tbody.innerHTML = '';
+  const raggruppa = document.getElementById('raggruppaCheck').checked;
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center">📭 Nessun dato</td></tr>';
+    return;
+  }
+  // Calcola il numero progressivo globale (considerando la pagina)
+  const start = (paginaCorrente - 1) * righePerPagina;
+  data.forEach((r, idx) => {
+    const row = tbody.insertRow();
+    const progressivo = start + idx + 1;
+    row.insertCell(0).innerText = progressivo;
+    
+    const tipo = r.tipo_oggetto || 'ARTICOLO';
+    const badge = tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    const stato = r.stato || 'In magazzino';
+    const statoBadge = stato === 'In magazzino' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
+
+    row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
+    row.insertCell(2).innerText = r.codice || '-';
+    row.insertCell(3).innerText = r.descrizione || '-';
+    row.insertCell(4).innerText = r.lunghezza || '-';
+    if (tipo === 'KIT') {
+      row.insertCell(5).innerText = r.sigla_sci || 'NA';
+    } else {
+      row.insertCell(5).innerText = raggruppa ? (r.sigle || '') : '';
+    }
+    row.insertCell(6).innerText = r.nota || '';
+    row.insertCell(7).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    row.insertCell(8).innerText = r.destinatario || '-';
+    row.insertCell(9).innerText = r.quantita || 0;
+    row.insertCell(10).innerText = r.giacenza || 0;
+    row.insertCell(11).innerText = r.magazzino_nome || '-';
+  });
 }
 
 // ============================================================
@@ -739,7 +704,7 @@ async function caricaSoggetti() {
   const mode = document.querySelector('input[name="soggettoMode"]:checked');
   const modeVal = mode ? mode.value : 'incarico';
   const tbody = document.getElementById('soggettiBody');
-  tbody.innerHTML = '<tr><td colspan="10" class="text-center">⏳ Caricamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="11" class="text-center">⏳ Caricamento...</td></tr>';
 
   try {
     const params = new URLSearchParams({ soggetto_id: soggettoId, modalita: modeVal });
@@ -755,12 +720,51 @@ async function caricaSoggetti() {
     } else showMessage(r.message, 'error');
   } catch(e) {
     showMessage(e.message, 'error');
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center">❌ Errore nel caricamento</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center">❌ Errore nel caricamento</td></tr>';
   }
 }
 
+function renderSoggetti(data) {
+  const tbody = document.getElementById('soggettiBody');
+  tbody.innerHTML = '';
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun oggetto</td></tr>';
+    return;
+  }
+  const start = (paginaCorrente - 1) * righePerPagina;
+  data.forEach((r, idx) => {
+    const row = tbody.insertRow();
+    const progressivo = start + idx + 1;
+    row.insertCell(0).innerText = progressivo;
+    
+    const badge = r.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    const stato = r.stato || 'In carico';
+    const statoBadge = stato === 'In carico' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
+    
+    row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + r.tipo + '</span>';
+    row.insertCell(2).innerText = r.codice_sigla || '-';
+    row.insertCell(3).innerText = r.descrizione || '-';
+    row.insertCell(4).innerText = r.lunghezza || '-';
+    row.insertCell(5).innerText = r.sigla || 'NA';
+    row.insertCell(6).innerText = r.nota || '';
+    row.insertCell(7).innerText = r.quantita || 0;
+    row.insertCell(8).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    row.insertCell(9).innerText = r.destinatario || '-';
+    row.insertCell(10).innerText = r.data ? formatDate(r.data) : '-';
+  });
+}
+
 // ============================================================
-// GENERAZIONE PDF
+// PAGINAZIONE (per Italia e Soggetti)
+// ============================================================
+let paginaCorrente = 1;
+let righePerPagina = 25;
+
+// Queste variabili vengono usate nelle funzioni render per calcolare il progressivo
+// Le funzioni render sono già state aggiornate per usare paginaCorrente e righePerPagina
+
+// ============================================================
+// GENERAZIONE PDF (invariata)
 // ============================================================
 async function generaPDF(tab, anteprima = false) {
   let data, columns, title, filename;
@@ -782,6 +786,7 @@ async function generaPDF(tab, anteprima = false) {
     data = italiaData;
     const raggruppa = document.getElementById('raggruppaCheck').checked;
     columns = [
+      { header: '#', dataKey: 'progressivo' },
       { header: 'Tipo', dataKey: 'tipo_oggetto' },
       { header: 'Codice', dataKey: 'codice' },
       { header: 'Descrizione', dataKey: 'descrizione' },
@@ -799,6 +804,7 @@ async function generaPDF(tab, anteprima = false) {
   } else if (tab === 'soggetti') {
     data = soggettiData;
     columns = [
+      { header: '#', dataKey: 'progressivo' },
       { header: 'Tipo', dataKey: 'tipo' },
       { header: 'Codice/Sigla', dataKey: 'codice_sigla' },
       { header: 'Descrizione', dataKey: 'descrizione' },
@@ -823,7 +829,7 @@ async function generaPDF(tab, anteprima = false) {
   }
 
   const dataWithIndex = data.map((r, i) => {
-    const row = { ...r, index: i + 1 };
+    const row = { ...r, progressivo: i + 1 };
     if (row.stato) row.stato = row.stato.replace(/[📦📤]/g, '').trim();
     if (row.tipo_oggetto) row.tipo_oggetto = row.tipo_oggetto.replace(/[📦📤]/g, '').trim();
     if (row.tipo) row.tipo = row.tipo.replace(/[📦📤]/g, '').trim();
@@ -990,6 +996,11 @@ function esportaCSV(tab) {
 }
 
 // ============================================================
+// PAGINAZIONE (per Italia e Soggetti)
+// ============================================================
+// ... (se serve, ma le funzioni render già usano paginaCorrente)
+
+// ============================================================
 // INIT
 // ============================================================
 window.onload = async function() {
@@ -1032,7 +1043,7 @@ window.onload = async function() {
     if (this.value) caricaSoggetti();
     else {
       document.getElementById('soggettiBody').innerHTML =
-        '<tr><td colspan="10" class="text-center">Seleziona un soggetto e carica</td></tr>';
+        '<tr><td colspan="11" class="text-center">Seleziona un soggetto e carica</td></tr>';
       soggettiData = [];
     }
   });

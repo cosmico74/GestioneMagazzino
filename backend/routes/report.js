@@ -339,7 +339,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
     let tipo, soggettoIds = [];
     
     if (soggetto_id === 'tutti') {
-      // Ottieni tutti i soggetti visibili per l'utente
       let query = 'SELECT s.id, s.tipo FROM soggetti s WHERE s.attivo = 1';
       const params = [];
       if (req.userRole === 'admin') {
@@ -362,7 +361,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
         }
         query += ' )';
       } else {
-        // Altri ruoli vedono solo sé stessi
         const [userRows] = await pool.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
         if (userRows.length === 0 || !userRows[0].riferimento_id) {
           return res.json({ success: true, data: [] });
@@ -376,7 +374,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
         return res.json({ success: true, data: [] });
       }
     } else {
-      // Singolo soggetto
       const [sog] = await pool.query('SELECT tipo FROM soggetti WHERE id = ?', [soggetto_id]);
       if (!sog.length) {
         return res.status(404).json({ success: false, message: 'Soggetto non trovato' });
@@ -388,7 +385,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
     let risultati = [];
     const modalitaVal = modalita || 'incarico';
 
-    // Helper per ottenere dati per un singolo soggetto
     async function getDataForSoggetto(sId, sTipo) {
       let result = [];
       if (modalitaVal === 'incarico' || modalitaVal === 'entrambi') {
@@ -473,7 +469,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       return result;
     }
 
-    // Se "tutti", itera su tutti i soggetti e combina i risultati
     if (soggetto_id === 'tutti') {
       for (const id of soggettoIds) {
         const [sog] = await pool.query('SELECT tipo FROM soggetti WHERE id = ?', [id]);
@@ -483,7 +478,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
         }
       }
     } else {
-      // Singolo soggetto
       risultati = await getDataForSoggetto(parseInt(soggetto_id), tipo);
     }
 
