@@ -170,7 +170,7 @@
       <label><input type="radio" name="source" id="sourceMagazzino" value="magazzino" checked> 🏭 Dal magazzino</label>
       <label><input type="radio" name="source" id="sourceSoggetto" value="soggetto"> 👤 Da soggetto</label>
     </div>
-    <div id="soggettoSection" style="display:none; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+    <div id="soggettoSection" style="display:none; gap:10px; flex-wrap:wrap; align-items:flex-end;">
       <div class="filter-group" style="min-width:120px;">
         <label>Tipo</label>
         <select id="sourceTipo" onchange="caricaSoggetti()">
@@ -422,6 +422,7 @@ let selezione = [];
 let storicoVendite = [];
 let storicoFiltrato = [];
 let paginaCorrente = 1, righePerPagina = 25;
+let userLevel = 0; // livello del soggetto associato all'utente
 
 const sourceMag = document.getElementById('sourceMagazzino');
 const sourceSog = document.getElementById('sourceSoggetto');
@@ -445,10 +446,11 @@ async function caricaMagazzini() {
     if (magazzini.length > 0) {
       const race = magazzini.find(m => m.nome.toLowerCase() === 'race');
       sel.value = race ? race.id : magazzini[0].id;
+      sel.disabled = false;
     } else {
-      showMessage('Nessun magazzino disponibile per il tuo profilo', 'info');
       sel.innerHTML = '<option value="">Nessun magazzino</option>';
       sel.disabled = true;
+      showMessage('⚠️ Non hai magazzini associati. Usa la modalità "Da soggetto".', 'info');
     }
   } catch(e) {
     console.error('Errore magazzini:', e);
@@ -466,13 +468,51 @@ async function caricaSoggetti() {
       const nome = s.tipo === 'PROMOTER' ? (s.nome + ' ' + (s.cognome||'')).trim() : s.nome;
       sel.appendChild(new Option(nome + ' (' + s.tipo + ')', s.id));
     });
-    if (currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
-      sel.value = currentUser.riferimento_id;
+
+    // Determina se disabilitare il dropdown in base al ruolo e livello
+    let disabled = false;
+    let defaultValue = '';
+
+    if (currentUser.ruolo !== 'admin') {
+      if (currentUser.ruolo === 'promoter') {
+        // userLevel è stato caricato all'avvio
+        if (userLevel !== 1) {
+          disabled = true;
+          defaultValue = currentUser.riferimento_id || '';
+        } else {
+          // Livello 1: abilitato, pre-seleziona se stesso se non c'è altra scelta
+          if (currentUser.riferimento_id && !sel.value) {
+            sel.value = currentUser.riferimento_id;
+          }
+        }
+      } else {
+        // Altri ruoli (negozio, cliente, agente) non possono selezionare altri
+        disabled = true;
+        defaultValue = currentUser.riferimento_id || '';
+      }
+    } else {
+      // Admin: abilitato
+      sel.disabled = false;
+      return;
+    }
+
+    if (disabled) {
       sel.disabled = true;
+      if (defaultValue) {
+        const optionExists = Array.from(sel.options).some(opt => opt.value == defaultValue);
+        if (optionExists) {
+          sel.value = defaultValue;
+        } else if (sel.options.length > 1) {
+          sel.selectedIndex = 1;
+        }
+      }
     } else {
       sel.disabled = false;
     }
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error('Errore caricamento soggetti:', e);
+    showMessage('Errore nel caricamento dei soggetti', 'error');
+  }
 }
 
 async function caricaClienti() {
@@ -503,10 +543,19 @@ async function caricaOggetti() {
   try {
     if (isMag) {
       // DA MAGAZZINO
-      if (!magId) {
-        if (magazzini.length) filtroMagazzino.value = magazzini[0].id;
-        else { showMessage('Nessun magazzino disponibile', 'error'); return; }
+      if (!magId || magId === '') {
+        if (magazzini.length === 0) {
+          showMessage('Nessun magazzino disponibile per il tuo profilo', 'info');
+          oggetti = [];
+          oggettiFiltrati = [];
+          renderTabella();
+          return;
+        } else {
+          filtroMagazzino.value = magazzini[0].id;
+          return caricaOggetti();
+        }
       }
+
       const params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
       if (desc) params.append('descrizione', desc);
       if (sigla) params.append('codice_modello', sigla);
@@ -571,7 +620,13 @@ async function caricaOggetti() {
       // DA SOGGETTO
       const tipoS = sourceTipo.value;
       const idS = sourceId.value;
-      if (!idS) { showMessage('Seleziona un soggetto', 'info'); return; }
+      if (!idS) {
+        showMessage('Seleziona un soggetto', 'info');
+        oggetti = [];
+        oggettiFiltrati = [];
+        renderTabella();
+        return;
+      }
       const body = { targetTipo: tipoS, targetId: parseInt(idS) };
       const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) });
       if (!r.success) throw new Error(r.message);
@@ -976,6 +1031,17 @@ window.onload = async function() {
     }
   } catch(e) { logout(); return; }
 
+  // Ottieni il livello del soggetto associato all'utente
+  if (currentUser.riferimento_id) {
+    try {
+      const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
+      userLevel = sog.livello || 0;
+    } catch(e) {
+      console.warn('Impossibile ottenere il livello del soggetto:', e);
+      userLevel = 0;
+    }
+  }
+
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
 
   await caricaMagazzini();
@@ -987,6 +1053,8 @@ window.onload = async function() {
   const now = new Date();
   const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   document.getElementById('dataVenditaInput').value = iso;
+
+  toggleSorgente();
 };
 </script>
 </body>
