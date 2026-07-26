@@ -76,26 +76,30 @@ async function downloadBackup() {
       headers: { 'Authorization': 'Bearer ' + token }
     });
 
-    // Se la risposta non è ok, leggiamo il testo (non JSON) per mostrare l'errore
     if (!response.ok) {
-      // Leggiamo il body come testo (se è HTML o JSON)
-      const errorText = await response.text();
+      // Leggi il body una sola volta (come text) per ottenere il messaggio di errore
       let errorMsg = 'Errore durante il backup';
       try {
-        // Proviamo a parsare come JSON
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.message) errorMsg = errorJson.message;
+        const text = await response.text();
+        // Cerca di estrarre un messaggio JSON se presente
+        try {
+          const json = JSON.parse(text);
+          errorMsg = json.message || errorMsg;
+        } catch(e) {
+          // Se non è JSON, usa il testo grezzo ma rimuovi HTML se presente
+          const match = text.match(/<title>(.*?)<\/title>/);
+          if (match) errorMsg = match[1];
+          else if (text.trim().startsWith('<!DOCTYPE')) errorMsg = 'Risposta non valida dal server (probabilmente errore 404 o 500)';
+          else if (text.length < 200) errorMsg = text;
+        }
       } catch(e) {
-        // Se non è JSON, estraiamo il titolo HTML o usiamo il testo grezzo
-        const match = errorText.match(/<title>(.*?)<\/title>/);
-        if (match) errorMsg = match[1];
-        else if (errorText.trim().startsWith('<!DOCTYPE')) errorMsg = 'Risposta non valida dal server (probabilmente errore 404 o 500)';
-        else errorMsg = errorText.slice(0, 200);
+        // Se non possiamo leggere il body, usa lo status
+        errorMsg = `Errore ${response.status}: ${response.statusText}`;
       }
       throw new Error(errorMsg);
     }
 
-    // Se ok, leggiamo il blob (questo consuma il body)
+    // Risposta ok: scarica il blob
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
