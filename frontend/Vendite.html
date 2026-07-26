@@ -442,8 +442,8 @@ function sortTable(col) {
 
   // Ordina i dati
   oggettiFiltrati.sort((a, b) => {
-    let va = a[col] || '';
-    let vb = b[col] || '';
+    let va = a[col] !== undefined ? a[col] : '';
+    let vb = b[col] !== undefined ? b[col] : '';
     if (col === 'numero') {
       va = parseInt(va) || 0;
       vb = parseInt(vb) || 0;
@@ -460,6 +460,16 @@ function sortTable(col) {
   });
   paginaCorrente = 1;
   renderTabella();
+}
+
+function attachSortListeners() {
+  document.querySelectorAll('#tabellaOggetti thead th[data-sort]').forEach(th => {
+    th.addEventListener('click', function(e) {
+      if (e.target.closest('input[type="checkbox"]')) return;
+      const col = this.getAttribute('data-sort');
+      if (col) sortTable(col);
+    });
+  });
 }
 
 // ============================================================
@@ -516,13 +526,16 @@ async function caricaSoggetti() {
     const data = await apiFetch('/soggetti/tipo/' + tipo);
     const sel = sourceId;
     sel.innerHTML = '<option value="">Seleziona...</option>';
-    // Aggiungi opzione "Tutti" solo se l'utente è admin o promoter livello 1
-    if (currentUser.ruolo === 'admin' || (currentUser.ruolo === 'promoter' && userLevel === 1)) {
+    
+    // Aggiungi "Tutti" solo se admin o promoter livello 1
+    const canSeeAll = currentUser.ruolo === 'admin' || (currentUser.ruolo === 'promoter' && userLevel === 1);
+    if (canSeeAll) {
       const optAll = document.createElement('option');
       optAll.value = 'tutti';
       optAll.textContent = '👥 Tutti i soggetti';
       sel.appendChild(optAll);
     }
+    
     data.forEach(s => {
       const nome = s.tipo === 'PROMOTER' ? (s.nome + ' ' + (s.cognome||'')).trim() : s.nome;
       sel.appendChild(new Option(nome + ' (' + s.tipo + ')', s.id));
@@ -689,7 +702,7 @@ async function caricaOggetti() {
 
       let oggettiCarico = [];
       if (idS === 'tutti') {
-        // Usa la nuova rotta per tutti i soggetti visibili
+        // 🔥 Nuova rotta per tutti i soggetti visibili
         const r = await apiFetch('/assegnazioni/oggetti/tutti');
         if (r.success) {
           oggettiCarico = r.oggetti || [];
@@ -697,7 +710,6 @@ async function caricaOggetti() {
           throw new Error(r.message);
         }
       } else {
-        // Singolo soggetto
         const body = { targetTipo: tipoS, targetId: parseInt(idS) };
         const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) });
         if (!r.success) throw new Error(r.message);
@@ -734,7 +746,6 @@ async function caricaOggetti() {
     oggetti = lista;
     oggettiFiltrati = [...oggetti];
     paginaCorrente = 1;
-    // Ordina per numero di default
     sortColumn = 'numero';
     sortAsc = true;
     oggettiFiltrati.sort((a, b) => (a.numero || 0) - (b.numero || 0));
@@ -754,6 +765,9 @@ async function caricaOggetti() {
   }
 }
 
+// ============================================================
+// RENDER TABELLA E PAGINAZIONE
+// ============================================================
 function renderTabella() {
   const tbody = document.getElementById('tabellaBody');
   tbody.innerHTML = '';
@@ -897,20 +911,6 @@ function toggleSorgente() {
 }
 sourceMag.addEventListener('change', toggleSorgente);
 sourceSog.addEventListener('change', toggleSorgente);
-
-// ============================================================
-// ATTACCA EVENTI DI ORDINAMENTO
-// ============================================================
-function attachSortListeners() {
-  document.querySelectorAll('#tabellaOggetti thead th[data-sort]').forEach(th => {
-    th.addEventListener('click', function(e) {
-      // Ignora se il click è sulla checkbox
-      if (e.target.closest('input[type="checkbox"]')) return;
-      const col = this.getAttribute('data-sort');
-      if (col) sortTable(col);
-    });
-  });
-}
 
 // ============================================================
 // MODALE VENDITA
@@ -1133,11 +1133,12 @@ window.onload = async function() {
     }
   } catch(e) { logout(); return; }
 
-  // Ottieni il livello del soggetto associato all'utente
+  // 🔥 Carica il livello del soggetto PRIMA di chiamare caricaSoggetti()
   if (currentUser.riferimento_id) {
     try {
       const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
       userLevel = sog.livello || 0;
+      console.log('✅ userLevel caricato:', userLevel);
     } catch(e) {
       console.warn('Impossibile ottenere il livello del soggetto:', e);
       userLevel = 0;
@@ -1147,7 +1148,7 @@ window.onload = async function() {
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
 
   await caricaMagazzini();
-  await caricaSoggetti();
+  await caricaSoggetti();   // ora userLevel è disponibile
   await caricaClienti();
   await caricaOggetti();
 
