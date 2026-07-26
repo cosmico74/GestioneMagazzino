@@ -44,10 +44,8 @@ async function canPromoterSellTo(connection, promoterId, clienteId) {
 // HELPER: Decrementa quantità in carico_sintesi (rimuove da assegnazione)
 // ============================================================
 async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, siglaId, quantita, sorgenteTipo, sorgenteId) {
-  // Se la sorgente è MAGAZZINO, non c'è carico_sintesi da gestire
   if (sorgenteTipo === 'MAGAZZINO') return;
 
-  // Cerca la riga in carico_sintesi
   const [rows] = await connection.query(
     `SELECT id, quantita FROM carico_sintesi 
      WHERE destinazione_tipo = ? AND destinazione_id = ? 
@@ -93,7 +91,6 @@ async function decrementaArticoloConSigla(connection, articoloId, siglaId, quant
     }
     await connection.query('UPDATE sigle_articoli SET quantita = quantita - ? WHERE id = ?', [quantita, siglaId]);
   } else {
-    // Se non è specificata una sigla, usa la prima disponibile
     const [sigla] = await connection.query(
       'SELECT id FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1 AND quantita >= ? FOR UPDATE',
       [articoloId, quantita]
@@ -119,7 +116,6 @@ router.post('/', verifyToken, async (req, res) => {
   const connection = await pool.getConnection();
   await connection.beginTransaction();
   try {
-    // Verifica permessi per promoter
     if (req.userRole !== 'admin') {
       const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
       const promoterId = user[0]?.riferimento_id;
@@ -142,11 +138,9 @@ router.post('/', verifyToken, async (req, res) => {
       const { tipoOggetto, oggettoId, quantita, siglaId } = item;
       if (!quantita || quantita <= 0) continue;
 
-      // 1. Se l'oggetto proviene da un soggetto, rimuovi da carico_sintesi
       if (sorgenteTipo && sorgenteTipo !== 'MAGAZZINO') {
         await decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, siglaId || null, quantita, sorgenteTipo, sorgenteId);
       } else if (sorgenteTipo === 'MAGAZZINO' && magazzinoId) {
-        // Da magazzino: verifica la giacenza e riduci le quantità
         if (tipoOggetto === 'ARTICOLO') {
           await decrementaArticoloConSigla(connection, oggettoId, siglaId || null, quantita);
         } else if (tipoOggetto === 'KIT') {
@@ -160,21 +154,19 @@ router.post('/', verifyToken, async (req, res) => {
         throw new Error('Sorgente non specificata correttamente');
       }
 
-      // 2. Registra il movimento
       const [movRes] = await connection.query(
         `INSERT INTO movimenti (data, tipo, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
          VALUES (?, 'VENDITA', ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
         [dataVendita, oggettoId, tipoOggetto, quantita, operatore, note || 'Vendita', siglaId || null]
       );
 
-      // 3. Registra nella tabella vendite
       await connection.query(
         `INSERT INTO vendite (cliente_id, movimento_id, importo, note, data)
          VALUES (?, ?, ?, ?, ?)`,
         [clienteId, movRes.insertId, importo || null, note || null, dataVendita]
       );
 
-      // 4. 🔥 Audit log per la vendita (registra la creazione)
+      // 🔥 Audit log
       const [venditaRow] = await connection.query('SELECT * FROM vendite WHERE movimento_id = ?', [movRes.insertId]);
       if (venditaRow.length) {
         await registraAudit(connection, 'vendite', 'CREAZIONE', movRes.insertId, null, venditaRow[0], req.userId);

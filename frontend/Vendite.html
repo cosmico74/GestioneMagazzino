@@ -172,7 +172,7 @@
     </div>
   </div>
 
-  <!-- Filtri -->
+  <!-- Filtri interattivi con datalist -->
   <div class="filter-bar">
     <div class="filter-group">
       <label>Tipo oggetto</label>
@@ -184,7 +184,8 @@
     </div>
     <div class="filter-group">
       <label>Descrizione</label>
-      <input type="text" id="filtroDescrizione" placeholder="Cerca..." oninput="caricaOggetti()">
+      <input type="text" id="filtroDescrizione" list="descrizioneList" placeholder="Cerca..." oninput="caricaOggetti()">
+      <datalist id="descrizioneList"></datalist>
     </div>
     <div class="filter-group">
       <label>Lunghezza</label>
@@ -317,7 +318,7 @@
 
 <script>
 // ============================================================
-// UTILITY
+// UTILITY (con RETRY per 502)
 // ============================================================
 function getAuthHeader() {
   var token = localStorage.getItem('token');
@@ -328,24 +329,37 @@ function showMessage(msg, type) {
   d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
   setTimeout(function() { d.innerHTML = ''; }, 5000);
 }
-async function apiFetch(endpoint, options) {
+async function apiFetch(endpoint, options, retries = 3) {
   options = options || {};
   var headers = { 'Content-Type': 'application/json' };
   var auth = getAuthHeader();
   for (var key in auth) { if (auth.hasOwnProperty(key)) headers[key] = auth[key]; }
   for (var h in options.headers) { if (options.headers.hasOwnProperty(h)) headers[h] = options.headers[h]; }
-  var r = await fetch('/api' + endpoint, { method: options.method || 'GET', headers: headers, body: options.body });
-  if (r.status === 401 || r.status === 403) {
-    localStorage.removeItem('token'); localStorage.removeItem('user');
-    window.location.href = 'Login.html';
-    throw new Error('Sessione scaduta');
+
+  for (var attempt = 0; attempt < retries; attempt++) {
+    try {
+      var r = await fetch('/api' + endpoint, { method: options.method || 'GET', headers: headers, body: options.body });
+      if (r.status === 502 && attempt < retries - 1) {
+        console.warn(`⚠️ 502 tentativo ${attempt+1}, riprovo...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        continue;
+      }
+      if (r.status === 401 || r.status === 403) {
+        localStorage.removeItem('token'); localStorage.removeItem('user');
+        window.location.href = 'Login.html';
+        throw new Error('Sessione scaduta');
+      }
+      if (!r.ok) {
+        var msg = 'Errore ' + r.status;
+        try { var data = await r.json(); msg = data.message || msg; } catch(e) {}
+        throw new Error(msg);
+      }
+      return r.json();
+    } catch(e) {
+      if (attempt === retries - 1) throw e;
+      console.warn(`⚠️ Tentativo ${attempt+1} fallito:`, e.message);
+    }
   }
-  if (!r.ok) {
-    var msg = 'Errore ' + r.status;
-    try { var data = await r.json(); msg = data.message || msg; } catch(e) {}
-    throw new Error(msg);
-  }
-  return r.json();
 }
 function formatDate(d) {
   if (!d) return '-';
@@ -366,14 +380,13 @@ var currentUser = null;
 var userLevel = 0;
 var oggetti = [];
 var oggettiFiltrati = [];
-var selezione = []; // array di indici
+var selezione = [];
 var soggetti = [];
 var magazzini = [];
 var clienti = [];
 var sortColumn = 'descrizione';
 var sortAsc = true;
 var paginaCorrente = 1, righePerPagina = 25;
-var attacchiDisponibili = [];
 
 var radioMagazzino = document.getElementById('sourceMagazzino');
 var radioSoggetto = document.getElementById('sourceSoggetto');
@@ -393,7 +406,6 @@ async function caricaAnagrafiche() {
     magazzini = await apiFetch('/anagrafiche/magazzini');
     await caricaSoggetti();
     await caricaClienti();
-    await caricaAttacchi();
     await caricaOggetti();
   } catch(e) {
     showMessage('Errore caricamento dati: ' + e.message, 'error');
@@ -423,8 +435,8 @@ async function caricaSoggetti() {
 
 async function caricaClienti() {
   try {
-    var data = await apiFetch('/soggetti?tipo=CLIENTE,NEGOZIO,AGENTE');
-    clienti = data || [];
+    var data = await apiFetch('/soggetti');
+    clienti = data.filter(function(s) { return s.tipo === 'CLIENTE' || s.tipo === 'NEGOZIO' || s.tipo === 'AGENTE'; }) || [];
     var sel = document.getElementById('clienteId');
     sel.innerHTML = '<option value="">Seleziona cliente...</option>';
     clienti.forEach(function(c) {
@@ -434,16 +446,68 @@ async function caricaClienti() {
   } catch(e) { console.error('Errore clienti:', e); }
 }
 
-async function caricaAttacchi() {
+// ============================================================
+// CARICAMENTO VALORI FILTRI (interconnessi)
+// ============================================================
+async function caricaValoriFiltri() {
   try {
-    var data = await apiFetch('/articoli/valori/attacchi');
-    attacchiDisponibili = data || [];
-    var sel = filtroAttacco;
-    sel.innerHTML = '<option value="">Tutti</option>';
-    attacchiDisponibili.forEach(function(a) {
-      sel.appendChild(new Option(a.descrizione || a.codice, a.articolo_id));
+    var params = new URLSearchParams();
+    var tipo = filtroTipoOggetto.value;
+    if (tipo !== 'TUTTI') params.append('tipo', tipo);
+    if (filtroLunghezza.value) params.append('lunghezza', filtroLunghezza.value);
+    if (filtroAttacco.value) params.append('attacco', filtroAttacco.value);
+    if (filtroDescrizione.value) params.append('descrizione', filtroDescrizione.value);
+
+    // Descrizioni (datalist)
+    var descRes = await apiFetch('/articoli/valori/descrizioni?' + params.toString());
+    var descList = document.getElementById('descrizioneList');
+    descList.innerHTML = '';
+    descRes.forEach(function(item) {
+      var opt = document.createElement('option');
+      opt.value = item.descrizione;
+      descList.appendChild(opt);
     });
-  } catch(e) { console.error('Errore attacchi:', e); }
+
+    // Lunghezze
+    var lungRes = await apiFetch('/articoli/valori/lunghezze?' + params.toString());
+    var selLung = filtroLunghezza;
+    var currentLung = selLung.value;
+    selLung.innerHTML = '<option value="">Tutte</option>';
+    lungRes.forEach(function(item) {
+      if (item.lunghezza) {
+        var opt = document.createElement('option');
+        opt.value = item.lunghezza;
+        opt.textContent = item.lunghezza + ' cm';
+        selLung.appendChild(opt);
+      }
+    });
+    if (currentLung && lungRes.some(function(l) { return l.lunghezza == currentLung; })) {
+      selLung.value = currentLung;
+    }
+
+    // Attacchi (solo se il tipo include KIT)
+    if (filtroTipoOggetto.value === 'TUTTI' || filtroTipoOggetto.value === 'KIT') {
+      var attRes = await apiFetch('/articoli/valori/attacchi?' + params.toString());
+      var selAtt = filtroAttacco;
+      var currentAtt = selAtt.value;
+      selAtt.innerHTML = '<option value="">Tutti</option>';
+      attRes.forEach(function(item) {
+        var opt = document.createElement('option');
+        opt.value = item.articolo_id;
+        opt.textContent = item.descrizione + (item.lunghezza ? ' (' + item.lunghezza + ' cm)' : '');
+        selAtt.appendChild(opt);
+      });
+      if (currentAtt && attRes.some(function(a) { return a.articolo_id == currentAtt; })) {
+        selAtt.value = currentAtt;
+      }
+      selAtt.disabled = false;
+    } else {
+      filtroAttacco.innerHTML = '<option value="">Tutti</option>';
+      filtroAttacco.disabled = true;
+    }
+  } catch(e) {
+    console.warn('Errore caricamento valori filtri:', e);
+  }
 }
 
 // ============================================================
@@ -464,7 +528,7 @@ function caricaSoggettiPerTipo() {
 }
 
 // ============================================================
-// CARICAMENTO OGGETTI
+// CARICAMENTO OGGETTI (con filtri interconnessi)
 // ============================================================
 async function caricaOggetti() {
   oggetti = [];
@@ -482,20 +546,21 @@ async function caricaOggetti() {
     var lista = [];
 
     if (isMag) {
-      // Dal magazzino
-      var params = new URLSearchParams({ min_giacenza: '1' });
-      if (magazzini.length) {
-        var magId = magazzini[0]?.id; // assumiamo Race come default
-        params.append('magazzino', magId);
-      }
+      // Dal magazzino - prendi il primo magazzino disponibile (Race)
+      var magId = magazzini.length > 0 ? magazzini[0].id : null;
+      if (!magId) { showMessage('Nessun magazzino disponibile', 'error'); return; }
+
+      var params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
+      if (lunghezza) params.append('lunghezza', lunghezza);
+      if (descrizione) params.append('descrizione', descrizione);
+      
       var artRes = await apiFetch('/articoli?' + params.toString());
       var articoli = artRes.success ? artRes.data : [];
-      articoli.forEach(function(a) {
+      
+      for (var a of articoli) {
         var disp = a.GIACENZA_REALE || 0;
-        if (disp <= 0) return;
-        if (tipoOggetto !== 'TUTTI' && tipoOggetto !== 'ARTICOLO') return;
-        if (descrizione && !a.descrizione.toLowerCase().includes(descrizione)) return;
-        if (lunghezza && a.lunghezza != lunghezza) return;
+        if (disp <= 0) continue;
+        if (tipoOggetto !== 'TUTTI' && tipoOggetto !== 'ARTICOLO') continue;
         lista.push({
           id: a.articolo_id,
           tipo: 'ARTICOLO',
@@ -512,27 +577,28 @@ async function caricaOggetti() {
           oggettoId: a.articolo_id,
           siglaId: null
         });
-      });
+      }
 
       // Kit dal magazzino
       var kitRes = await apiFetch('/kit');
       var kits = kitRes.success ? kitRes.data : (Array.isArray(kitRes) ? kitRes : []);
       for (var k of kits) {
-        if (k.magazzino != 1) continue; // solo Race per ora
+        if (k.magazzino != magId) continue;
         var dispKit = k.quantita;
         try {
           var assegnato = await apiFetch('/assegnazioni/quantita-assegnata-kit?kit_id=' + k.id);
           dispKit = k.quantita - (assegnato.quantita || 0);
-        } catch(e) {}
+        } catch(e) { console.warn('Errore giacenza kit', k.id); }
         if (dispKit <= 0) continue;
         if (tipoOggetto !== 'TUTTI' && tipoOggetto !== 'KIT') continue;
-        if (descrizione && !k.descrizione.toLowerCase().includes(descrizione)) return;
-        if (lunghezza && k.lunghezza_sci != lunghezza) return;
+        if (descrizione && !k.descrizione.toLowerCase().includes(descrizione)) continue;
+        if (lunghezza && k.lunghezza_sci != lunghezza) continue;
         if (attacco) {
-          // Verifica che il kit contenga l'attacco selezionato
-          var dettagli = await apiFetch('/kit/' + k.id);
-          var haAttacco = dettagli.dettagli.some(function(d) { return d.tipo_articolo === 'ATTACCHI' && d.articolo_id == attacco; });
-          if (!haAttacco) continue;
+          try {
+            var det = await apiFetch('/kit/' + k.id);
+            var haAttacco = det.dettagli.some(function(d) { return d.tipo_articolo === 'ATTACCHI' && d.articolo_id == attacco; });
+            if (!haAttacco) continue;
+          } catch(e) { console.warn('Errore verifica attacco kit', k.id); continue; }
         }
         var attaccoDesc = '';
         try {
@@ -576,10 +642,11 @@ async function caricaOggetti() {
         if (descrizione && !o.descrizione.toLowerCase().includes(descrizione)) continue;
         if (lunghezza && o.LUNGHEZZA != lunghezza) continue;
         if (attacco && o.tipo === 'KIT') {
-          // Verifica attacco
-          var det = await apiFetch('/kit/' + o.ID);
-          var haAtt = det.dettagli.some(function(d) { return d.tipo_articolo === 'ATTACCHI' && d.articolo_id == attacco; });
-          if (!haAtt) continue;
+          try {
+            var det = await apiFetch('/kit/' + o.ID);
+            var haAtt = det.dettagli.some(function(d) { return d.tipo_articolo === 'ATTACCHI' && d.articolo_id == attacco; });
+            if (!haAtt) continue;
+          } catch(e) { continue; }
         }
         var attaccoDesc = '';
         if (o.tipo === 'KIT') {
@@ -613,26 +680,14 @@ async function caricaOggetti() {
     paginaCorrente = 1;
     sortOggetti();
     popolaTabella();
-    aggiornaDropdownLunghezze();
+    
+    // Aggiorna i valori dei filtri in base agli oggetti caricati
+    await caricaValoriFiltri();
   } catch(e) {
     showMessage('Errore caricamento: ' + e.message, 'error');
     oggetti = [];
     popolaTabella();
   }
-}
-
-function aggiornaDropdownLunghezze() {
-  var lunghezze = {};
-  oggetti.forEach(function(o) {
-    if (o.lunghezza) lunghezze[o.lunghezza] = true;
-  });
-  var sel = filtroLunghezza;
-  var current = sel.value;
-  sel.innerHTML = '<option value="">Tutte</option>';
-  Object.keys(lunghezze).sort().forEach(function(l) {
-    sel.appendChild(new Option(l + ' cm', l));
-  });
-  if (current && lunghezze[current]) sel.value = current;
 }
 
 function resetFiltri() {
@@ -778,8 +833,8 @@ function aggiornaSelezione() {
     row.insertCell(3).innerText = obj.quantita || 0;
     totali += obj.quantita;
   });
-  document.getElementById('selectedContainer').innerHTML = 
-    '<strong>📦 Oggetti selezionati (' + selezione.length + ' oggetti, totale ' + totali + ' unità):</strong>';
+  document.querySelector('#selectedContainer .selected-items strong').innerHTML = 
+    '📦 Oggetti selezionati (' + selezione.length + ' oggetti, totale ' + totali + ' unità):';
 }
 
 // ============================================================
@@ -790,7 +845,6 @@ function apriModaleVendita() {
     showMessage('Seleziona almeno un oggetto', 'error');
     return;
   }
-  // Carica clienti nel dropdown
   caricaClienti();
 
   var rip = '<strong>Riepilogo vendita:</strong><ul>';
@@ -804,7 +858,6 @@ function apriModaleVendita() {
   rip += '</ul><p><strong>Totale unità:</strong> ' + tot + '</p>';
   document.getElementById('venditaRiepilogo').innerHTML = rip;
 
-  // Data default: ora
   var now = new Date();
   var iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   document.getElementById('venditaData').value = iso;
@@ -832,8 +885,7 @@ async function confermaVendita() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
 
-  // Costruisci oggetti da vendere
-  var oggetti = [];
+  var oggettiVendita = [];
   var sorgenteTipo = null;
   var sorgenteId = null;
   var magazzinoId = null;
@@ -841,7 +893,7 @@ async function confermaVendita() {
   selezione.forEach(function(idx) {
     var obj = oggettiFiltrati[idx];
     if (!obj) return;
-    oggetti.push({
+    oggettiVendita.push({
       tipoOggetto: obj.tipo,
       oggettoId: obj.oggettoId,
       siglaId: obj.siglaId || null,
@@ -849,7 +901,6 @@ async function confermaVendita() {
       sorgenteTipo: obj.sorgenteTipo,
       sorgenteId: obj.sorgenteId
     });
-    // Prendi i dati sorgente dal primo oggetto (sono tutti uguali)
     if (!sorgenteTipo) {
       sorgenteTipo = obj.sorgenteTipo;
       sorgenteId = obj.sorgenteId;
@@ -858,7 +909,7 @@ async function confermaVendita() {
   });
 
   var payload = {
-    oggetti: oggetti,
+    oggetti: oggettiVendita,
     clienteId: parseInt(clienteId),
     data: data || null,
     note: note || null,
@@ -909,7 +960,6 @@ async function salvaNuovoCliente() {
       showMessage('Cliente creato con successo', 'success');
       chiudiModaleNuovoCliente();
       await caricaClienti();
-      // Seleziona il cliente appena creato
       var sel = document.getElementById('clienteId');
       for (var i=0; i<sel.options.length; i++) {
         if (sel.options[i].value == r.id) {
@@ -937,7 +987,6 @@ window.onload = async function() {
     if (!currentUser.riferimento_id && currentUser.RiferimentoID) {
       currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
     }
-    // Verifica permessi
     if (currentUser.ruolo !== 'admin') {
       if (currentUser.ruolo !== 'promoter') {
         document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin o promoter.</div>';
@@ -959,9 +1008,14 @@ window.onload = async function() {
 
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
 
+  // Event listeners per filtri
+  filtroDescrizione.addEventListener('input', caricaOggetti);
+  filtroLunghezza.addEventListener('change', caricaOggetti);
+  filtroAttacco.addEventListener('change', caricaOggetti);
+  filtroTipoOggetto.addEventListener('change', caricaOggetti);
+
   await caricaAnagrafiche();
 
-  // Se non admin e non ha riferimenti, nascondi sezione soggetto
   if (currentUser.ruolo !== 'admin' && !currentUser.riferimento_id) {
     radioMagazzino.checked = true;
     radioSoggetto.disabled = true;
