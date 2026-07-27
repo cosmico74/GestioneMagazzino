@@ -224,7 +224,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/soggetti
+// POST /api/soggetti (crea soggetto + eventuale utente)
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   console.log('📝 POST /soggetti - body:', req.body);
@@ -247,7 +247,6 @@ router.post('/', verifyToken, async (req, res) => {
       else if (typeof referente === 'string') referenteStr = referente;
     }
 
-    // Per promoter non admin, assicura che siano referente di sé stessi
     if (req.userRole !== 'admin') {
       const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
       if (user.length && user[0].riferimento_id) {
@@ -260,7 +259,7 @@ router.post('/', verifyToken, async (req, res) => {
       }
     }
 
-    // Inserisci il soggetto
+    // Inserisci soggetto
     const [result] = await connection.query(
       `INSERT INTO soggetti (tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -275,7 +274,6 @@ router.post('/', verifyToken, async (req, res) => {
 
     let utenteCreato = null;
 
-    // Gestione utente associato (solo admin o se espressamente richiesto)
     if (utenteAssociato) {
       if (req.userRole !== 'admin') {
         throw new Error('Solo admin può associare un utente esistente');
@@ -287,33 +285,55 @@ router.post('/', verifyToken, async (req, res) => {
       if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
       await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [soggettoId, utenteAssociato]);
     } else if (creaUtente === true) {
-      // Crea un nuovo utente associato al soggetto
-      const finalUsername = (username && username.trim()) 
-        ? username.trim() 
-        : (email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, ''));
+      // Gestione username: se esiste già non associato, lo riutilizziamo; altrimenti lo creiamo
+      const finalUsername = (username && username.trim()) ? username.trim() : (email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, ''));
       const finalUsernameSanitized = finalUsername || 'user_' + soggettoId;
-      
-      // Controlla se l'username esiste già
-      const [existingUser] = await connection.query('SELECT id FROM utenti WHERE username = ?', [finalUsernameSanitized]);
+
+      // Cerca se l'username esiste già
+      const [existingUser] = await connection.query('SELECT id, riferimento_id FROM utenti WHERE username = ?', [finalUsernameSanitized]);
+
       if (existingUser.length > 0) {
-        throw new Error(`Username "${finalUsernameSanitized}" già in uso`);
+        // Se l'username esiste già e NON è associato a nessun soggetto, riutilizzalo
+        if (existingUser[0].riferimento_id === null) {
+          // Aggiorna l'utente esistente per associarlo a questo soggetto
+          const pass = (password && password.trim() !== '') ? password.trim() : Math.random().toString(36).slice(-8);
+          const hashedPassword = await bcrypt.hash(pass, 10);
+          const nomeVis = (nomeVisualizzato && nomeVisualizzato.trim()) ? nomeVisualizzato.trim() : (nome + ' ' + (cognome || '')).trim();
+          const ruoloUtente = (ruolo && ruolo.trim()) ? ruolo.trim() : 'promoter';
+          const emailU = (emailUtente && emailUtente.trim()) ? emailUtente.trim() : (email || null);
+
+          await connection.query(
+            `UPDATE utenti SET 
+              riferimento_id = ?, 
+              password_hash = COALESCE(?, password_hash),
+              ruolo = ?, 
+              nome_visualizzato = ?, 
+              email = ?
+             WHERE id = ?`,
+            [soggettoId, hashedPassword, ruoloUtente, nomeVis, emailU, existingUser[0].id]
+          );
+          utenteCreato = { username: finalUsernameSanitized, password: pass, id: existingUser[0].id };
+          console.log(`✅ Utente esistente "${finalUsernameSanitized}" associato al soggetto ${soggettoId}`);
+        } else {
+          // Username già associato a un altro soggetto
+          throw new Error(`Username "${finalUsernameSanitized}" già associato al soggetto ID ${existingUser[0].riferimento_id}. Scegli un altro username.`);
+        }
+      } else {
+        // Username non esiste: crea nuovo utente
+        const pass = (password && password.trim() !== '') ? password.trim() : Math.random().toString(36).slice(-8);
+        const hashedPassword = await bcrypt.hash(pass, 10);
+        const nomeVis = (nomeVisualizzato && nomeVisualizzato.trim()) ? nomeVisualizzato.trim() : (nome + ' ' + (cognome || '')).trim();
+        const ruoloUtente = (ruolo && ruolo.trim()) ? ruolo.trim() : 'promoter';
+        const emailU = (emailUtente && emailUtente.trim()) ? emailUtente.trim() : (email || null);
+
+        const [userResult] = await connection.query(
+          `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [finalUsernameSanitized, hashedPassword, ruoloUtente, soggettoId, nomeVis, emailU]
+        );
+        utenteCreato = { username: finalUsernameSanitized, password: pass, id: userResult.insertId };
+        console.log(`✅ Nuovo utente creato per soggetto ${soggettoId} con username ${finalUsernameSanitized}`);
       }
-      
-      // Genera password se non fornita o vuota
-      const pass = (password && password.trim() !== '') ? password.trim() : Math.random().toString(36).slice(-8);
-      const hashedPassword = await bcrypt.hash(pass, 10);
-      const nomeVis = (nomeVisualizzato && nomeVisualizzato.trim()) 
-        ? nomeVisualizzato.trim() 
-        : (nome + ' ' + (cognome || '')).trim();
-      const ruoloUtente = (ruolo && ruolo.trim()) ? ruolo.trim() : 'promoter';
-      const emailU = (emailUtente && emailUtente.trim()) ? emailUtente.trim() : (email || null);
-      
-      const [userResult] = await connection.query(
-        `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [finalUsernameSanitized, hashedPassword, ruoloUtente, soggettoId, nomeVis, emailU]
-      );
-      utenteCreato = { username: finalUsernameSanitized, password: pass, id: userResult.insertId };
     }
 
     await connection.commit();
@@ -328,7 +348,7 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /api/soggetti/:id
+// PUT /api/soggetti/:id (modifica soggetto + eventuale utente)
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   console.log('📝 PUT /soggetti/' + req.params.id + ' - body:', req.body);
@@ -347,7 +367,7 @@ router.put('/:id', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // Permessi: solo admin o referente del soggetto
+    // Permessi
     if (req.userRole !== 'admin') {
       const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
       if (!user.length || !user[0].riferimento_id) {
@@ -383,11 +403,10 @@ router.put('/:id', verifyToken, async (req, res) => {
     await syncSoggettiReferenti(connection, id, referenteStr);
     await syncSoggettiMagazzini(connection, id, magazziniAssociati || []);
 
-    // Gestione utente associato (solo admin)
+    // Gestione utente (solo admin)
     if (req.userRole === 'admin') {
-      // Rimuovi associazione utente precedente
-      await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [id]);
       if (utenteAssociato) {
+        // Associa un utente esistente
         const [userExists] = await connection.query(
           'SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)',
           [utenteAssociato, id]
@@ -395,73 +414,91 @@ router.put('/:id', verifyToken, async (req, res) => {
         if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
         await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [id, utenteAssociato]);
       }
-    }
 
-    // Creazione/aggiornamento utente associato al soggetto (solo admin)
-    if (req.userRole === 'admin' && creaUtente === true) {
-      const [existingUser] = await connection.query('SELECT id FROM utenti WHERE riferimento_id = ?', [id]);
-      
-      if (existingUser.length === 0) {
-        // Crea nuovo utente
-        const finalUsername = (username && username.trim()) 
-          ? username.trim() 
-          : (email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, ''));
-        const finalUsernameSanitized = finalUsername || 'user_' + id;
-        
-        // Controlla se l'username esiste già
-        const [usernameCheck] = await connection.query('SELECT id FROM utenti WHERE username = ?', [finalUsernameSanitized]);
-        if (usernameCheck.length > 0) {
-          throw new Error(`Username "${finalUsernameSanitized}" già in uso da un altro utente`);
-        }
-        
-        // Genera password se non fornita o vuota
-        const pass = (password && password.trim() !== '') ? password.trim() : Math.random().toString(36).slice(-8);
-        const hashedPassword = await bcrypt.hash(pass, 10);
-        const nomeVis = (nomeVisualizzato && nomeVisualizzato.trim()) 
-          ? nomeVisualizzato.trim() 
-          : (nome + ' ' + (cognome || '')).trim();
-        const ruoloUtente = (ruolo && ruolo.trim()) ? ruolo.trim() : 'promoter';
-        const emailU = (emailUtente && emailUtente.trim()) ? emailUtente.trim() : (email || null);
-        
-        await connection.query(
-          `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [finalUsernameSanitized, hashedPassword, ruoloUtente, id, nomeVis, emailU]
-        );
-        console.log(`✅ Utente creato per soggetto ${id} con username ${finalUsernameSanitized}`);
-      } else {
-        // Aggiorna utente esistente (solo se sono stati passati campi)
-        let updateSql = 'UPDATE utenti SET ';
-        const updateFields = [];
-        const updateValues = [];
-        
-        if (username && username.trim()) { 
-          // Controlla che il nuovo username non sia già usato da un altro utente
-          const [usernameCheck] = await connection.query(
-            'SELECT id FROM utenti WHERE username = ? AND riferimento_id != ?', 
-            [username.trim(), id]
-          );
+      if (creaUtente === true) {
+        const [existingUser] = await connection.query('SELECT id, riferimento_id FROM utenti WHERE riferimento_id = ?', [id]);
+
+        if (existingUser.length === 0) {
+          // Creazione nuovo utente o riutilizzo username
+          const finalUsername = (username && username.trim()) ? username.trim() : (email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, ''));
+          const finalUsernameSanitized = finalUsername || 'user_' + id;
+
+          const [usernameCheck] = await connection.query('SELECT id, riferimento_id FROM utenti WHERE username = ?', [finalUsernameSanitized]);
+
           if (usernameCheck.length > 0) {
-            throw new Error(`Username "${username.trim()}" già in uso da un altro utente`);
+            if (usernameCheck[0].riferimento_id === null) {
+              // Username esiste ma non associato: riutilizzalo
+              const pass = (password && password.trim() !== '') ? password.trim() : Math.random().toString(36).slice(-8);
+              const hashedPassword = await bcrypt.hash(pass, 10);
+              const nomeVis = (nomeVisualizzato && nomeVisualizzato.trim()) ? nomeVisualizzato.trim() : (nome + ' ' + (cognome || '')).trim();
+              const ruoloUtente = (ruolo && ruolo.trim()) ? ruolo.trim() : 'promoter';
+              const emailU = (emailUtente && emailUtente.trim()) ? emailUtente.trim() : (email || null);
+
+              await connection.query(
+                `UPDATE utenti SET 
+                  riferimento_id = ?, 
+                  password_hash = COALESCE(?, password_hash),
+                  ruolo = ?, 
+                  nome_visualizzato = ?, 
+                  email = ?
+                 WHERE id = ?`,
+                [id, hashedPassword, ruoloUtente, nomeVis, emailU, usernameCheck[0].id]
+              );
+              console.log(`✅ Utente esistente "${finalUsernameSanitized}" associato al soggetto ${id}`);
+            } else {
+              throw new Error(`Username "${finalUsernameSanitized}" già associato al soggetto ID ${usernameCheck[0].riferimento_id}. Scegli un altro username.`);
+            }
+          } else {
+            // Username non esiste: crea nuovo utente
+            const pass = (password && password.trim() !== '') ? password.trim() : Math.random().toString(36).slice(-8);
+            const hashedPassword = await bcrypt.hash(pass, 10);
+            const nomeVis = (nomeVisualizzato && nomeVisualizzato.trim()) ? nomeVisualizzato.trim() : (nome + ' ' + (cognome || '')).trim();
+            const ruoloUtente = (ruolo && ruolo.trim()) ? ruolo.trim() : 'promoter';
+            const emailU = (emailUtente && emailUtente.trim()) ? emailUtente.trim() : (email || null);
+
+            await connection.query(
+              `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              [finalUsernameSanitized, hashedPassword, ruoloUtente, id, nomeVis, emailU]
+            );
+            console.log(`✅ Nuovo utente creato per soggetto ${id} con username ${finalUsernameSanitized}`);
           }
-          updateFields.push('username = ?'); 
-          updateValues.push(username.trim()); 
+        } else {
+          // Aggiorna utente esistente
+          let updateSql = 'UPDATE utenti SET ';
+          const updateFields = [];
+          const updateValues = [];
+
+          if (username && username.trim()) {
+            const [usernameCheck] = await connection.query(
+              'SELECT id FROM utenti WHERE username = ? AND riferimento_id != ?',
+              [username.trim(), id]
+            );
+            if (usernameCheck.length > 0) {
+              throw new Error(`Username "${username.trim()}" già in uso da un altro utente`);
+            }
+            updateFields.push('username = ?');
+            updateValues.push(username.trim());
+          }
+          if (password && password.trim() !== '') {
+            const hashed = await bcrypt.hash(password.trim(), 10);
+            updateFields.push('password_hash = ?');
+            updateValues.push(hashed);
+          }
+          if (ruolo && ruolo.trim()) { updateFields.push('ruolo = ?'); updateValues.push(ruolo.trim()); }
+          if (nomeVisualizzato && nomeVisualizzato.trim()) { updateFields.push('nome_visualizzato = ?'); updateValues.push(nomeVisualizzato.trim()); }
+          if (emailUtente && emailUtente.trim()) { updateFields.push('email = ?'); updateValues.push(emailUtente.trim()); }
+
+          if (updateFields.length > 0) {
+            updateSql += updateFields.join(', ') + ' WHERE riferimento_id = ?';
+            updateValues.push(id);
+            await connection.query(updateSql, updateValues);
+            console.log(`✅ Utente aggiornato per soggetto ${id}`);
+          }
         }
-        if (password && password.trim() !== '') { 
-          const hashed = await bcrypt.hash(password.trim(), 10);
-          updateFields.push('password_hash = ?'); 
-          updateValues.push(hashed); 
-        }
-        if (ruolo && ruolo.trim()) { updateFields.push('ruolo = ?'); updateValues.push(ruolo.trim()); }
-        if (nomeVisualizzato && nomeVisualizzato.trim()) { updateFields.push('nome_visualizzato = ?'); updateValues.push(nomeVisualizzato.trim()); }
-        if (emailUtente && emailUtente.trim()) { updateFields.push('email = ?'); updateValues.push(emailUtente.trim()); }
-        
-        if (updateFields.length > 0) {
-          updateSql += updateFields.join(', ') + ' WHERE riferimento_id = ?';
-          updateValues.push(id);
-          await connection.query(updateSql, updateValues);
-          console.log(`✅ Utente aggiornato per soggetto ${id}`);
-        }
+      } else {
+        // Se creaUtente è false, dissocia eventuale utente
+        await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [id]);
       }
     }
 
@@ -487,15 +524,14 @@ router.delete('/:id', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    // Verifica che non abbia oggetti in carico
     const [carico] = await connection.query(
       'SELECT COUNT(*) AS count FROM carico_sintesi WHERE destinazione_tipo = "PROMOTER" AND destinazione_id = ? AND quantita > 0',
       [req.params.id]
     );
     if (carico[0].count > 0) {
       await connection.rollback();
-      return res.status(400).json({ 
-        error: `Impossibile eliminare: il soggetto ha ${carico[0].count} oggetti in carico. Rientra gli oggetti prima di eliminarlo.` 
+      return res.status(400).json({
+        error: `Impossibile eliminare: il soggetto ha ${carico[0].count} oggetti in carico. Rientra gli oggetti prima di eliminarlo.`
       });
     }
 
