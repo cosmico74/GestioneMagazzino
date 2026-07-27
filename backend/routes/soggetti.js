@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { verifyToken } = require('../auth');
-const bcrypt = require('bcryptjs'); // Cambiato da bcrypt a bcryptjs
+const bcrypt = require('bcrypt');
 
 // Helper: sincronizza referenti
 async function syncSoggettiReferenti(connection, soggettoId, referenteStr) {
@@ -277,7 +277,6 @@ router.post('/', verifyToken, async (req, res) => {
 
     // Gestione utente associato (solo admin o se espressamente richiesto)
     if (utenteAssociato) {
-      // Associa un utente esistente (solo admin)
       if (req.userRole !== 'admin') {
         throw new Error('Solo admin può associare un utente esistente');
       }
@@ -285,9 +284,7 @@ router.post('/', verifyToken, async (req, res) => {
         'SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)', 
         [utenteAssociato, soggettoId]
       );
-      if (userExists.length === 0) {
-        throw new Error('Utente selezionato non valido o già associato');
-      }
+      if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
       await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [soggettoId, utenteAssociato]);
     } else if (creaUtente === true) {
       // Crea un nuovo utente associato al soggetto
@@ -296,13 +293,14 @@ router.post('/', verifyToken, async (req, res) => {
         : (email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, ''));
       const finalUsernameSanitized = finalUsername || 'user_' + soggettoId;
       
-      // Verifica se username esiste già
+      // Controlla se l'username esiste già
       const [existingUser] = await connection.query('SELECT id FROM utenti WHERE username = ?', [finalUsernameSanitized]);
       if (existingUser.length > 0) {
         throw new Error(`Username "${finalUsernameSanitized}" già in uso`);
       }
-
-      const pass = (password && password.trim()) ? password.trim() : Math.random().toString(36).slice(-8);
+      
+      // Genera password se non fornita o vuota
+      const pass = (password && password.trim() !== '') ? password.trim() : Math.random().toString(36).slice(-8);
       const hashedPassword = await bcrypt.hash(pass, 10);
       const nomeVis = (nomeVisualizzato && nomeVisualizzato.trim()) 
         ? nomeVisualizzato.trim() 
@@ -316,7 +314,6 @@ router.post('/', verifyToken, async (req, res) => {
         [finalUsernameSanitized, hashedPassword, ruoloUtente, soggettoId, nomeVis, emailU]
       );
       utenteCreato = { username: finalUsernameSanitized, password: pass, id: userResult.insertId };
-      console.log(`🔑 Utente creato per soggetto ${soggettoId} con username ${finalUsernameSanitized}`);
     }
 
     await connection.commit();
@@ -395,9 +392,7 @@ router.put('/:id', verifyToken, async (req, res) => {
           'SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)',
           [utenteAssociato, id]
         );
-        if (userExists.length === 0) {
-          throw new Error('Utente selezionato non valido o già associato');
-        }
+        if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
         await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [id, utenteAssociato]);
       }
     }
@@ -405,6 +400,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     // Creazione/aggiornamento utente associato al soggetto (solo admin)
     if (req.userRole === 'admin' && creaUtente === true) {
       const [existingUser] = await connection.query('SELECT id FROM utenti WHERE riferimento_id = ?', [id]);
+      
       if (existingUser.length === 0) {
         // Crea nuovo utente
         const finalUsername = (username && username.trim()) 
@@ -412,43 +408,46 @@ router.put('/:id', verifyToken, async (req, res) => {
           : (email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, ''));
         const finalUsernameSanitized = finalUsername || 'user_' + id;
         
-        // Verifica se username esiste già
-        const [userCheck] = await connection.query('SELECT id FROM utenti WHERE username = ?', [finalUsernameSanitized]);
-        if (userCheck.length > 0) {
-          throw new Error(`Username "${finalUsernameSanitized}" già in uso`);
+        // Controlla se l'username esiste già
+        const [usernameCheck] = await connection.query('SELECT id FROM utenti WHERE username = ?', [finalUsernameSanitized]);
+        if (usernameCheck.length > 0) {
+          throw new Error(`Username "${finalUsernameSanitized}" già in uso da un altro utente`);
         }
-
-        const pass = (password && password.trim()) ? password.trim() : Math.random().toString(36).slice(-8);
+        
+        // Genera password se non fornita o vuota
+        const pass = (password && password.trim() !== '') ? password.trim() : Math.random().toString(36).slice(-8);
         const hashedPassword = await bcrypt.hash(pass, 10);
         const nomeVis = (nomeVisualizzato && nomeVisualizzato.trim()) 
           ? nomeVisualizzato.trim() 
           : (nome + ' ' + (cognome || '')).trim();
         const ruoloUtente = (ruolo && ruolo.trim()) ? ruolo.trim() : 'promoter';
         const emailU = (emailUtente && emailUtente.trim()) ? emailUtente.trim() : (email || null);
+        
         await connection.query(
           `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
            VALUES (?, ?, ?, ?, ?, ?)`,
           [finalUsernameSanitized, hashedPassword, ruoloUtente, id, nomeVis, emailU]
         );
-        console.log(`🔑 Utente creato per soggetto ${id} con username ${finalUsernameSanitized}`);
+        console.log(`✅ Utente creato per soggetto ${id} con username ${finalUsernameSanitized}`);
       } else {
-        // Aggiorna utente esistente (se sono stati passati campi)
+        // Aggiorna utente esistente (solo se sono stati passati campi)
         let updateSql = 'UPDATE utenti SET ';
         const updateFields = [];
         const updateValues = [];
+        
         if (username && username.trim()) { 
-          // Verifica se il nuovo username è già usato da un altro utente
-          const [userCheck] = await connection.query(
+          // Controlla che il nuovo username non sia già usato da un altro utente
+          const [usernameCheck] = await connection.query(
             'SELECT id FROM utenti WHERE username = ? AND riferimento_id != ?', 
             [username.trim(), id]
           );
-          if (userCheck.length > 0) {
+          if (usernameCheck.length > 0) {
             throw new Error(`Username "${username.trim()}" già in uso da un altro utente`);
           }
           updateFields.push('username = ?'); 
           updateValues.push(username.trim()); 
         }
-        if (password && password.trim()) { 
+        if (password && password.trim() !== '') { 
           const hashed = await bcrypt.hash(password.trim(), 10);
           updateFields.push('password_hash = ?'); 
           updateValues.push(hashed); 
@@ -456,11 +455,12 @@ router.put('/:id', verifyToken, async (req, res) => {
         if (ruolo && ruolo.trim()) { updateFields.push('ruolo = ?'); updateValues.push(ruolo.trim()); }
         if (nomeVisualizzato && nomeVisualizzato.trim()) { updateFields.push('nome_visualizzato = ?'); updateValues.push(nomeVisualizzato.trim()); }
         if (emailUtente && emailUtente.trim()) { updateFields.push('email = ?'); updateValues.push(emailUtente.trim()); }
+        
         if (updateFields.length > 0) {
           updateSql += updateFields.join(', ') + ' WHERE riferimento_id = ?';
           updateValues.push(id);
           await connection.query(updateSql, updateValues);
-          console.log(`🔑 Utente aggiornato per soggetto ${id}`);
+          console.log(`✅ Utente aggiornato per soggetto ${id}`);
         }
       }
     }
