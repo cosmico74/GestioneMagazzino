@@ -4,19 +4,40 @@ const path = require('path');
 const { google } = require('googleapis');
 const pool = require('../db');
 
-// ============================================================
-// CARICA LE VARIABILI D'AMBIENTE DAL FILE .env
-// ============================================================
+// Carica le variabili d'ambiente
 require('dotenv').config();
 
 // ============================================================
-// CONFIGURAZIONE GOOGLE DRIVE (da variabili d'ambiente)
+// CONFIGURAZIONE GOOGLE DRIVE
 // ============================================================
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'urn:ietf:wg:oauth:2.0:oob';
 const TOKEN_PATH = path.join(__dirname, '..', 'token.json');
+
+// ============================================================
+// FUNZIONE: Ottiene il token da variabile d'ambiente o da file
+// ============================================================
+function getToken() {
+  // Prova a leggere da variabile d'ambiente (Render)
+  if (process.env.GOOGLE_TOKEN) {
+    try {
+      return JSON.parse(process.env.GOOGLE_TOKEN);
+    } catch (e) {
+      console.warn('⚠️ Errore parsing GOOGLE_TOKEN:', e.message);
+    }
+  }
+  // Fallback: leggi da file (locale)
+  if (fs.existsSync(TOKEN_PATH)) {
+    try {
+      return JSON.parse(fs.readFileSync(TOKEN_PATH));
+    } catch (e) {
+      console.warn('⚠️ Errore lettura token.json:', e.message);
+    }
+  }
+  return null;
+}
 
 // ============================================================
 // FUNZIONE: Genera il backup SQL
@@ -94,12 +115,12 @@ async function uploadToDrive(filePath, fileName) {
     );
 
     const token = getToken();
-if (token) {
-  oAuth2Client.setCredentials(token);
-} else {
-  console.log('⚠️ Token non trovato. Esegui prima il setup di autenticazione.');
-  return null;
-}
+    if (token) {
+      oAuth2Client.setCredentials(token);
+    } else {
+      console.log('⚠️ Token non trovato. Esegui prima il setup di autenticazione.');
+      return null;
+    }
 
     const drive = google.drive({ version: 'v3', auth: oAuth2Client });
 
@@ -141,7 +162,9 @@ if (token) {
     console.log(`✅ Backup caricato su Drive: ${response.data.name}`);
     console.log(`🔗 Link: https://drive.google.com/file/d/${response.data.id}/view`);
 
-    await cleanOldBackups(drive, folderId);
+    // Mantieni solo gli ultimi 20 backup (aumentato da 5 a 20)
+    await cleanOldBackups(drive, folderId, 20);
+
     return response.data;
   } catch (err) {
     console.error('❌ Errore caricamento su Drive:', err);
@@ -150,9 +173,9 @@ if (token) {
 }
 
 // ============================================================
-// FUNZIONE: Mantieni solo gli ultimi N backup
+// FUNZIONE: Mantieni solo gli ultimi N backup (ora 20)
 // ============================================================
-async function cleanOldBackups(drive, folderId, keep = 5) {
+async function cleanOldBackups(drive, folderId, keep = 20) {
   try {
     const response = await drive.files.list({
       q: `'${folderId}' in parents and trashed=false`,
@@ -235,39 +258,18 @@ async function runBackup() {
 }
 
 // ============================================================
-// CRON JOB: Ogni domenica alle 2:00
+// CRON JOB: Ogni domenica ALLE 2:00 E ogni mercoledì ALLE 2:00
 // ============================================================
 function startScheduler() {
-  cron.schedule('0 2 * * 0', async () => {
-    console.log('⏰ Esecuzione backup settimanale...');
+  // 0 2 * * 0 = domenica alle 2:00
+  // 0 2 * * 3 = mercoledì alle 2:00
+  // Uniti con una virgola: 0 2 * * 0,3
+  cron.schedule('0 2 * * 0,3', async () => {
+    console.log('⏰ Esecuzione backup programmato...');
     await runBackup();
   });
-  console.log('✅ Scheduler avviato. Backup ogni domenica alle 2:00.');
-}
 
-// ============================================================
-// FUNZIONE: Ottiene il token da variabile d'ambiente o da file
-// ============================================================
-function getToken() {
-  // Prova a leggere da variabile d'ambiente (Render)
-  if (process.env.GOOGLE_TOKEN) {
-    try {
-      return JSON.parse(process.env.GOOGLE_TOKEN);
-    } catch (e) {
-      console.warn('⚠️ Errore parsing GOOGLE_TOKEN:', e.message);
-    }
-  }
-  
-  // Fallback: leggi da file (locale)
-  if (fs.existsSync(TOKEN_PATH)) {
-    try {
-      return JSON.parse(fs.readFileSync(TOKEN_PATH));
-    } catch (e) {
-      console.warn('⚠️ Errore lettura token.json:', e.message);
-    }
-  }
-  
-  return null;
+  console.log('✅ Scheduler avviato. Backup ogni domenica e mercoledì alle 2:00.');
 }
 
 // ============================================================
