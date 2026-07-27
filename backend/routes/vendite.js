@@ -3,7 +3,7 @@ const { verifyToken } = require('../auth');
 const pool = require('../db');
 const db = require('../db');
 const { ricalcolaQuantitaTotale } = require('./articoli');
-const { rimuoviDaKit } = require('./kit'); // <-- importata per decrementare quantita_in_kit
+const { rimuoviDaKit } = require('./kit');
 
 const router = express.Router();
 
@@ -64,10 +64,8 @@ async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, sigla
   const nuovaQuantita = row.quantita - quantita;
   if (nuovaQuantita === 0) {
     await connection.query(`DELETE FROM carico_sintesi WHERE id = ?`, [row.id]);
-    console.log(`🗑️ Riga eliminata da carico_sintesi per ${tipoOggetto} ${oggettoId} da ${sorgenteTipo} ${sorgenteId}`);
   } else {
     await connection.query(`UPDATE carico_sintesi SET quantita = ? WHERE id = ?`, [nuovaQuantita, row.id]);
-    console.log(`📉 Aggiornata quantità in carico_sintesi per ${tipoOggetto} ${oggettoId}: ${nuovaQuantita}`);
   }
 }
 
@@ -148,12 +146,12 @@ router.post('/', verifyToken, async (req, res) => {
         if (tipoOggetto === 'ARTICOLO') {
           await decrementaArticoloConSigla(connection, oggettoId, siglaId || null, quantita);
         } else if (tipoOggetto === 'KIT') {
-          // Controllo quantità kit (l'aggiornamento effettivo viene fatto dopo, in modo uniforme)
+          // Per i kit da magazzino, dobbiamo solo controllare che la quantità sia sufficiente
           const [kit] = await connection.query('SELECT quantita FROM kit WHERE id = ? FOR UPDATE', [oggettoId]);
           if (!kit.length || kit[0].quantita < quantita) {
             throw new Error(`Quantità kit ${oggettoId} insufficiente (disponibile ${kit[0]?.quantita || 0})`);
           }
-          // Non aggiorniamo ancora, lo faremo dopo
+          // Non aggiorniamo ancora, lo faremo dopo in modo uniforme
         }
       } else {
         throw new Error('Sorgente non specificata correttamente');
@@ -164,12 +162,16 @@ router.post('/', verifyToken, async (req, res) => {
         // 1. Decrementa la quantità del kit
         await connection.query('UPDATE kit SET quantita = quantita - ? WHERE id = ?', [quantita, oggettoId]);
 
-        // 2. Decrementa quantita_in_kit per ogni articolo componente
+        // 2. Decrementa quantità totale e sigle per ogni articolo componente
         const [dettagli] = await connection.query(
           'SELECT articolo_id FROM kit_dettaglio WHERE kit_id = ?',
           [oggettoId]
         );
         for (const det of dettagli) {
+          // Decrementa la quantità totale dell'articolo (come se lo vendessimo singolarmente)
+          // siglaId = null per far scegliere automaticamente una sigla disponibile
+          await decrementaArticoloConSigla(connection, det.articolo_id, null, quantita);
+          // Aggiorna quantita_in_kit (perché il kit non esiste più)
           await rimuoviDaKit(connection, det.articolo_id, quantita);
         }
       }
