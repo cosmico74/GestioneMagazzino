@@ -68,7 +68,6 @@ router.put('/:id', verifyToken, async (req, res) => {
     if (!username) {
       return res.status(400).json({ success: false, message: 'Username obbligatorio' });
     }
-    // Verifica che username non sia già usato da un altro utente
     const [existing] = await pool.query('SELECT id FROM utenti WHERE username = ? AND id != ?', [username, id]);
     if (existing.length) {
       return res.status(400).json({ success: false, message: 'Username già in uso da un altro utente' });
@@ -96,7 +95,6 @@ router.delete('/:id', verifyToken, async (req, res) => {
     if (!(await isAdmin(req.userId))) {
       return res.status(403).json({ success: false, message: 'Accesso negato' });
     }
-    // Non permettere di eliminare se stessi
     if (parseInt(req.params.id) === req.userId) {
       return res.status(400).json({ success: false, message: 'Non puoi eliminare il tuo stesso utente' });
     }

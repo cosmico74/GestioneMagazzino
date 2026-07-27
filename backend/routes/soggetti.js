@@ -227,7 +227,11 @@ router.get('/', verifyToken, async (req, res) => {
 // POST /api/soggetti
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
-  const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, nuovaPassword, magazziniAssociati, creaUtente } = req.body;
+  const { 
+    tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, 
+    referente, note, attivo, livello, utenteAssociato, nuovaPassword, 
+    magazziniAssociati, creaUtente 
+  } = req.body;
   if (!tipo || !nome) return res.status(400).json({ error: 'Tipo e nome sono obbligatori' });
 
   const connection = await db.getConnection();
@@ -239,6 +243,7 @@ router.post('/', verifyToken, async (req, res) => {
       else if (typeof referente === 'string') referenteStr = referente;
     }
 
+    // Per promoter non admin, assicura che siano referente di sé stessi
     if (req.userRole !== 'admin') {
       const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
       if (user.length && user[0].riferimento_id) {
@@ -251,6 +256,7 @@ router.post('/', verifyToken, async (req, res) => {
       }
     }
 
+    // Inserisci il soggetto
     const [result] = await connection.query(
       `INSERT INTO soggetti (tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -263,26 +269,32 @@ router.post('/', verifyToken, async (req, res) => {
 
     let utenteCreato = null;
 
-    // Gestione utente associato (solo admin può associare un utente esistente)
+    // Gestione creazione/associazione utente (solo admin o se espressamente richiesto)
     if (utenteAssociato) {
+      // Associa un utente esistente (solo admin)
       if (req.userRole !== 'admin') {
         throw new Error('Solo admin può associare un utente esistente');
       }
-      const [userExists] = await connection.query('SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)', [utenteAssociato, soggettoId]);
+      const [userExists] = await connection.query(
+        'SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)', 
+        [utenteAssociato, soggettoId]
+      );
       if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
       await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [soggettoId, utenteAssociato]);
-    } else if (tipo === 'PROMOTER' && creaUtente === true) {
-      // Crea l'utente solo se esplicitamente richiesto
-      const username = email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, '');
-      // Se username è vuoto, usa un fallback
+    } else if (creaUtente === true) {
+      // Crea un nuovo utente associato al soggetto
+      const username = req.body.username || (email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, ''));
       const finalUsername = username || 'user_' + soggettoId;
-      const password = nuovaPassword && nuovaPassword.trim() ? nuovaPassword.trim() : Math.random().toString(36).slice(-8);
+      const password = req.body.password || (nuovaPassword && nuovaPassword.trim()) || Math.random().toString(36).slice(-8);
       const hashedPassword = await bcrypt.hash(password, 10);
-      const nomeVisualizzato = (nome + ' ' + (cognome || '')).trim();
+      const nomeVisualizzato = req.body.nomeVisualizzato || (nome + ' ' + (cognome || '')).trim();
+      const ruolo = req.body.ruolo || 'promoter';
+      const emailUtente = req.body.emailUtente || email || null;
+      
       const [userResult] = await connection.query(
         `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
-         VALUES (?, ?, 'promoter', ?, ?, ?)`,
-        [finalUsername, hashedPassword, soggettoId, nomeVisualizzato, email || null]
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [finalUsername, hashedPassword, ruolo, soggettoId, nomeVisualizzato, emailUtente]
       );
       utenteCreato = { username: finalUsername, password, id: userResult.insertId };
     }
@@ -302,11 +314,18 @@ router.post('/', verifyToken, async (req, res) => {
 // PUT /api/soggetti/:id
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
-  const { tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, referente, note, attivo, livello, utenteAssociato, magazziniAssociati, creaUtente } = req.body;
+  const { 
+    tipo, nome, cognome, email, telefono, indirizzo, citta, cap, regione, 
+    referente, note, attivo, livello, utenteAssociato, magazziniAssociati, 
+    creaUtente, username, password, ruolo, nomeVisualizzato, emailUtente 
+  } = req.body;
+  const id = req.params.id;
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
+    // Permessi: solo admin o referente del soggetto
     if (req.userRole !== 'admin') {
       const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
       if (!user.length || !user[0].riferimento_id) {
@@ -315,7 +334,7 @@ router.put('/:id', verifyToken, async (req, res) => {
       const promoterId = user[0].riferimento_id;
       const [ref] = await connection.query(
         'SELECT 1 FROM soggetti_referenti WHERE soggetto_id = ? AND referente_id = ?',
-        [req.params.id, promoterId]
+        [id, promoterId]
       );
       if (!ref.length) {
         return res.status(403).json({ error: 'Non sei referente di questo soggetto' });
@@ -328,44 +347,69 @@ router.put('/:id', verifyToken, async (req, res) => {
       else if (typeof referente === 'string') referenteStr = referente;
     }
 
+    // Aggiorna soggetto
     await connection.query(
       `UPDATE soggetti SET
         tipo = ?, nome = ?, cognome = ?, email = ?, telefono = ?, indirizzo = ?, citta = ?, cap = ?, regione = ?,
         referente = ?, note = ?, attivo = ?, livello = ?
        WHERE id = ?`,
       [tipo, nome, cognome || null, email || null, telefono || null, indirizzo || null, citta || null, cap || null, regione || null,
-       referenteStr, note || null, attivo, livello || null, req.params.id]
+       referenteStr, note || null, attivo, livello || null, id]
     );
-    await syncSoggettiReferenti(connection, req.params.id, referenteStr);
-    await syncSoggettiMagazzini(connection, req.params.id, magazziniAssociati || []);
+    await syncSoggettiReferenti(connection, id, referenteStr);
+    await syncSoggettiMagazzini(connection, id, magazziniAssociati || []);
 
-    // Rimuovi associazione utente precedente (solo admin)
+    // Gestione utente associato
     if (req.userRole === 'admin') {
-      await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [req.params.id]);
+      // Rimuovi associazione utente precedente
+      await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [id]);
       if (utenteAssociato) {
-        const [userExists] = await connection.query('SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)', [utenteAssociato, req.params.id]);
+        const [userExists] = await connection.query(
+          'SELECT id FROM utenti WHERE id = ? AND (riferimento_id IS NULL OR riferimento_id = ?)',
+          [utenteAssociato, id]
+        );
         if (userExists.length === 0) throw new Error('Utente selezionato non valido o già associato');
-        await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [req.params.id, utenteAssociato]);
+        await connection.query('UPDATE utenti SET riferimento_id = ? WHERE id = ?', [id, utenteAssociato]);
       }
     }
 
-    // Gestione creazione utente su modifica (solo per promoter e solo se richiesto)
-    if (tipo === 'PROMOTER' && creaUtente === true && req.userRole === 'admin') {
-      const [existingUser] = await connection.query('SELECT id FROM utenti WHERE riferimento_id = ?', [req.params.id]);
+    // Creazione/aggiornamento utente associato al soggetto
+    if (req.userRole === 'admin' && creaUtente === true) {
+      const [existingUser] = await connection.query('SELECT id FROM utenti WHERE riferimento_id = ?', [id]);
       if (existingUser.length === 0) {
-        const username = email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, '');
-        const finalUsername = username || 'user_' + req.params.id;
-        const password = Math.random().toString(36).slice(-8);
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const nomeVisualizzato = (nome + ' ' + (cognome || '')).trim();
+        // Crea nuovo utente
+        const finalUsername = username || (email ? email.split('@')[0] : (nome + (cognome || '')).toLowerCase().replace(/\s/g, ''));
+        const finalUsernameSanitized = finalUsername || 'user_' + id;
+        const pass = password || Math.random().toString(36).slice(-8);
+        const hashedPassword = await bcrypt.hash(pass, 10);
+        const nomeVis = nomeVisualizzato || (nome + ' ' + (cognome || '')).trim();
+        const ruoloUtente = ruolo || 'promoter';
+        const emailU = emailUtente || email || null;
         await connection.query(
           `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
-           VALUES (?, ?, 'promoter', ?, ?, ?)`,
-          [finalUsername, hashedPassword, req.params.id, nomeVisualizzato, email || null]
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [finalUsernameSanitized, hashedPassword, ruoloUtente, id, nomeVis, emailU]
         );
-        // Nota: la password non viene restituita nella risposta PUT
-        // Si potrebbe loggare, ma non è sicuro. L'admin può reimpostarla da Gestione Utenti.
-        console.log(`🔑 Utente creato per soggetto ${req.params.id} con username ${finalUsername}`);
+        console.log(`🔑 Utente creato per soggetto ${id} con username ${finalUsernameSanitized}`);
+      } else if (username || password || ruolo || nomeVisualizzato || emailUtente) {
+        // Aggiorna utente esistente
+        let updateSql = 'UPDATE utenti SET ';
+        const updateFields = [];
+        const updateValues = [];
+        if (username) { updateFields.push('username = ?'); updateValues.push(username); }
+        if (password) { 
+          const hashed = await bcrypt.hash(password, 10);
+          updateFields.push('password_hash = ?'); 
+          updateValues.push(hashed); 
+        }
+        if (ruolo) { updateFields.push('ruolo = ?'); updateValues.push(ruolo); }
+        if (nomeVisualizzato) { updateFields.push('nome_visualizzato = ?'); updateValues.push(nomeVisualizzato); }
+        if (emailUtente) { updateFields.push('email = ?'); updateValues.push(emailUtente); }
+        if (updateFields.length > 0) {
+          updateSql += updateFields.join(', ') + ' WHERE riferimento_id = ?';
+          updateValues.push(id);
+          await connection.query(updateSql, updateValues);
+        }
       }
     }
 
@@ -391,6 +435,18 @@ router.delete('/:id', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+    // Verifica che non abbia oggetti in carico
+    const [carico] = await connection.query(
+      'SELECT COUNT(*) AS count FROM carico_sintesi WHERE destinazione_tipo = "PROMOTER" AND destinazione_id = ? AND quantita > 0',
+      [req.params.id]
+    );
+    if (carico[0].count > 0) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        error: `Impossibile eliminare: il soggetto ha ${carico[0].count} oggetti in carico. Rientra gli oggetti prima di eliminarlo.` 
+      });
+    }
+
     await connection.query('UPDATE utenti SET riferimento_id = NULL WHERE riferimento_id = ?', [req.params.id]);
     await connection.query('DELETE FROM soggetti_referenti WHERE soggetto_id = ? OR referente_id = ?', [req.params.id, req.params.id]);
     await connection.query('DELETE FROM soggetti_magazzini WHERE soggetto_id = ?', [req.params.id]);
