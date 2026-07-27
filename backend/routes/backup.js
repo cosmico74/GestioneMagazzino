@@ -4,7 +4,7 @@ const pool = require('../db');
 const { verifyToken } = require('../auth');
 
 router.get('/', verifyToken, async (req, res) => {
-  // 1. Verifica che l'utente sia l'amministratore principale (username = 'admin')
+  // Verifica che l'utente sia l'amministratore principale (username = 'admin')
   try {
     const [userRows] = await pool.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     if (userRows.length === 0 || userRows[0].username !== 'admin') {
@@ -16,7 +16,7 @@ router.get('/', verifyToken, async (req, res) => {
   }
 
   try {
-    // 2. Ottieni tutte le tabelle del database
+    // Ottieni tutte le tabelle del database
     const [tables] = await pool.query('SHOW TABLES');
     const tableNames = tables.map(row => Object.values(row)[0]);
 
@@ -26,12 +26,12 @@ router.get('/', verifyToken, async (req, res) => {
     sql += 'SET FOREIGN_KEY_CHECKS = 0;\n\n';
 
     for (const table of tableNames) {
-      // 2a. CREATE TABLE
-      const [createResult] = await pool.query(`SHOW CREATE TABLE ${table}`);
+      // CREATE TABLE
+      const [createResult] = await pool.query(`SHOW CREATE TABLE \`${table}\``);
       const createSQL = createResult[0]['Create Table'];
       sql += `DROP TABLE IF EXISTS \`${table}\`;\n${createSQL};\n\n`;
 
-      // 2b. SELECT dati
+      // SELECT dati
       const [rows] = await pool.query(`SELECT * FROM \`${table}\``);
       if (rows.length === 0) continue;
 
@@ -43,14 +43,12 @@ router.get('/', verifyToken, async (req, res) => {
           const val = row[col];
           if (val === null) return 'NULL';
           if (typeof val === 'string') {
-            // Escape backslashes e single quotes
             return `'${val.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
           }
           if (val instanceof Date) {
             return `'${val.toISOString().slice(0, 19).replace('T', ' ')}'`;
           }
           if (typeof val === 'boolean') return val ? 1 : 0;
-          // Numeri e altri tipi
           return val;
         });
         sql += `INSERT INTO \`${table}\` (${columnNames}) VALUES (${values.join(', ')});\n`;
@@ -60,7 +58,7 @@ router.get('/', verifyToken, async (req, res) => {
 
     sql += 'SET FOREIGN_KEY_CHECKS = 1;\n';
 
-    // 3. Invia il file come download
+    // Invia il file come download
     res.setHeader('Content-Type', 'application/sql');
     res.setHeader('Content-Disposition', `attachment; filename=backup_${new Date().toISOString().slice(0,10)}.sql`);
     res.send(sql);

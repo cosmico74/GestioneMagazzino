@@ -14,7 +14,6 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 console.log('📦 Caricamento routes...');
 
-// ---- ROTTA PER LA ROOT ----
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend', 'Login.html'));
 });
@@ -31,6 +30,7 @@ try {
     app.use('/api/report', require('./routes/report'));
     app.use('/api/movimenti', require('./routes/movimenti'));
     app.use('/api/audit', require('./routes/audit'));
+    app.use('/api/backup', require('./routes/backup'));  // <-- DEVE ESSERCI!
     console.log('✅ Routes caricate.');
 } catch (err) {
     console.error('❌ Errore nel caricamento delle routes:', err);
