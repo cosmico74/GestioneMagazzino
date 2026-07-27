@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>👥 Gestione Persone</title>
+  <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
@@ -111,7 +112,7 @@
     </div>
   </div>
 
-  <!-- TAB UTENTI -->
+  <!-- TAB UTENTI (solo admin) -->
   <div id="tab-utenti" class="tab-content">
     <div class="filter-bar">
       <div class="filter-group"><label>Ruolo</label><select id="filtroRuoloUtente"><option value="">Tutti</option><option value="admin">Admin</option><option value="promoter">Promoter</option><option value="negozio">Negozio</option><option value="cliente">Cliente</option><option value="agente">Agente</option></select></div>
@@ -166,7 +167,7 @@
       <div class="form-group"><label>Note</label><textarea id="noteSoggetto" rows="2" class="form-control"></textarea></div>
       <div class="form-group"><label>Attivo</label><select id="attivoSoggetto" class="form-control"><option value="1">SI</option><option value="0">NO</option></select></div>
 
-      <!-- Referenti (solo per admin) -->
+      <!-- Referenti -->
       <div class="form-group" id="referentiGroup">
         <label>Referenti (soggetti che possono vedere questo)</label>
         <div id="referentiCheckbox" class="checkbox-group"></div>
@@ -224,18 +225,40 @@
 
 <script>
 // ============================================================
-// UTILITY
+// UTILITY (con gestione errori 401 vs 403)
 // ============================================================
 function getAuthHeader() { const t = localStorage.getItem('token'); return t ? { 'Authorization': 'Bearer ' + t } : {}; }
 function showMessage(m, t) { const d = document.getElementById('messageArea'); d.innerHTML = '<div class="message ' + t + '">' + m + '</div>'; setTimeout(() => d.innerHTML = '', 5000); }
+
 async function apiFetch(e, o = {}) {
   const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...o.headers };
   const r = await fetch('/api' + e, { ...o, headers });
-  if (r.status === 401 || r.status === 403) { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; throw new Error('Sessione scaduta'); }
-  if (!r.ok) { let msg = 'Errore ' + r.status; try { const d = await r.json(); msg = d.message || msg; } catch(e) {} throw new Error(msg); }
+  // 401 = token scaduto → logout
+  if (r.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = 'Login.html';
+    throw new Error('Sessione scaduta');
+  }
+  // 403 = permessi insufficienti → non fare logout, solo errore
+  if (r.status === 403) {
+    let msg = 'Accesso negato';
+    try { const data = await r.json(); msg = data.message || msg; } catch(e) {}
+    throw new Error(msg);
+  }
+  if (!r.ok) {
+    let msg = 'Errore ' + r.status;
+    try { const d = await r.json(); msg = d.message || msg; } catch(e) {}
+    throw new Error(msg);
+  }
   return r.json();
 }
-function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; }
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = 'Login.html';
+}
 
 // ============================================================
 // VARIABILI GLOBALI
@@ -253,14 +276,18 @@ let referentiList = [];
 // CARICAMENTO DATI
 // ============================================================
 async function caricaMagazzini() {
-  try { magazzini = await apiFetch('/anagrafiche/magazzini'); } catch(e) { console.error(e); }
+  try { magazzini = await apiFetch('/anagrafiche/magazzini'); } catch(e) { console.warn('Errore magazzini:', e.message); }
 }
 async function caricaSoggetti() {
   try {
     const data = await apiFetch('/soggetti');
     soggetti = Array.isArray(data) ? data : [];
     applicaFiltriSoggetti();
-  } catch(e) { showMessage('Errore caricamento soggetti: '+e.message, 'error'); }
+  } catch(e) {
+    showMessage('Errore caricamento soggetti: '+e.message, 'error');
+    soggetti = [];
+    applicaFiltriSoggetti();
+  }
 }
 async function caricaUtenti() {
   try {
@@ -269,7 +296,17 @@ async function caricaUtenti() {
       utenti = r.data || [];
       applicaFiltriUtenti();
     } else showMessage(r.message, 'error');
-  } catch(e) { showMessage('Errore caricamento utenti: '+e.message, 'error'); }
+  } catch(e) {
+    // Se l'utente non ha i permessi per vedere gli utenti, nascondiamo la tab
+    if (e.message === 'Accesso negato') {
+      document.getElementById('tab-utenti').innerHTML = '<div class="message info">Solo admin può visualizzare gli utenti.</div>';
+      document.getElementById('tab-utenti').style.display = 'block'; // così il tab non è vuoto
+    } else {
+      showMessage('Errore caricamento utenti: '+e.message, 'error');
+    }
+    utenti = [];
+    applicaFiltriUtenti();
+  }
 }
 async function caricaReferenti() {
   try {
@@ -346,9 +383,11 @@ function renderUtenti(lista) {
     row.insertCell(5).innerText = u.email || '';
     const actions = row.insertCell(6);
     actions.className = 'actions';
-    actions.innerHTML = '<button class="btn btn-sm" onclick="modificaUtente('+u.id+')">✏️</button>';
     if (isAdmin) {
+      actions.innerHTML = '<button class="btn btn-sm" onclick="modificaUtente('+u.id+')">✏️</button>';
       actions.innerHTML += '<button class="btn btn-sm btn-danger" onclick="eliminaUtente('+u.id+')">🗑️</button>';
+    } else {
+      actions.innerHTML = '<span style="color:#999;">solo admin</span>';
     }
   });
 }
@@ -367,6 +406,10 @@ function switchTab(tab) {
 // MODALE UNICO (Soggetto + eventuale utente)
 // ============================================================
 async function apriModaleNuovo() {
+  if (!isAdmin && !(currentUser.ruolo === 'promoter' && userLevel === 1)) {
+    showMessage('Non hai i permessi per creare soggetti', 'error');
+    return;
+  }
   document.getElementById('modalPersonaTitle').innerText = 'Nuova Persona';
   document.getElementById('personaId').value = '';
   document.getElementById('personaTipoModale').value = 'soggetto';
@@ -413,7 +456,6 @@ async function modificaSoggetto(id) {
     document.getElementById('regioneSoggetto').value = s.regione || '';
     document.getElementById('noteSoggetto').value = s.note || '';
     document.getElementById('attivoSoggetto').value = s.attivo ? '1' : '0';
-    // Se ha utente associato, lo mostriamo
     const hasUser = !!s.utenteAssociato;
     document.getElementById('creaUtenteCheck').checked = hasUser;
     document.getElementById('utenteSection').style.display = hasUser ? 'block' : 'none';
@@ -437,21 +479,19 @@ async function popolaCheckboxesSoggetto(sog) {
   const containerMag = document.getElementById('magazziniCheckbox');
   containerMag.innerHTML = '';
 
-  try {
-    const allSoggetti = await apiFetch('/soggetti');
-    allSoggetti.forEach(s => {
-      if (s.id == document.getElementById('personaId').value) return;
-      const label = document.createElement('label');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.value = s.id;
-      cb.checked = currentRefs.includes(s.id);
-      if (!isAdmin) cb.disabled = true;
-      label.appendChild(cb);
-      label.appendChild(document.createTextNode(' ' + s.tipo + ' - ' + (s.nome||'') + ' ' + (s.cognome||'') + (s.livello ? ' (liv.'+s.livello+')' : '')));
-      containerRef.appendChild(label);
-    });
-  } catch(e) { console.error('Errore popola referenti:', e); }
+  const allSoggetti = await apiFetch('/soggetti');
+  allSoggetti.forEach(s => {
+    if (s.id == document.getElementById('personaId').value) return;
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = s.id;
+    cb.checked = currentRefs.includes(s.id);
+    if (!isAdmin) cb.disabled = true;
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + s.tipo + ' - ' + (s.nome||'') + ' ' + (s.cognome||'') + (s.livello ? ' (liv.'+s.livello+')' : '')));
+    containerRef.appendChild(label);
+  });
 
   magazzini.forEach(m => {
     const label = document.createElement('label');
@@ -468,13 +508,12 @@ async function popolaCheckboxesSoggetto(sog) {
 
 function chiudiModalPersona() { document.getElementById('modalPersona').style.display = 'none'; }
 
-// Gestione checkbox "crea utente"
 document.getElementById('creaUtenteCheck').addEventListener('change', function() {
   document.getElementById('utenteSection').style.display = this.checked ? 'block' : 'none';
 });
 
 // ============================================================
-// SALVA PERSONA (soggetto + eventuale utente)
+// SALVA PERSONA
 // ============================================================
 async function salvaPersona() {
   const id = document.getElementById('personaId').value;
@@ -498,7 +537,6 @@ async function salvaPersona() {
     note: document.getElementById('noteSoggetto').value.trim()
   };
 
-  // Se è spuntato "crea utente", aggiungiamo i dati utente
   const creaUtente = document.getElementById('creaUtenteCheck').checked;
   if (creaUtente) {
     datiSoggetto.creaUtente = true;
@@ -529,7 +567,7 @@ async function salvaPersona() {
 }
 
 // ============================================================
-// MODALE UTENTE SOLO (per admin)
+// MODALE UTENTE SOLO (admin)
 // ============================================================
 async function apriModaleNuovoUtente() {
   if (!isAdmin) { showMessage('Solo admin può gestire utenti', 'error'); return; }
@@ -629,7 +667,6 @@ async function eliminaSoggetto(id) {
 // INIT
 // ============================================================
 window.onload = async function() {
-  console.log('🚀 Avvio GestionePersone...');
   const token = localStorage.getItem('token');
   if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
   try {
@@ -654,7 +691,7 @@ window.onload = async function() {
 
   await caricaMagazzini();
   await caricaSoggetti();
-  await caricaUtenti();
+  await caricaUtenti();  // questa può fallire per 403, gestito internamente
 
   document.getElementById('filtroTipoSoggetto').addEventListener('change', applicaFiltriSoggetti);
   document.getElementById('filtroTestoSoggetto').addEventListener('input', applicaFiltriSoggetti);
