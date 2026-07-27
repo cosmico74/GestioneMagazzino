@@ -2,18 +2,15 @@ const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
-const pool = require('./db');
+const pool = require('../db'); // CORRETTO: risale alla root di backend
 
 // ============================================================
-// CONFIGURAZIONE GOOGLE DRIVE
+// CONFIGURAZIONE GOOGLE DRIVE (percorsi corretti)
 // ============================================================
 
-// 🔑 Devi creare un progetto su Google Cloud Console e scaricare le credenziali
-// Salva il file come credentials.json nella cartella backend/
-// Per maggiori informazioni: https://developers.google.com/drive/api/quickstart/nodejs
-
-const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
-const TOKEN_PATH = path.join(__dirname, 'token.json');
+// I file credentials.json e token.json devono essere nella root di backend
+const CREDENTIALS_PATH = path.join(__dirname, '..', 'credentials.json');
+const TOKEN_PATH = path.join(__dirname, '..', 'token.json');
 
 // ============================================================
 // FUNZIONE: Genera il backup SQL
@@ -59,11 +56,11 @@ async function generateBackup() {
     sql += 'SET FOREIGN_KEY_CHECKS = 1;\n';
 
     const fileName = `backup_${new Date().toISOString().slice(0, 10)}.sql`;
-    const filePath = path.join(__dirname, 'backups', fileName);
+    const backupsDir = path.join(__dirname, '..', 'backups');
+    const filePath = path.join(backupsDir, fileName);
 
-    // Crea la cartella backups se non esiste
-    if (!fs.existsSync(path.join(__dirname, 'backups'))) {
-      fs.mkdirSync(path.join(__dirname, 'backups'));
+    if (!fs.existsSync(backupsDir)) {
+      fs.mkdirSync(backupsDir, { recursive: true });
     }
 
     fs.writeFileSync(filePath, sql);
@@ -80,6 +77,11 @@ async function generateBackup() {
 async function uploadToDrive(filePath, fileName) {
   try {
     // Carica le credenziali
+    if (!fs.existsSync(CREDENTIALS_PATH)) {
+      console.error('❌ File credentials.json non trovato! Scaricalo da Google Cloud Console e mettilo nella root di backend.');
+      return null;
+    }
+
     const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
     const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
@@ -96,7 +98,7 @@ async function uploadToDrive(filePath, fileName) {
 
     const drive = google.drive({ version: 'v3', auth: oAuth2Client });
 
-    // Cerca una cartella "Backup" su Drive (crea se non esiste)
+    // Cerca una cartella "Backup Database" su Drive (crea se non esiste)
     const folderSearch = await drive.files.list({
       q: "name='Backup Database' and mimeType='application/vnd.google-apps.folder' and trashed=false",
       fields: 'files(id, name)',
@@ -136,7 +138,7 @@ async function uploadToDrive(filePath, fileName) {
     console.log(`✅ Backup caricato su Drive: ${response.data.name} (ID: ${response.data.id})`);
     console.log(`🔗 Link: https://drive.google.com/file/d/${response.data.id}/view`);
 
-    // Opzionale: elimina i backup vecchi (mantieni solo gli ultimi 5)
+    // Mantieni solo gli ultimi 5 backup
     await cleanOldBackups(drive, folderId);
 
     return response.data;
@@ -147,7 +149,7 @@ async function uploadToDrive(filePath, fileName) {
 }
 
 // ============================================================
-// FUNZIONE: Mantieni solo gli ultimi N backup
+// FUNZIONE: Mantieni solo gli ultimi N backup (default 5)
 // ============================================================
 async function cleanOldBackups(drive, folderId, keep = 5) {
   try {
@@ -170,17 +172,33 @@ async function cleanOldBackups(drive, folderId, keep = 5) {
   }
 }
 
+
 // ============================================================
 // FUNZIONE: Setup autenticazione Google Drive (da eseguire una volta)
 // ============================================================
 async function setupDriveAuth() {
+  if (!fs.existsSync(CREDENTIALS_PATH)) {
+    console.error('❌ File credentials.json non trovato! Scaricalo da Google Cloud Console e mettilo nella root di backend.');
+    return false;
+  }
+
   const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
   const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
-  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+  
+  // Usa il redirect URI per applicazioni desktop (oob = out-of-band)
+  const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
+  
+  const oAuth2Client = new google.auth.OAuth2(
+    client_id,
+    client_secret,
+    redirectUri  // <-- IMPORTANTE: specificare qui il redirect URI
+  );
 
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: ['https://www.googleapis.com/auth/drive.file'],
+    // response_type: 'code' è implicito, ma lo forziamo comunque
+    include_granted_scopes: true,
   });
 
   console.log('🔐 Autorizza l\'accesso a Google Drive visitando questo URL:');
@@ -200,7 +218,7 @@ async function setupDriveAuth() {
         const { tokens } = await oAuth2Client.getToken(code);
         oAuth2Client.setCredentials(tokens);
         fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
-        console.log('✅ Token salvato!');
+        console.log('✅ Token salvato in:', TOKEN_PATH);
         resolve(true);
       } catch (err) {
         console.error('❌ Errore ottenimento token:', err);
@@ -215,7 +233,7 @@ async function setupDriveAuth() {
 // ============================================================
 async function runBackup() {
   try {
-    console.log('🔄 Avvio backup settimanale...');
+    console.log('🔄 Avvio backup...');
     const { filePath, fileName } = await generateBackup();
     console.log(`✅ Backup generato: ${fileName}`);
     await uploadToDrive(filePath, fileName);

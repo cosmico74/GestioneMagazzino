@@ -4,3 +4,8 @@
 backend/.env
 
 node_modules/
+
+# File di credenziali e token
+backend/credentials.json
+backend/token.json
+backend/backups/
