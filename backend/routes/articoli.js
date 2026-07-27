@@ -586,6 +586,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 // DELETE /api/articoli/:id
 // ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;   // <--- AGGIUNGI QUESTA RIGA
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -594,9 +595,9 @@ router.delete('/:id', verifyToken, async (req, res) => {
     const [oldRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
     await registraAudit(connection, 'articoli', 'ELIMINAZIONE', id, oldRow[0], null, req.userId);
 
-    await connection.query('DELETE FROM kit_dettaglio WHERE articolo_id = ?', [req.params.id]);
-    await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [req.params.id]);
-    await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [req.params.id]);
+    await connection.query('DELETE FROM kit_dettaglio WHERE articolo_id = ?', [id]);
+    await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [id]);
+    await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [id]);
 
     await connection.commit();
     res.json({ success: true, message: 'Articolo eliminato' });
