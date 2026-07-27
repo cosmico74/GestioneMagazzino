@@ -83,7 +83,7 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       }
     }
 
-    // 3. Esegui il rollback specifico per tabella
+    // 3. Esegui rollback specifico per tabella
     switch (entry.tabella) {
       case 'articoli':
         await rollbackArticolo(connection, entry, req.userId);
@@ -121,15 +121,18 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// FUNZIONI DI ROLLBACK PER TABELLA (con migliori controlli)
+// FUNZIONI DI ROLLBACK PER TABELLA
 // ============================================================
 
+/**
+ * Rollback per tabella 'articoli'
+ */
 async function rollbackArticolo(connection, entry, userId) {
   const id = entry.riga_id;
   console.log(`🔄 Rollback articolo ${id}, operazione: ${entry.operazione}`);
   switch (entry.operazione) {
     case 'CREAZIONE': {
-      // Elimina l'articolo e le sigle collegate
+      // Elimina l'articolo e le sue sigle
       await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [id]);
       await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [id]);
       break;
@@ -139,9 +142,9 @@ async function rollbackArticolo(connection, entry, userId) {
       delete prima.articolo_id;
       delete prima.data_inserimento;
       delete prima.data_modifica;
-      const setClauseArt = Object.keys(prima).map(k => `${k} = ?`).join(', ');
-      const valuesArt = Object.values(prima);
-      await connection.query(`UPDATE articoli SET ${setClauseArt} WHERE articolo_id = ?`, [...valuesArt, id]);
+      const setClause = Object.keys(prima).map(k => `${k} = ?`).join(', ');
+      const values = Object.values(prima);
+      await connection.query(`UPDATE articoli SET ${setClause} WHERE articolo_id = ?`, [...values, id]);
       break;
     }
     case 'ELIMINAZIONE': {
@@ -149,7 +152,6 @@ async function rollbackArticolo(connection, entry, userId) {
       delete dati.articolo_id;
       delete dati.data_inserimento;
       delete dati.data_modifica;
-      // Inserisci l'articolo con i vecchi dati
       const columns = Object.keys(dati);
       const placeholders = columns.map(() => '?').join(', ');
       const values = columns.map(col => dati[col]);
@@ -161,6 +163,9 @@ async function rollbackArticolo(connection, entry, userId) {
   }
 }
 
+/**
+ * Rollback per tabella 'kit' - CORRETTO per non incrementare le sigle
+ */
 async function rollbackKit(connection, entry, userId) {
   const id = entry.riga_id;
   console.log(`🔄 Rollback kit ${id}, operazione: ${entry.operazione}`);
@@ -169,7 +174,7 @@ async function rollbackKit(connection, entry, userId) {
       // Recupera i dettagli del kit
       const [dettagli] = await connection.query('SELECT * FROM kit_dettaglio WHERE kit_id = ?', [id]);
       
-      // Sottrai le quantità in kit dagli articoli componenti
+      // Sottrai le quantità in kit dagli articoli componenti (ripristina quantita_in_kit)
       for (const det of dettagli) {
         await rimuoviDaKit(connection, det.articolo_id, det.quantita);
       }
@@ -193,16 +198,10 @@ async function rollbackKit(connection, entry, userId) {
             [tipo, parseInt(soggettoId), det.articolo_id, det.sigla_id, det.quantita, new Date()]
           );
         }
-      } else {
-        // Creato da magazzino: ripristina le quantità delle sigle
-        for (const det of dettagli) {
-          await connection.query(
-            'UPDATE sigle_articoli SET quantita = quantita + ? WHERE id = ?',
-            [det.quantita, det.sigla_id]
-          );
-          await ricalcolaQuantitaTotale(connection, det.articolo_id);
-        }
       }
+      // ALTRIMENTI (creato da magazzino): NON RIPRISTINARE LE SIGLE.
+      // La creazione del kit modifica SOLO quantita_in_kit, non le sigle.
+      // Il ripristino di quantita_in_kit è già stato fatto da rimuoviDaKit.
 
       // Elimina kit e dettagli
       await connection.query('DELETE FROM kit_dettaglio WHERE kit_id = ?', [id]);
@@ -235,6 +234,9 @@ async function rollbackKit(connection, entry, userId) {
   }
 }
 
+/**
+ * Rollback per tabella 'kit_dettaglio'
+ */
 async function rollbackKitDettaglio(connection, entry, userId) {
   const id = entry.riga_id;
   console.log(`🔄 Rollback kit_dettaglio ${id}, operazione: ${entry.operazione}`);
@@ -262,7 +264,7 @@ async function rollbackKitDettaglio(connection, entry, userId) {
       const placeholders = columns.map(() => '?').join(', ');
       const values = columns.map(col => dati[col]);
       await connection.query(`INSERT INTO kit_dettaglio (${columns.join(', ')}) VALUES (${placeholders})`, values);
-      // Aggiorna la quantità in kit per l'articolo
+      // Ripristina la quantità in kit per l'articolo
       await aggiungiInKit(connection, dati.articolo_id, dati.quantita);
       break;
     }
@@ -271,6 +273,9 @@ async function rollbackKitDettaglio(connection, entry, userId) {
   }
 }
 
+/**
+ * Rollback per tabella 'sigle_articoli'
+ */
 async function rollbackSigla(connection, entry, userId) {
   const id = entry.riga_id;
   console.log(`🔄 Rollback sigla ${id}, operazione: ${entry.operazione}`);
