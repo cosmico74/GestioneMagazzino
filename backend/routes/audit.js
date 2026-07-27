@@ -32,13 +32,19 @@ router.get('/log', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/audit/annulla/:id - Annulla un'operazione
+// POST /api/audit/annulla/:id - Annulla un'operazione (solo admin)
 // ============================================================
 router.post('/annulla/:id', verifyToken, async (req, res) => {
+  // Solo admin può annullare
+  if (req.userRole !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Solo admin può annullare operazioni' });
+  }
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
+    // 1. Recupera il record di audit
     const [log] = await connection.query('SELECT * FROM audit_log WHERE id = ?', [req.params.id]);
     if (!log.length) {
       await connection.rollback();
@@ -50,7 +56,7 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Operazione già annullata' });
     }
 
-    // Gestione assegnazioni successive (per articoli o kit)
+    // 2. Gestione assegnazioni successive (per articoli o kit)
     const tipoOggetto = entry.tabella === 'articoli' ? 'ARTICOLO' : 'KIT';
     const [assegnazioni] = await connection.query(
       `SELECT * FROM carico_sintesi 
@@ -60,6 +66,7 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
     );
 
     if (assegnazioni.length > 0) {
+      console.log(`⚠️ Trovate ${assegnazioni.length} assegnazioni successive da annullare`);
       for (const ass of assegnazioni) {
         await connection.query(
           `DELETE FROM carico_sintesi 
@@ -76,6 +83,7 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       }
     }
 
+    // 3. Esegui il rollback specifico per tabella
     switch (entry.tabella) {
       case 'articoli':
         await rollbackArticolo(connection, entry, req.userId);
@@ -94,31 +102,39 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Tabella non supportata per annullamento' });
     }
 
+    // 4. Segna come annullato
     await connection.query('UPDATE audit_log SET annullato = 1 WHERE id = ?', [req.params.id]);
 
     await connection.commit();
     res.json({ success: true, message: 'Operazione annullata con successo' });
   } catch (err) {
     await connection.rollback();
-    console.error('Errore annullamento:', err);
-    res.status(500).json({ success: false, message: err.message, stack: err.stack });
+    console.error('❌ Errore annullamento:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   } finally {
     connection.release();
   }
 });
 
 // ============================================================
-// FUNZIONI DI ROLLBACK PER TABELLA
+// FUNZIONI DI ROLLBACK PER TABELLA (con migliori controlli)
 // ============================================================
 
 async function rollbackArticolo(connection, entry, userId) {
   const id = entry.riga_id;
+  console.log(`🔄 Rollback articolo ${id}, operazione: ${entry.operazione}`);
   switch (entry.operazione) {
-    case 'CREAZIONE':
+    case 'CREAZIONE': {
+      // Elimina l'articolo e le sigle collegate
       await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [id]);
       await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [id]);
       break;
-    case 'MODIFICA':
+    }
+    case 'MODIFICA': {
       const prima = JSON.parse(entry.dati_prima);
       delete prima.articolo_id;
       delete prima.data_inserimento;
@@ -127,18 +143,27 @@ async function rollbackArticolo(connection, entry, userId) {
       const valuesArt = Object.values(prima);
       await connection.query(`UPDATE articoli SET ${setClauseArt} WHERE articolo_id = ?`, [...valuesArt, id]);
       break;
-    case 'ELIMINAZIONE':
+    }
+    case 'ELIMINAZIONE': {
       const dati = JSON.parse(entry.dati_prima);
       delete dati.articolo_id;
       delete dati.data_inserimento;
       delete dati.data_modifica;
-      await connection.query(`INSERT INTO articoli SET ?`, [dati]);
+      // Inserisci l'articolo con i vecchi dati
+      const columns = Object.keys(dati);
+      const placeholders = columns.map(() => '?').join(', ');
+      const values = columns.map(col => dati[col]);
+      await connection.query(`INSERT INTO articoli (${columns.join(', ')}) VALUES (${placeholders})`, values);
       break;
+    }
+    default:
+      throw new Error(`Operazione ${entry.operazione} non supportata per articoli`);
   }
 }
 
 async function rollbackKit(connection, entry, userId) {
   const id = entry.riga_id;
+  console.log(`🔄 Rollback kit ${id}, operazione: ${entry.operazione}`);
   switch (entry.operazione) {
     case 'CREAZIONE': {
       // Recupera i dettagli del kit
@@ -184,7 +209,6 @@ async function rollbackKit(connection, entry, userId) {
       await connection.query('DELETE FROM kit WHERE id = ?', [id]);
       break;
     }
-
     case 'MODIFICA': {
       const prima = JSON.parse(entry.dati_prima);
       delete prima.id;
@@ -195,20 +219,25 @@ async function rollbackKit(connection, entry, userId) {
       await connection.query(`UPDATE kit SET ${setClause} WHERE id = ?`, [...values, id]);
       break;
     }
-
     case 'ELIMINAZIONE': {
       const dati = JSON.parse(entry.dati_prima);
       delete dati.id;
       delete dati.data_creazione;
       delete dati.data_modifica;
-      await connection.query(`INSERT INTO kit SET ?`, [dati]);
+      const columns = Object.keys(dati);
+      const placeholders = columns.map(() => '?').join(', ');
+      const values = columns.map(col => dati[col]);
+      await connection.query(`INSERT INTO kit (${columns.join(', ')}) VALUES (${placeholders})`, values);
       break;
     }
+    default:
+      throw new Error(`Operazione ${entry.operazione} non supportata per kit`);
   }
 }
 
 async function rollbackKitDettaglio(connection, entry, userId) {
   const id = entry.riga_id;
+  console.log(`🔄 Rollback kit_dettaglio ${id}, operazione: ${entry.operazione}`);
   switch (entry.operazione) {
     case 'CREAZIONE': {
       const [det] = await connection.query('SELECT * FROM kit_dettaglio WHERE id = ?', [id]);
@@ -218,7 +247,6 @@ async function rollbackKitDettaglio(connection, entry, userId) {
       await connection.query('DELETE FROM kit_dettaglio WHERE id = ?', [id]);
       break;
     }
-
     case 'MODIFICA': {
       const prima = JSON.parse(entry.dati_prima);
       delete prima.id;
@@ -228,19 +256,24 @@ async function rollbackKitDettaglio(connection, entry, userId) {
       await connection.query(`UPDATE kit_dettaglio SET ${setClause} WHERE id = ?`, [...values, id]);
       break;
     }
-
     case 'ELIMINAZIONE': {
       const dati = JSON.parse(entry.dati_prima);
-      await connection.query(`INSERT INTO kit_dettaglio SET ?`, [dati]);
+      const columns = Object.keys(dati);
+      const placeholders = columns.map(() => '?').join(', ');
+      const values = columns.map(col => dati[col]);
+      await connection.query(`INSERT INTO kit_dettaglio (${columns.join(', ')}) VALUES (${placeholders})`, values);
       // Aggiorna la quantità in kit per l'articolo
       await aggiungiInKit(connection, dati.articolo_id, dati.quantita);
       break;
     }
+    default:
+      throw new Error(`Operazione ${entry.operazione} non supportata per kit_dettaglio`);
   }
 }
 
 async function rollbackSigla(connection, entry, userId) {
   const id = entry.riga_id;
+  console.log(`🔄 Rollback sigla ${id}, operazione: ${entry.operazione}`);
   let articoloId;
   switch (entry.operazione) {
     case 'CREAZIONE': {
@@ -262,9 +295,14 @@ async function rollbackSigla(connection, entry, userId) {
     case 'ELIMINAZIONE': {
       const dati = JSON.parse(entry.dati_prima);
       articoloId = dati.articolo_id;
-      await connection.query(`INSERT INTO sigle_articoli SET ?`, [dati]);
+      const columns = Object.keys(dati);
+      const placeholders = columns.map(() => '?').join(', ');
+      const values = columns.map(col => dati[col]);
+      await connection.query(`INSERT INTO sigle_articoli (${columns.join(', ')}) VALUES (${placeholders})`, values);
       break;
     }
+    default:
+      throw new Error(`Operazione ${entry.operazione} non supportata per sigle_articoli`);
   }
   if (articoloId) {
     await ricalcolaQuantitaTotale(connection, articoloId);
