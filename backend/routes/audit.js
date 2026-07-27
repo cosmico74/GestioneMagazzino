@@ -6,9 +6,19 @@ const { ricalcolaQuantitaTotale } = require('./articoli');
 const { rimuoviDaKit, aggiungiInKit } = require('./kit');
 
 // ============================================================
+// MIDDLEWARE: solo utente con username 'admin'
+// ============================================================
+function onlyAdmin(req, res, next) {
+  if (req.username !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Accesso negato: solo l\'utente admin può visualizzare l\'audit log.' });
+  }
+  next();
+}
+
+// ============================================================
 // GET /api/audit/log - Elenco operazioni con filtri
 // ============================================================
-router.get('/log', verifyToken, async (req, res) => {
+router.get('/log', verifyToken, onlyAdmin, async (req, res) => {
   try {
     const { tabella, operazione, riga_id, limit = 100, offset = 0 } = req.query;
     let sql = `
@@ -34,17 +44,11 @@ router.get('/log', verifyToken, async (req, res) => {
 // ============================================================
 // POST /api/audit/annulla/:id - Annulla un'operazione (solo admin)
 // ============================================================
-router.post('/annulla/:id', verifyToken, async (req, res) => {
-  // Solo admin può annullare
-  if (req.userRole !== 'admin') {
-    return res.status(403).json({ success: false, message: 'Solo admin può annullare operazioni' });
-  }
-
+router.post('/annulla/:id', verifyToken, onlyAdmin, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
-    // 1. Recupera il record di audit
     const [log] = await connection.query('SELECT * FROM audit_log WHERE id = ?', [req.params.id]);
     if (!log.length) {
       await connection.rollback();
@@ -56,7 +60,7 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Operazione già annullata' });
     }
 
-    // 2. Gestione assegnazioni successive (per articoli o kit)
+    // Gestione assegnazioni successive
     const tipoOggetto = entry.tabella === 'articoli' ? 'ARTICOLO' : 'KIT';
     const [assegnazioni] = await connection.query(
       `SELECT * FROM carico_sintesi 
@@ -83,7 +87,6 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
       }
     }
 
-    // 3. Esegui rollback specifico per tabella
     switch (entry.tabella) {
       case 'articoli':
         await rollbackArticolo(connection, entry, req.userId);
@@ -102,7 +105,6 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Tabella non supportata per annullamento' });
     }
 
-    // 4. Segna come annullato
     await connection.query('UPDATE audit_log SET annullato = 1 WHERE id = ?', [req.params.id]);
 
     await connection.commit();
@@ -110,11 +112,7 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
   } catch (err) {
     await connection.rollback();
     console.error('❌ Errore annullamento:', err);
-    res.status(500).json({ 
-      success: false, 
-      message: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-    });
+    res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
   }
@@ -124,15 +122,11 @@ router.post('/annulla/:id', verifyToken, async (req, res) => {
 // FUNZIONI DI ROLLBACK PER TABELLA
 // ============================================================
 
-/**
- * Rollback per tabella 'articoli'
- */
 async function rollbackArticolo(connection, entry, userId) {
   const id = entry.riga_id;
   console.log(`🔄 Rollback articolo ${id}, operazione: ${entry.operazione}`);
   switch (entry.operazione) {
     case 'CREAZIONE': {
-      // Elimina l'articolo e le sue sigle
       await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [id]);
       await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [id]);
       break;
@@ -163,23 +157,16 @@ async function rollbackArticolo(connection, entry, userId) {
   }
 }
 
-/**
- * Rollback per tabella 'kit' - CORRETTO per non incrementare le sigle
- */
 async function rollbackKit(connection, entry, userId) {
   const id = entry.riga_id;
   console.log(`🔄 Rollback kit ${id}, operazione: ${entry.operazione}`);
   switch (entry.operazione) {
     case 'CREAZIONE': {
-      // Recupera i dettagli del kit
       const [dettagli] = await connection.query('SELECT * FROM kit_dettaglio WHERE kit_id = ?', [id]);
-      
-      // Sottrai le quantità in kit dagli articoli componenti (ripristina quantita_in_kit)
       for (const det of dettagli) {
         await rimuoviDaKit(connection, det.articolo_id, det.quantita);
       }
 
-      // Verifica se il kit è stato creato da carico (movimento KIT_DA_CARICO)
       const [movCarico] = await connection.query(
         `SELECT * FROM movimenti 
          WHERE tipo = 'KIT_DA_CARICO' AND id_articolo_kit = ? AND tipo_oggetto = 'KIT'`,
@@ -187,8 +174,7 @@ async function rollbackKit(connection, entry, userId) {
       );
 
       if (movCarico.length > 0) {
-        // Creato da carico: ripristina gli articoli nel carico del soggetto
-        const daMagazzino = movCarico[0].da_magazzino; // es. "PROMOTER-123"
+        const daMagazzino = movCarico[0].da_magazzino;
         const [tipo, soggettoId] = daMagazzino.split('-');
         for (const det of dettagli) {
           await connection.query(
@@ -199,11 +185,7 @@ async function rollbackKit(connection, entry, userId) {
           );
         }
       }
-      // ALTRIMENTI (creato da magazzino): NON RIPRISTINARE LE SIGLE.
-      // La creazione del kit modifica SOLO quantita_in_kit, non le sigle.
-      // Il ripristino di quantita_in_kit è già stato fatto da rimuoviDaKit.
 
-      // Elimina kit e dettagli
       await connection.query('DELETE FROM kit_dettaglio WHERE kit_id = ?', [id]);
       await connection.query('DELETE FROM kit WHERE id = ?', [id]);
       break;
@@ -234,9 +216,6 @@ async function rollbackKit(connection, entry, userId) {
   }
 }
 
-/**
- * Rollback per tabella 'kit_dettaglio'
- */
 async function rollbackKitDettaglio(connection, entry, userId) {
   const id = entry.riga_id;
   console.log(`🔄 Rollback kit_dettaglio ${id}, operazione: ${entry.operazione}`);
@@ -264,7 +243,6 @@ async function rollbackKitDettaglio(connection, entry, userId) {
       const placeholders = columns.map(() => '?').join(', ');
       const values = columns.map(col => dati[col]);
       await connection.query(`INSERT INTO kit_dettaglio (${columns.join(', ')}) VALUES (${placeholders})`, values);
-      // Ripristina la quantità in kit per l'articolo
       await aggiungiInKit(connection, dati.articolo_id, dati.quantita);
       break;
     }
@@ -273,9 +251,6 @@ async function rollbackKitDettaglio(connection, entry, userId) {
   }
 }
 
-/**
- * Rollback per tabella 'sigle_articoli'
- */
 async function rollbackSigla(connection, entry, userId) {
   const id = entry.riga_id;
   console.log(`🔄 Rollback sigla ${id}, operazione: ${entry.operazione}`);
