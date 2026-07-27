@@ -93,13 +93,13 @@ async function uploadToDrive(filePath, fileName) {
       REDIRECT_URI
     );
 
-    if (fs.existsSync(TOKEN_PATH)) {
-      const token = JSON.parse(fs.readFileSync(TOKEN_PATH));
-      oAuth2Client.setCredentials(token);
-    } else {
-      console.log('⚠️ Token non trovato. Esegui prima il setup di autenticazione.');
-      return null;
-    }
+    const token = getToken();
+if (token) {
+  oAuth2Client.setCredentials(token);
+} else {
+  console.log('⚠️ Token non trovato. Esegui prima il setup di autenticazione.');
+  return null;
+}
 
     const drive = google.drive({ version: 'v3', auth: oAuth2Client });
 
@@ -243,6 +243,31 @@ function startScheduler() {
     await runBackup();
   });
   console.log('✅ Scheduler avviato. Backup ogni domenica alle 2:00.');
+}
+
+// ============================================================
+// FUNZIONE: Ottiene il token da variabile d'ambiente o da file
+// ============================================================
+function getToken() {
+  // Prova a leggere da variabile d'ambiente (Render)
+  if (process.env.GOOGLE_TOKEN) {
+    try {
+      return JSON.parse(process.env.GOOGLE_TOKEN);
+    } catch (e) {
+      console.warn('⚠️ Errore parsing GOOGLE_TOKEN:', e.message);
+    }
+  }
+  
+  // Fallback: leggi da file (locale)
+  if (fs.existsSync(TOKEN_PATH)) {
+    try {
+      return JSON.parse(fs.readFileSync(TOKEN_PATH));
+    } catch (e) {
+      console.warn('⚠️ Errore lettura token.json:', e.message);
+    }
+  }
+  
+  return null;
 }
 
 // ============================================================
