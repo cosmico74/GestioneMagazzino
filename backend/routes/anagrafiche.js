@@ -12,7 +12,6 @@ router.get('/magazzini', verifyToken, async (req, res) => {
     let sql = 'SELECT magazzino_id AS id, nome FROM magazzini WHERE attivo = true';
     let params = [];
 
-    // Se l'utente non è admin, filtra per i magazzini associati al suo soggetto
     if (req.userRole !== 'admin') {
       const [user] = await pool.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
       if (user.length && user[0].riferimento_id) {
@@ -41,25 +40,31 @@ router.get('/magazzini', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// ALTRE ROUTE (invariate)
+// GET /api/anagrafiche/settori
 // ============================================================
 router.get('/settori', verifyToken, async (req, res) => {
   const [rows] = await pool.query('SELECT settore_id AS id, nome, descrizione, attivo FROM settori WHERE attivo = true ORDER BY nome');
   res.json(rows);
 });
 
+// ============================================================
+// GET /api/anagrafiche/categorie
+// ============================================================
 router.get('/categorie', verifyToken, async (req, res) => {
   const [rows] = await pool.query('SELECT categoria_id AS id, nome, descrizione, attivo FROM categorie WHERE attivo = true ORDER BY nome');
   res.json(rows);
 });
 
+// ============================================================
+// GET /api/anagrafiche/marche
+// ============================================================
 router.get('/marche', verifyToken, async (req, res) => {
   const [rows] = await pool.query('SELECT marca_id AS id, nome, descrizione, sito_web, attivo FROM marche WHERE attivo = true ORDER BY nome');
   res.json(rows);
 });
 
 // ============================================================
-// GET /api/anagrafiche/menu
+// GET /api/anagrafiche/menu – con filtro per utente admin
 // ============================================================
 router.get('/menu', verifyToken, async (req, res) => {
   try {
@@ -88,6 +93,13 @@ router.get('/menu', verifyToken, async (req, res) => {
     const allowed = menuRows.filter(item => {
       if (!item.ruoli) return false;
       const ruoliAmmessi = item.ruoli.split(',').map(r => r.trim());
+
+      // 🔐 Se la voce è riservata ad admin, solo l'utente con username 'admin' può vederla
+      if (ruoliAmmessi.includes('admin')) {
+        return req.username === 'admin';
+      }
+
+      // Altrimenti controlla il ruolo normalmente
       if (!ruoliAmmessi.includes(ruolo)) return false;
       if (ruolo === 'promoter' && item.livelli && item.livelli.trim() !== '') {
         const livelliAmmessi = item.livelli.split(',').map(l => parseInt(l.trim(), 10));
