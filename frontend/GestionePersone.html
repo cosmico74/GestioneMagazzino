@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>👥 Gestione Persone</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 20px; }
+    .compact-bar { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 0 0 12px 12px; padding: 4px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 15px; }
+    .logo { display: flex; justify-content: center; flex: 1; }
+    .logo img { height: 120px; width: auto; display: block; }
+    .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; }
+    h2 { border-left: 5px solid #1a73e8; padding-left: 15px; color: #1e2a3a; margin: 15px 0; }
+    .btn { background: #1a73e8; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    .btn:hover { background: #0f5bb5; transform: translateY(-1px); }
+    .btn-success { background: #27ae60; }
+    .btn-danger { background: #dc3545; }
+    .btn-secondary { background: #6c757d; }
+    .btn-sm { padding: 3px 8px; font-size: 0.7rem; }
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: flex-end; }
+    .filter-group { flex: 1; min-width: 150px; }
+    .filter-group label { display: block; font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; color: #2c3e50; }
+    .filter-group input, .filter-group select { width: 100%; padding: 5px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.8rem; background: white; }
+    .table-wrapper { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; max-height: 70vh; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+    th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+    tr:hover td { background: #fefce8; }
+    .actions { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; }
+    .badge-admin { background: #dc3545; color: white; }
+    .badge-promoter { background: #28a745; color: white; }
+    .badge-negozio { background: #17a2b8; color: white; }
+    .badge-cliente { background: #ffc107; color: #212529; }
+    .badge-agente { background: #6f42c1; color: white; }
+    .badge-livello1 { background: #1a73e8; color: white; }
+    .badge-livello2 { background: #f39c12; color: white; }
+    .badge-livello3 { background: #6c757d; color: white; }
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 800px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
+    .modal-header h3 { margin: 0; }
+    .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
+    .close:hover { color: black; }
+    .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-weight: 600; font-size: 0.75rem; margin-bottom: 2px; color: #2c3e50; }
+    .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.8rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .checkbox-group { max-height: 150px; overflow-y: auto; border: 1px solid #cbd5e0; border-radius: 6px; padding: 8px 12px; background: white; }
+    .checkbox-group label { display: block; font-weight: normal; margin: 4px 0; font-size: 0.8rem; cursor: pointer; }
+    .checkbox-group label:hover { background: #f0f4ff; }
+    .checkbox-group input[type="checkbox"] { margin-right: 8px; }
+    .checkbox-inline { display: flex; align-items: center; gap: 10px; }
+    .checkbox-inline input[type="checkbox"] { width: auto; margin: 0; transform: scale(1.1); }
+    .checkbox-inline label { font-weight: normal; font-size: 0.8rem; margin: 0; cursor: pointer; }
+    .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
+    .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
+    .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
+    .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
+    .text-center { text-align: center; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; flex-wrap: wrap; }
+    .tab { padding: 8px 20px; cursor: pointer; border-radius: 8px 8px 0 0; font-weight: 600; font-size: 0.85rem; color: #6c757d; border: none; background: transparent; }
+    .tab.active { background: #1a73e8; color: white; }
+    .tab:hover:not(.active) { background: #e8f0fe; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    @media (max-width: 768px) { .filter-bar { flex-direction: column; } .form-row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- COMPACT BAR -->
+  <div class="compact-bar">
+    <div style="flex:1;"></div>
+    <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
+    <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
+      <span id="loginInfo" class="login-info"></span>
+      <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
+      <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+
+  <h2>👥 Gestione Persone</h2>
+  <div id="messageArea"></div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" data-tab="soggetti" onclick="switchTab('soggetti')">👤 Soggetti</button>
+    <button class="tab" data-tab="utenti" onclick="switchTab('utenti')">🔐 Utenti</button>
+  </div>
+
+  <!-- TAB SOGGETTI -->
+  <div id="tab-soggetti" class="tab-content active">
+    <div class="filter-bar">
+      <div class="filter-group"><label>Tipo</label><select id="filtroTipoSoggetto"><option value="">Tutti</option><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
+      <div class="filter-group"><label>Ricerca</label><input type="text" id="filtroTestoSoggetto" placeholder="Nome, cognome, email..."></div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-success" onclick="apriModaleNuovo()">➕ Nuovo</button>
+        <button class="btn btn-secondary" onclick="caricaSoggetti()">🔄 Aggiorna</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Tipo</th><th>Nome</th><th>Cognome</th><th>Email</th><th>Livello</th><th>Referenti</th><th>Magazzini</th><th>Utente</th><th>Azioni</th></tr></thead>
+        <tbody id="tabellaSoggetti"><tr><td colspan="9" class="text-center">Caricamento...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB UTENTI -->
+  <div id="tab-utenti" class="tab-content">
+    <div class="filter-bar">
+      <div class="filter-group"><label>Ruolo</label><select id="filtroRuoloUtente"><option value="">Tutti</option><option value="admin">Admin</option><option value="promoter">Promoter</option><option value="negozio">Negozio</option><option value="cliente">Cliente</option><option value="agente">Agente</option></select></div>
+      <div class="filter-group"><label>Username</label><input type="text" id="filtroUsernameUtente" placeholder="Cerca username..."></div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-success" onclick="apriModaleNuovoUtente()">➕ Nuovo Utente</button>
+        <button class="btn btn-secondary" onclick="caricaUtenti()">🔄 Aggiorna</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>ID</th><th>Username</th><th>Ruolo</th><th>Soggetto associato</th><th>Nome visualizzato</th><th>Email</th><th>Azioni</th></tr></thead>
+        <tbody id="tabellaUtenti"><tr><td colspan="7" class="text-center">Caricamento...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODALE UNICO PER SOGGETTO + UTENTE -->
+<div id="modalPersona" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modalPersonaTitle">Nuova Persona</h3>
+      <span class="close" onclick="chiudiModalPersona()">&times;</span>
+    </div>
+    <form id="personaForm" onsubmit="return false;">
+      <input type="hidden" id="personaId">
+      <input type="hidden" id="personaTipoModale" value="soggetto">
+
+      <!-- Sezione Soggetto -->
+      <div class="form-row">
+        <div class="form-group"><label>Tipo soggetto *</label><select id="tipoSoggetto" class="form-control"><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
+        <div class="form-group"><label>Livello (solo promoter)</label><select id="livelloSoggetto" class="form-control"><option value="0">Nessuno</option><option value="1">1 - Alto</option><option value="2">2 - Medio</option><option value="3">3 - Basso</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Nome *</label><input type="text" id="nomeSoggetto" class="form-control"></div>
+        <div class="form-group"><label>Cognome</label><input type="text" id="cognomeSoggetto" class="form-control"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Email</label><input type="email" id="emailSoggetto" class="form-control"></div>
+        <div class="form-group"><label>Telefono</label><input type="text" id="telefonoSoggetto" class="form-control"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Indirizzo</label><input type="text" id="indirizzoSoggetto" class="form-control"></div>
+        <div class="form-group"><label>Città</label><input type="text" id="cittaSoggetto" class="form-control"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>CAP</label><input type="text" id="capSoggetto" class="form-control"></div>
+        <div class="form-group"><label>Regione</label><input type="text" id="regioneSoggetto" class="form-control"></div>
+      </div>
+      <div class="form-group"><label>Note</label><textarea id="noteSoggetto" rows="2" class="form-control"></textarea></div>
+      <div class="form-group"><label>Attivo</label><select id="attivoSoggetto" class="form-control"><option value="1">SI</option><option value="0">NO</option></select></div>
+
+      <!-- Referenti (solo per admin) -->
+      <div class="form-group" id="referentiGroup">
+        <label>Referenti (soggetti che possono vedere questo)</label>
+        <div id="referentiCheckbox" class="checkbox-group"></div>
+      </div>
+      <div class="form-group">
+        <label>Magazzini associati</label>
+        <div id="magazziniCheckbox" class="checkbox-group"></div>
+      </div>
+
+      <!-- Sezione Utente (opzionale) -->
+      <hr style="margin:15px 0;">
+      <div class="checkbox-inline">
+        <input type="checkbox" id="creaUtenteCheck">
+        <label for="creaUtenteCheck">🔐 Crea/associa un utente per questo soggetto</label>
+      </div>
+      <div id="utenteSection" style="display:none; margin-top:10px;">
+        <div class="form-row">
+          <div class="form-group"><label>Username *</label><input type="text" id="usernameUtente" class="form-control" placeholder="Username"></div>
+          <div class="form-group"><label>Password</label><input type="password" id="passwordUtente" class="form-control" placeholder="Lascia vuoto per generare automatica"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Ruolo *</label><select id="ruoloUtente" class="form-control"><option value="promoter">Promoter</option><option value="admin">Admin</option><option value="negozio">Negozio</option><option value="cliente">Cliente</option><option value="agente">Agente</option></select></div>
+          <div class="form-group"><label>Nome visualizzato</label><input type="text" id="nomeVisualizzatoUtente" class="form-control" placeholder="Nome da mostrare"></div>
+        </div>
+        <div class="form-group"><label>Email utente</label><input type="email" id="emailUtente" class="form-control"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalPersona()">Annulla</button>
+        <button type="button" class="btn btn-success" onclick="salvaPersona()">💾 Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODALE PER SOLO UTENTE (admin) -->
+<div id="modalUtente" class="modal">
+  <div class="modal-content" style="max-width:600px;">
+    <div class="modal-header"><h3 id="modalUtenteTitle">Nuovo Utente</h3><span class="close" onclick="chiudiModalUtente()">&times;</span></div>
+    <form id="utenteForm" onsubmit="return false;">
+      <input type="hidden" id="utenteId">
+      <div class="form-group"><label>Username *</label><input type="text" id="usernameUtenteSolo" class="form-control"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="passwordUtenteSolo" class="form-control" placeholder="Lascia vuoto per mantenere invariata (modifica)"></div>
+      <div class="form-group"><label>Ruolo *</label><select id="ruoloUtenteSolo" class="form-control"><option value="admin">Admin</option><option value="promoter">Promoter</option><option value="negozio">Negozio</option><option value="cliente">Cliente</option><option value="agente">Agente</option></select></div>
+      <div class="form-group"><label>Soggetto associato</label><select id="riferimentoUtenteSolo" class="form-control"><option value="">-- Nessuno --</option></select></div>
+      <div class="form-group"><label>Nome visualizzato</label><input type="text" id="nomeVisualizzatoUtenteSolo" class="form-control"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="emailUtenteSolo" class="form-control"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="chiudiModalUtente()">Annulla</button>
+        <button class="btn btn-success" onclick="salvaUtenteSolo()">💾 Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// UTILITY
+// ============================================================
+function getAuthHeader() { const t = localStorage.getItem('token'); return t ? { 'Authorization': 'Bearer ' + t } : {}; }
+function showMessage(m, t) { const d = document.getElementById('messageArea'); d.innerHTML = '<div class="message ' + t + '">' + m + '</div>'; setTimeout(() => d.innerHTML = '', 5000); }
+async function apiFetch(e, o = {}) {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...o.headers };
+  const r = await fetch('/api' + e, { ...o, headers });
+  if (r.status === 401 || r.status === 403) { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; throw new Error('Sessione scaduta'); }
+  if (!r.ok) { let msg = 'Errore ' + r.status; try { const d = await r.json(); msg = d.message || msg; } catch(e) {} throw new Error(msg); }
+  return r.json();
+}
+function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; }
+
+// ============================================================
+// VARIABILI GLOBALI
+// ============================================================
+let currentUser = null;
+let isAdmin = false;
+let userLevel = 0;
+let currentSoggettoId = null;
+let magazzini = [];
+let soggetti = [];
+let utenti = [];
+let referentiList = [];
+
+// ============================================================
+// CARICAMENTO DATI
+// ============================================================
+async function caricaMagazzini() {
+  try { magazzini = await apiFetch('/anagrafiche/magazzini'); } catch(e) { console.error(e); }
+}
+async function caricaSoggetti() {
+  try {
+    const data = await apiFetch('/soggetti');
+    soggetti = Array.isArray(data) ? data : [];
+    applicaFiltriSoggetti();
+  } catch(e) { showMessage('Errore caricamento soggetti: '+e.message, 'error'); }
+}
+async function caricaUtenti() {
+  try {
+    const r = await apiFetch('/utenti');
+    if (r.success) {
+      utenti = r.data || [];
+      applicaFiltriUtenti();
+    } else showMessage(r.message, 'error');
+  } catch(e) { showMessage('Errore caricamento utenti: '+e.message, 'error'); }
+}
+async function caricaReferenti() {
+  try {
+    const data = await apiFetch('/soggetti');
+    referentiList = data || [];
+  } catch(e) { console.error(e); }
+}
+
+// ============================================================
+// FILTRI E RENDER SOGGETTI
+// ============================================================
+function applicaFiltriSoggetti() {
+  const tipo = document.getElementById('filtroTipoSoggetto').value;
+  const testo = document.getElementById('filtroTestoSoggetto').value.toLowerCase();
+  let filtrati = soggetti;
+  if (tipo) filtrati = filtrati.filter(s => s.tipo === tipo);
+  if (testo) filtrati = filtrati.filter(s => (s.nome||'').toLowerCase().includes(testo) || (s.cognome||'').toLowerCase().includes(testo) || (s.email||'').toLowerCase().includes(testo));
+  renderSoggetti(filtrati);
+}
+function renderSoggetti(lista) {
+  const tbody = document.getElementById('tabellaSoggetti');
+  tbody.innerHTML = '';
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nessun soggetto</td></tr>'; return; }
+  lista.forEach(s => {
+    const refNomi = (s.referenti||[]).map(id => { const r = soggetti.find(x => x.id == id); return r ? (r.nome||'') + ' ' + (r.cognome||'') : ''; }).filter(n => n).join(', ') || '-';
+    const magNomi = (s.magazziniAssociati||[]).map(id => { const m = magazzini.find(x => x.id == id); return m ? m.nome : ''; }).filter(n => n).join(', ') || '-';
+    const row = tbody.insertRow();
+    const badgeTipo = s.tipo === 'PROMOTER' ? 'badge-promoter' : s.tipo === 'NEGOZIO' ? 'badge-negozio' : s.tipo === 'CLIENTE' ? 'badge-cliente' : 'badge-agente';
+    row.insertCell(0).innerHTML = '<span class="badge '+badgeTipo+'">'+s.tipo+'</span>';
+    row.insertCell(1).innerText = s.nome || '';
+    row.insertCell(2).innerText = s.cognome || '';
+    row.insertCell(3).innerText = s.email || '';
+    const badgeLiv = s.livello ? (s.livello === 1 ? 'badge-livello1' : s.livello === 2 ? 'badge-livello2' : 'badge-livello3') : '';
+    row.insertCell(4).innerHTML = s.livello ? '<span class="badge '+badgeLiv+'">'+s.livello+'</span>' : '-';
+    row.insertCell(5).innerText = refNomi;
+    row.insertCell(6).innerText = magNomi;
+    row.insertCell(7).innerText = s.utenteAssociato ? s.utenteAssociato.username : '-';
+    const actions = row.insertCell(8);
+    actions.className = 'actions';
+    let canEdit = isAdmin || (s.referenti && s.referenti.includes(currentSoggettoId));
+    if (canEdit) {
+      actions.innerHTML += '<button class="btn btn-sm" onclick="modificaSoggetto('+s.id+')">✏️</button>';
+    }
+    if (isAdmin) {
+      actions.innerHTML += '<button class="btn btn-sm btn-danger" onclick="eliminaSoggetto('+s.id+')">🗑️</button>';
+    }
+  });
+}
+
+// ============================================================
+// FILTRI E RENDER UTENTI
+// ============================================================
+function applicaFiltriUtenti() {
+  const ruolo = document.getElementById('filtroRuoloUtente').value;
+  const username = document.getElementById('filtroUsernameUtente').value.toLowerCase();
+  let filtrati = utenti;
+  if (ruolo) filtrati = filtrati.filter(u => u.ruolo === ruolo);
+  if (username) filtrati = filtrati.filter(u => u.username.toLowerCase().includes(username));
+  renderUtenti(filtrati);
+}
+function renderUtenti(lista) {
+  const tbody = document.getElementById('tabellaUtenti');
+  tbody.innerHTML = '';
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nessun utente</td></tr>'; return; }
+  lista.forEach(u => {
+    const sog = soggetti.find(s => s.id == u.riferimento_id);
+    const sogNome = sog ? (sog.nome||'') + ' ' + (sog.cognome||'') : '-';
+    const row = tbody.insertRow();
+    row.insertCell(0).innerText = u.id;
+    row.insertCell(1).innerText = u.username;
+    row.insertCell(2).innerText = u.ruolo;
+    row.insertCell(3).innerText = sogNome;
+    row.insertCell(4).innerText = u.nome_visualizzato || '';
+    row.insertCell(5).innerText = u.email || '';
+    const actions = row.insertCell(6);
+    actions.className = 'actions';
+    actions.innerHTML = '<button class="btn btn-sm" onclick="modificaUtente('+u.id+')">✏️</button>';
+    if (isAdmin) {
+      actions.innerHTML += '<button class="btn btn-sm btn-danger" onclick="eliminaUtente('+u.id+')">🗑️</button>';
+    }
+  });
+}
+
+// ============================================================
+// TAB SWITCH
+// ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+// ============================================================
+// MODALE UNICO (Soggetto + eventuale utente)
+// ============================================================
+async function apriModaleNuovo() {
+  document.getElementById('modalPersonaTitle').innerText = 'Nuova Persona';
+  document.getElementById('personaId').value = '';
+  document.getElementById('personaTipoModale').value = 'soggetto';
+  // Reset campi soggetto
+  document.getElementById('tipoSoggetto').value = 'PROMOTER';
+  document.getElementById('livelloSoggetto').value = '0';
+  document.getElementById('nomeSoggetto').value = '';
+  document.getElementById('cognomeSoggetto').value = '';
+  document.getElementById('emailSoggetto').value = '';
+  document.getElementById('telefonoSoggetto').value = '';
+  document.getElementById('indirizzoSoggetto').value = '';
+  document.getElementById('cittaSoggetto').value = '';
+  document.getElementById('capSoggetto').value = '';
+  document.getElementById('regioneSoggetto').value = '';
+  document.getElementById('noteSoggetto').value = '';
+  document.getElementById('attivoSoggetto').value = '1';
+  document.getElementById('creaUtenteCheck').checked = false;
+  document.getElementById('utenteSection').style.display = 'none';
+  document.getElementById('usernameUtente').value = '';
+  document.getElementById('passwordUtente').value = '';
+  document.getElementById('ruoloUtente').value = 'promoter';
+  document.getElementById('nomeVisualizzatoUtente').value = '';
+  document.getElementById('emailUtente').value = '';
+  await popolaCheckboxesSoggetto([]);
+  document.getElementById('modalPersona').style.display = 'flex';
+}
+
+async function modificaSoggetto(id) {
+  try {
+    const s = await apiFetch('/soggetti/' + id);
+    if (!s) return;
+    document.getElementById('modalPersonaTitle').innerText = 'Modifica Persona';
+    document.getElementById('personaId').value = s.id;
+    document.getElementById('personaTipoModale').value = 'soggetto';
+    document.getElementById('tipoSoggetto').value = s.tipo;
+    document.getElementById('livelloSoggetto').value = s.livello || '0';
+    document.getElementById('nomeSoggetto').value = s.nome || '';
+    document.getElementById('cognomeSoggetto').value = s.cognome || '';
+    document.getElementById('emailSoggetto').value = s.email || '';
+    document.getElementById('telefonoSoggetto').value = s.telefono || '';
+    document.getElementById('indirizzoSoggetto').value = s.indirizzo || '';
+    document.getElementById('cittaSoggetto').value = s.citta || '';
+    document.getElementById('capSoggetto').value = s.cap || '';
+    document.getElementById('regioneSoggetto').value = s.regione || '';
+    document.getElementById('noteSoggetto').value = s.note || '';
+    document.getElementById('attivoSoggetto').value = s.attivo ? '1' : '0';
+    // Se ha utente associato, lo mostriamo
+    const hasUser = !!s.utenteAssociato;
+    document.getElementById('creaUtenteCheck').checked = hasUser;
+    document.getElementById('utenteSection').style.display = hasUser ? 'block' : 'none';
+    if (hasUser) {
+      document.getElementById('usernameUtente').value = s.utenteAssociato.username || '';
+      document.getElementById('ruoloUtente').value = s.utenteAssociato.ruolo || 'promoter';
+      document.getElementById('nomeVisualizzatoUtente').value = s.utenteAssociato.nome_visualizzato || '';
+      document.getElementById('emailUtente').value = s.utenteAssociato.email || '';
+      document.getElementById('passwordUtente').value = '';
+    }
+    await popolaCheckboxesSoggetto(s);
+    document.getElementById('modalPersona').style.display = 'flex';
+  } catch(e) { showMessage('Errore caricamento soggetto: '+e.message, 'error'); }
+}
+
+async function popolaCheckboxesSoggetto(sog) {
+  const currentRefs = sog?.referenti || [];
+  const currentMags = sog?.magazziniAssociati || [];
+  const containerRef = document.getElementById('referentiCheckbox');
+  containerRef.innerHTML = '';
+  const containerMag = document.getElementById('magazziniCheckbox');
+  containerMag.innerHTML = '';
+
+  try {
+    const allSoggetti = await apiFetch('/soggetti');
+    allSoggetti.forEach(s => {
+      if (s.id == document.getElementById('personaId').value) return;
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = s.id;
+      cb.checked = currentRefs.includes(s.id);
+      if (!isAdmin) cb.disabled = true;
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + s.tipo + ' - ' + (s.nome||'') + ' ' + (s.cognome||'') + (s.livello ? ' (liv.'+s.livello+')' : '')));
+      containerRef.appendChild(label);
+    });
+  } catch(e) { console.error('Errore popola referenti:', e); }
+
+  magazzini.forEach(m => {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = m.id;
+    cb.checked = currentMags.includes(m.id);
+    if (!isAdmin) cb.disabled = true;
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + m.nome));
+    containerMag.appendChild(label);
+  });
+}
+
+function chiudiModalPersona() { document.getElementById('modalPersona').style.display = 'none'; }
+
+// Gestione checkbox "crea utente"
+document.getElementById('creaUtenteCheck').addEventListener('change', function() {
+  document.getElementById('utenteSection').style.display = this.checked ? 'block' : 'none';
+});
+
+// ============================================================
+// SALVA PERSONA (soggetto + eventuale utente)
+// ============================================================
+async function salvaPersona() {
+  const id = document.getElementById('personaId').value;
+  const referenti = Array.from(document.querySelectorAll('#referentiCheckbox input:checked')).map(cb => parseInt(cb.value)).filter(v => !isNaN(v));
+  const magazziniAssociati = Array.from(document.querySelectorAll('#magazziniCheckbox input:checked')).map(cb => parseInt(cb.value)).filter(v => !isNaN(v));
+  
+  const datiSoggetto = {
+    tipo: document.getElementById('tipoSoggetto').value,
+    nome: document.getElementById('nomeSoggetto').value.trim(),
+    cognome: document.getElementById('cognomeSoggetto').value.trim(),
+    email: document.getElementById('emailSoggetto').value.trim(),
+    telefono: document.getElementById('telefonoSoggetto').value.trim(),
+    indirizzo: document.getElementById('indirizzoSoggetto').value.trim(),
+    citta: document.getElementById('cittaSoggetto').value.trim(),
+    cap: document.getElementById('capSoggetto').value.trim(),
+    regione: document.getElementById('regioneSoggetto').value.trim(),
+    referente: referenti.join(','),
+    magazziniAssociati: magazziniAssociati,
+    attivo: parseInt(document.getElementById('attivoSoggetto').value),
+    livello: parseInt(document.getElementById('livelloSoggetto').value) || null,
+    note: document.getElementById('noteSoggetto').value.trim()
+  };
+
+  // Se è spuntato "crea utente", aggiungiamo i dati utente
+  const creaUtente = document.getElementById('creaUtenteCheck').checked;
+  if (creaUtente) {
+    datiSoggetto.creaUtente = true;
+    datiSoggetto.username = document.getElementById('usernameUtente').value.trim();
+    datiSoggetto.password = document.getElementById('passwordUtente').value || null;
+    datiSoggetto.ruolo = document.getElementById('ruoloUtente').value;
+    datiSoggetto.nomeVisualizzato = document.getElementById('nomeVisualizzatoUtente').value.trim() || null;
+    datiSoggetto.emailUtente = document.getElementById('emailUtente').value.trim() || null;
+  }
+
+  if (!datiSoggetto.nome) { showMessage('Il nome è obbligatorio', 'error'); return; }
+  if (creaUtente && !datiSoggetto.username) { showMessage('Username obbligatorio se crei un utente', 'error'); return; }
+
+  try {
+    let endpoint = '/soggetti' + (id ? '/' + id : '');
+    let method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(endpoint, { method: method, body: JSON.stringify(datiSoggetto) });
+    if (res.success) {
+      showMessage(id ? 'Soggetto aggiornato' : 'Soggetto creato', 'success');
+      if (res.utenteCreato) {
+        showMessage('Utente creato: ' + res.utenteCreato.username + ' (password: ' + res.utenteCreato.password + ')', 'info');
+      }
+      chiudiModalPersona();
+      caricaSoggetti();
+      caricaUtenti();
+    } else showMessage(res.message, 'error');
+  } catch(e) { showMessage('Errore: '+e.message, 'error'); }
+}
+
+// ============================================================
+// MODALE UTENTE SOLO (per admin)
+// ============================================================
+async function apriModaleNuovoUtente() {
+  if (!isAdmin) { showMessage('Solo admin può gestire utenti', 'error'); return; }
+  document.getElementById('modalUtenteTitle').innerText = 'Nuovo Utente';
+  document.getElementById('utenteId').value = '';
+  document.getElementById('usernameUtenteSolo').value = '';
+  document.getElementById('passwordUtenteSolo').value = '';
+  document.getElementById('passwordUtenteSolo').placeholder = 'Inserisci password';
+  document.getElementById('ruoloUtenteSolo').value = 'promoter';
+  document.getElementById('nomeVisualizzatoUtenteSolo').value = '';
+  document.getElementById('emailUtenteSolo').value = '';
+  await popolaSoggettiPerRuolo(document.getElementById('ruoloUtenteSolo').value);
+  document.getElementById('riferimentoUtenteSolo').value = '';
+  document.getElementById('modalUtente').style.display = 'flex';
+}
+async function modificaUtente(id) {
+  if (!isAdmin) { showMessage('Solo admin può gestire utenti', 'error'); return; }
+  const u = utenti.find(x => x.id == id);
+  if (!u) return;
+  document.getElementById('modalUtenteTitle').innerText = 'Modifica Utente';
+  document.getElementById('utenteId').value = u.id;
+  document.getElementById('usernameUtenteSolo').value = u.username;
+  document.getElementById('passwordUtenteSolo').value = '';
+  document.getElementById('passwordUtenteSolo').placeholder = 'Lascia vuoto per mantenere invariata';
+  document.getElementById('ruoloUtenteSolo').value = u.ruolo;
+  await popolaSoggettiPerRuolo(u.ruolo);
+  document.getElementById('riferimentoUtenteSolo').value = u.riferimento_id || '';
+  document.getElementById('nomeVisualizzatoUtenteSolo').value = u.nome_visualizzato || '';
+  document.getElementById('emailUtenteSolo').value = u.email || '';
+  document.getElementById('modalUtente').style.display = 'flex';
+}
+function chiudiModalUtente() { document.getElementById('modalUtente').style.display = 'none'; }
+async function popolaSoggettiPerRuolo(ruolo) {
+  const sel = document.getElementById('riferimentoUtenteSolo');
+  sel.innerHTML = '<option value="">-- Nessuno --</option>';
+  if (ruolo === 'admin') return;
+  try {
+    const data = await apiFetch('/soggetti');
+    const lista = data.filter(s => s.tipo === ruolo.toUpperCase());
+    lista.forEach(s => {
+      let label = (s.nome||'') + ' ' + (s.cognome||'');
+      if (s.livello) label += ' (liv. '+s.livello+')';
+      sel.appendChild(new Option(label, s.id));
+    });
+  } catch(e) { console.error(e); }
+}
+document.getElementById('ruoloUtenteSolo').addEventListener('change', function() {
+  popolaSoggettiPerRuolo(this.value);
+});
+
+async function salvaUtenteSolo() {
+  const id = document.getElementById('utenteId').value;
+  const dati = {
+    username: document.getElementById('usernameUtenteSolo').value.trim(),
+    password: document.getElementById('passwordUtenteSolo').value,
+    ruolo: document.getElementById('ruoloUtenteSolo').value,
+    riferimentoId: document.getElementById('riferimentoUtenteSolo').value || null,
+    nomeVisualizzato: document.getElementById('nomeVisualizzatoUtenteSolo').value.trim(),
+    email: document.getElementById('emailUtenteSolo').value.trim()
+  };
+  if (!dati.username) { showMessage('Username obbligatorio', 'error'); return; }
+  if (!id && !dati.password) { showMessage('Password obbligatoria per nuovo utente', 'error'); return; }
+  try {
+    let res;
+    if (id) {
+      res = await apiFetch('/utenti/' + id, { method: 'PUT', body: JSON.stringify(dati) });
+    } else {
+      res = await apiFetch('/utenti', { method: 'POST', body: JSON.stringify(dati) });
+    }
+    if (res.success) {
+      showMessage(res.message, 'success');
+      chiudiModalUtente();
+      caricaUtenti();
+    } else showMessage(res.message, 'error');
+  } catch(e) { showMessage('Errore: '+e.message, 'error'); }
+}
+
+async function eliminaUtente(id) {
+  if (!confirm('Eliminare questo utente?')) return;
+  try {
+    const res = await apiFetch('/utenti/' + id, { method: 'DELETE' });
+    if (res.success) { showMessage('Utente eliminato', 'success'); caricaUtenti(); }
+    else showMessage(res.message, 'error');
+  } catch(e) { showMessage('Errore: '+e.message, 'error'); }
+}
+
+async function eliminaSoggetto(id) {
+  if (!confirm('Eliminare questo soggetto?')) return;
+  try {
+    const res = await apiFetch('/soggetti/' + id, { method: 'DELETE' });
+    if (res.success) { showMessage('Soggetto eliminato', 'success'); caricaSoggetti(); caricaUtenti(); }
+    else showMessage(res.message, 'error');
+  } catch(e) { showMessage('Errore: '+e.message, 'error'); }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.onload = async function() {
+  console.log('🚀 Avvio GestionePersone...');
+  const token = localStorage.getItem('token');
+  if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
+  try {
+    currentUser = JSON.parse(localStorage.getItem('user'));
+    isAdmin = (currentUser.ruolo === 'admin');
+    if (!isAdmin && currentUser.ruolo !== 'promoter') {
+      document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin o promoter.</div>';
+      return;
+    }
+    if (!isAdmin && currentUser.riferimento_id) {
+      const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
+      userLevel = sog.livello || 0;
+      currentSoggettoId = parseInt(currentUser.riferimento_id);
+      if (userLevel !== 1) {
+        document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin o promoter di livello 1.</div>';
+        return;
+      }
+    }
+  } catch(e) { logout(); return; }
+
+  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
+
+  await caricaMagazzini();
+  await caricaSoggetti();
+  await caricaUtenti();
+
+  document.getElementById('filtroTipoSoggetto').addEventListener('change', applicaFiltriSoggetti);
+  document.getElementById('filtroTestoSoggetto').addEventListener('input', applicaFiltriSoggetti);
+  document.getElementById('filtroRuoloUtente').addEventListener('change', applicaFiltriUtenti);
+  document.getElementById('filtroUsernameUtente').addEventListener('input', applicaFiltriUtenti);
+};
+</script>
+</body>
+</html>
