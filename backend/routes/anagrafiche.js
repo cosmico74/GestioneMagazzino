@@ -94,13 +94,15 @@ router.get('/menu', verifyToken, async (req, res) => {
       if (!item.ruoli) return false;
       const ruoliAmmessi = item.ruoli.split(',').map(r => r.trim());
 
-      // 🔐 Se la voce è riservata ad admin, solo l'utente con username 'admin' può vederla
-      if (ruoliAmmessi.includes('admin')) {
+      // Se la voce ha SOLO il ruolo 'admin' (es. Audit Log), è visibile solo all'utente con username 'admin'
+      if (ruoliAmmessi.length === 1 && ruoliAmmessi[0] === 'admin') {
         return req.username === 'admin';
       }
 
-      // Altrimenti controlla il ruolo normalmente
+      // Se la voce non include il ruolo dell'utente, salta
       if (!ruoliAmmessi.includes(ruolo)) return false;
+
+      // Controllo livelli per promoter
       if (ruolo === 'promoter' && item.livelli && item.livelli.trim() !== '') {
         const livelliAmmessi = item.livelli.split(',').map(l => parseInt(l.trim(), 10));
         if (livello === null || !livelliAmmessi.includes(livello)) {
@@ -126,7 +128,7 @@ router.get('/menu', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD MARCHE (invariato)
+// CRUD MARCHE
 // ============================================================
 router.get('/marche/tutti', verifyToken, async (req, res) => {
   try {
@@ -177,7 +179,7 @@ router.delete('/marche/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD CATEGORIE (invariato)
+// CRUD CATEGORIE
 // ============================================================
 router.get('/categorie/tutti', verifyToken, async (req, res) => {
   try {
@@ -228,7 +230,7 @@ router.delete('/categorie/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD SETTORI (invariato)
+// CRUD SETTORI
 // ============================================================
 router.get('/settori/tutti', verifyToken, async (req, res) => {
   try {
