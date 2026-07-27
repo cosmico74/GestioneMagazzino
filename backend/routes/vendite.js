@@ -3,6 +3,7 @@ const { verifyToken } = require('../auth');
 const pool = require('../db');
 const db = require('../db');
 const { ricalcolaQuantitaTotale } = require('./articoli');
+const { rimuoviDaKit } = require('./kit'); // <-- importata per decrementare quantita_in_kit
 
 const router = express.Router();
 
@@ -116,6 +117,7 @@ router.post('/', verifyToken, async (req, res) => {
   const connection = await pool.getConnection();
   await connection.beginTransaction();
   try {
+    // Permessi
     if (req.userRole !== 'admin') {
       const [user] = await connection.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
       const promoterId = user[0]?.riferimento_id;
@@ -138,22 +140,41 @@ router.post('/', verifyToken, async (req, res) => {
       const { tipoOggetto, oggettoId, quantita, siglaId } = item;
       if (!quantita || quantita <= 0) continue;
 
+      // --- Gestione sorgente (rimozione da magazzino o da carico_sintesi) ---
       if (sorgenteTipo && sorgenteTipo !== 'MAGAZZINO') {
+        // Soggetto: rimuovi da carico_sintesi
         await decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, siglaId || null, quantita, sorgenteTipo, sorgenteId);
       } else if (sorgenteTipo === 'MAGAZZINO' && magazzinoId) {
         if (tipoOggetto === 'ARTICOLO') {
           await decrementaArticoloConSigla(connection, oggettoId, siglaId || null, quantita);
         } else if (tipoOggetto === 'KIT') {
+          // Controllo quantità kit (l'aggiornamento effettivo viene fatto dopo, in modo uniforme)
           const [kit] = await connection.query('SELECT quantita FROM kit WHERE id = ? FOR UPDATE', [oggettoId]);
           if (!kit.length || kit[0].quantita < quantita) {
             throw new Error(`Quantità kit ${oggettoId} insufficiente (disponibile ${kit[0]?.quantita || 0})`);
           }
-          await connection.query('UPDATE kit SET quantita = quantita - ? WHERE id = ?', [quantita, oggettoId]);
+          // Non aggiorniamo ancora, lo faremo dopo
         }
       } else {
         throw new Error('Sorgente non specificata correttamente');
       }
 
+      // --- Decremento comune per KIT (sia da magazzino che da soggetto) ---
+      if (tipoOggetto === 'KIT') {
+        // 1. Decrementa la quantità del kit
+        await connection.query('UPDATE kit SET quantita = quantita - ? WHERE id = ?', [quantita, oggettoId]);
+
+        // 2. Decrementa quantita_in_kit per ogni articolo componente
+        const [dettagli] = await connection.query(
+          'SELECT articolo_id FROM kit_dettaglio WHERE kit_id = ?',
+          [oggettoId]
+        );
+        for (const det of dettagli) {
+          await rimuoviDaKit(connection, det.articolo_id, quantita);
+        }
+      }
+
+      // --- Registra movimento e vendita ---
       const [movRes] = await connection.query(
         `INSERT INTO movimenti (data, tipo, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
          VALUES (?, 'VENDITA', ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
@@ -166,7 +187,7 @@ router.post('/', verifyToken, async (req, res) => {
         [clienteId, movRes.insertId, importo || null, note || null, dataVendita]
       );
 
-      // 🔥 Audit log
+      // Audit
       const [venditaRow] = await connection.query('SELECT * FROM vendite WHERE movimento_id = ?', [movRes.insertId]);
       if (venditaRow.length) {
         await registraAudit(connection, 'vendite', 'CREAZIONE', movRes.insertId, null, venditaRow[0], req.userId);
