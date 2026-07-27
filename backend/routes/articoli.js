@@ -422,29 +422,64 @@ router.put('/sigle/:id/austria', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// DELETE /sigle/:id - ELIMINA SIGLA (con AUDIT)
+// DELETE /api/articoli/:id - Elimina articolo (solo se non impegnato)
 // ============================================================
-router.delete('/sigle/:id', verifyToken, async (req, res) => {
+router.delete('/:id', verifyToken, async (req, res) => {
+  const id = req.params.id;
+
+  // Controllo che l'ID sia valido
+  if (!id || isNaN(parseInt(id))) {
+    return res.status(400).json({ success: false, message: 'ID articolo non valido' });
+  }
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const [sigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
-    if (!sigla.length) throw new Error('Sigla non trovata');
-    
-    const [count] = await connection.query('SELECT COUNT(*) as cnt FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1', [sigla[0].articolo_id]);
-    if (count[0].cnt === 1) throw new Error('Impossibile eliminare l\'unica sigla dell\'articolo');
-    
-    // Audit prima dell'eliminazione
-    await registraAudit(connection, 'sigle_articoli', 'ELIMINAZIONE', req.params.id, sigla[0], null, req.userId);
-    
-    await connection.query('UPDATE sigle_articoli SET attivo = 0 WHERE id = ?', [req.params.id]);
-    await ricalcolaQuantitaTotale(connection, sigla[0].articolo_id);
+
+    // 1. Verifica che l'articolo esista
+    const [oldRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
+    if (oldRow.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Articolo non trovato' });
+    }
+
+    // 2. Controlla se l'articolo è usato in kit (tabella kit_dettaglio)
+    const [inKit] = await connection.query(
+      'SELECT COUNT(*) AS count FROM kit_dettaglio WHERE articolo_id = ?',
+      [id]
+    );
+    if (inKit[0].count > 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Impossibile eliminare: l'articolo è utilizzato in ${inKit[0].count} kit. Rimuovilo dai kit prima di eliminarlo.`
+      });
+    }
+
+    // 3. Controlla se l'articolo è assegnato a un soggetto (carico_sintesi)
+    const [assegnato] = await connection.query(
+      'SELECT SUM(quantita) AS totale FROM carico_sintesi WHERE tipo_oggetto = "ARTICOLO" AND oggetto_id = ? AND quantita > 0',
+      [id]
+    );
+    if (assegnato[0].totale && parseInt(assegnato[0].totale) > 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Impossibile eliminare: l'articolo è ancora assegnato (${assegnato[0].totale} unità in carico). Rientra l'articolo prima di eliminarlo.`
+      });
+    }
+
+    // 4. Se tutto ok, procedi con l'eliminazione
+    await registraAudit(connection, 'articoli', 'ELIMINAZIONE', id, oldRow[0], null, req.userId);
+    await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [id]);
+    await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [id]);
+
     await connection.commit();
-    res.json({ success: true, message: 'Sigla eliminata' });
+    res.json({ success: true, message: 'Articolo eliminato con successo' });
   } catch (err) {
     await connection.rollback();
-    console.error('❌ Errore DELETE /sigle:', err);
-    res.status(500).json({ error: err.message });
+    console.error('❌ Errore DELETE /articoli:', err);
+    res.status(500).json({ success: false, message: err.message });
   } finally {
     connection.release();
   }
