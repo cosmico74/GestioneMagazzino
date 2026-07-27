@@ -97,20 +97,8 @@
     .checkbox-inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
     .checkbox-inline input { width: auto; margin: 0; }
     .checkbox-inline label { margin: 0; font-weight: normal; font-size: 0.7rem; }
-    .sort-arrow {
-      cursor: pointer;
-      font-size: 0.6rem;
-      margin-left: 3px;
-      color: #aaa;
-      user-select: none;
-      display: inline-block;
-      padding: 0 2px;
-    }
-    .sort-arrow.active {
-      color: #1a73e8;
-      font-weight: bold;
-      font-size: 0.8rem;
-    }
+    .sort-arrow { cursor: pointer; font-size: 0.6rem; margin-left: 3px; color: #aaa; user-select: none; display: inline-block; padding: 0 2px; }
+    .sort-arrow.active { color: #1a73e8; font-weight: bold; font-size: 0.8rem; }
     th { cursor: default; }
     th .sort-arrow { cursor: pointer; }
     .field-note { color: #666; font-size: 0.65rem; display: block; margin-top: 2px; }
@@ -251,7 +239,7 @@
   </div>
 </div>
 
-<!-- MODAL SIGLE (con colonna Impegnato) -->
+<!-- MODAL SIGLE -->
 <div id="modalSigle" class="modal">
   <div class="modal-content">
     <h3>🔖 Gestione Sigle</h3>
@@ -317,24 +305,6 @@
   </div>
 </div>
 
-<!-- MODAL VENDITA -->
-<div id="modalVendita" class="modal">
-  <div class="modal-content" style="max-width:500px;">
-    <h3>💰 Registra Vendita</h3>
-    <p>Oggetto: <span id="venditaOggettoDesc"></span></p>
-    <div class="form-group"><label>Tipo Soggetto *</label><select id="venditaTipoSoggetto" onchange="caricaSoggettiPerTipoVendita(this.value)"><option value="">Seleziona tipo...</option><option value="PROMOTER">Promoter</option><option value="NEGOZIO">Negozio</option><option value="CLIENTE">Cliente</option><option value="AGENTE">Agente</option></select></div>
-    <div class="form-group"><label>Soggetto *</label><select id="venditaSoggettoId" disabled><option value="">Seleziona prima il tipo</option></select><button type="button" class="btn btn-secondary btn-sm" onclick="apriNuovoSoggetto()" style="margin-top:5px;">➕ Nuovo Soggetto</button></div>
-    <div class="form-group" id="venditaSiglaGroup" style="display:none;"><label>Sigla *</label><select id="venditaSiglaId"><option value="">Qualsiasi sigla</option></select></div>
-    <div class="form-group"><label>Quantità da vendere *</label><input type="number" id="venditaQuantita" min="1"><small>Disponibile: <span id="venditaDisponibile"></span></small></div>
-    <div class="form-group"><label>Importo (€)</label><input type="number" id="venditaImporto" step="0.01"></div>
-    <div class="form-group"><label>Note</label><input type="text" id="venditaNote"></div>
-    <div class="modal-buttons">
-      <button class="btn btn-success" onclick="confermaVendita()">Vendi</button>
-      <button class="btn btn-secondary" onclick="chiudiModalVendita()">Annulla</button>
-    </div>
-  </div>
-</div>
-
 <script>
 // ============================================================
 // UTILITY
@@ -375,10 +345,10 @@ function logout() {
 let magazzini = [], settori = [], categorie = [], marche = [];
 let articoliCorrente = [];
 let articoliFiltrati = [];
-let sortColumn = 'descrizione'; // MODIFICATO: ordinamento iniziale per descrizione
+let sortColumn = 'descrizione';
 let sortAsc = true;
 let paginaCorrente = 1, righePerPagina = 25;
-let currentObsId = null, currentVenditaId = null, currentVenditaTipo = null, currentVenditaSigle = [];
+let currentObsId = null;
 let currentSigleArticoloId = null;
 let currentModificaSiglaId = null;
 
@@ -391,96 +361,6 @@ const codiceModelloInput = document.getElementById('codice_modello');
 const lunghezzaInput = document.getElementById('lunghezza');
 const durezzaInput = document.getElementById('durezza');
 const quantitaInput = document.getElementById('quantita');
-
-// ============================================================
-// VENDITA
-// ============================================================
-async function caricaSoggettiPerTipoVendita(tipo) {
-  const select = document.getElementById('venditaSoggettoId');
-  if (!tipo) { select.innerHTML = '<option value="">Seleziona prima il tipo</option>'; select.disabled = true; return; }
-  select.innerHTML = '<option value="">Caricamento...</option>';
-  select.disabled = true;
-  try {
-    const data = await apiFetch('/soggetti/tipo/' + tipo);
-    select.innerHTML = '<option value="">Seleziona soggetto...</option>';
-    if (Array.isArray(data) && data.length) {
-      data.forEach(item => {
-        let testo = tipo === 'PROMOTER' ? (item.nome + ' ' + (item.cognome || '')).trim() : item.nome;
-        select.appendChild(new Option(testo, item.id));
-      });
-    } else {
-      select.innerHTML = '<option value="">Nessun soggetto trovato</option>';
-    }
-    select.disabled = false;
-  } catch(err) {
-    select.innerHTML = '<option value="">Errore nel caricamento</option>';
-    select.disabled = true;
-  }
-}
-async function apriModaleVendita(id, descrizione, tipoOggetto, disponibile) {
-  currentVenditaId = id; currentVenditaTipo = tipoOggetto;
-  document.getElementById('venditaOggettoDesc').innerText = descrizione;
-  document.getElementById('venditaDisponibile').innerText = disponibile;
-  document.getElementById('venditaQuantita').value = 1;
-  document.getElementById('venditaQuantita').max = disponibile;
-  document.getElementById('venditaImporto').value = '';
-  document.getElementById('venditaNote').value = '';
-  const tipoSelect = document.getElementById('venditaTipoSoggetto');
-  const soggettoSelect = document.getElementById('venditaSoggettoId');
-  tipoSelect.value = '';
-  soggettoSelect.innerHTML = '<option value="">Seleziona prima il tipo</option>';
-  soggettoSelect.disabled = true;
-  const siglaGroup = document.getElementById('venditaSiglaGroup');
-  const siglaSelect = document.getElementById('venditaSiglaId');
-  if (tipoOggetto === 'ARTICOLO') {
-    try {
-      const sigle = await apiFetch('/articoli/' + id + '/sigle');
-      currentVenditaSigle = sigle.filter(s => s.quantita > 0);
-      siglaSelect.innerHTML = '<option value="">Qualsiasi sigla</option>';
-      for (const s of currentVenditaSigle) {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = s.sigla + ' (disp: ' + s.quantita + ')';
-        siglaSelect.appendChild(opt);
-      }
-      siglaGroup.style.display = 'block';
-    } catch(err) { siglaGroup.style.display = 'none'; }
-  } else {
-    siglaGroup.style.display = 'none';
-  }
-  document.getElementById('modalVendita').style.display = 'flex';
-}
-function chiudiModalVendita() {
-  document.getElementById('modalVendita').style.display = 'none';
-  currentVenditaId = null;
-  currentVenditaSigle = [];
-}
-async function confermaVendita() {
-  const clienteId = document.getElementById('venditaSoggettoId').value;
-  const quantita = parseInt(document.getElementById('venditaQuantita').value);
-  const importo = document.getElementById('venditaImporto').value;
-  const note = document.getElementById('venditaNote').value.trim();
-  const siglaId = document.getElementById('venditaSiglaId').value;
-  if (!clienteId) { showMessage('Seleziona un soggetto', 'error'); return; }
-  if (isNaN(quantita) || quantita <= 0) { showMessage('Quantità non valida', 'error'); return; }
-  if (currentVenditaTipo === 'ARTICOLO' && siglaId) {
-    const sigla = currentVenditaSigle.find(s => s.id == siglaId);
-    if (!sigla || sigla.quantita < quantita) {
-      showMessage('La sigla selezionata ha solo ' + (sigla ? sigla.quantita : 0) + ' pezzi', 'error');
-      return;
-    }
-  }
-  const oggetti = [{ tipoOggetto: currentVenditaTipo, oggettoId: currentVenditaId, quantita, siglaId: siglaId || null }];
-  try {
-    const res = await apiFetch('/vendite', { method: 'POST', body: JSON.stringify({ oggetti, clienteId, importo: importo || null, note }) });
-    if (res.success) {
-      showMessage(res.message, 'success');
-      chiudiModalVendita();
-      caricaArticoli();
-    } else showMessage(res.message, 'error');
-  } catch(err) { showMessage(err.message, 'error'); }
-}
-function apriNuovoSoggetto() { window.open('GestioneSoggetti.html', '_blank'); }
 
 // ============================================================
 // ANAGRAFICHE + DATALIST
@@ -593,26 +473,17 @@ async function caricaArticoli() {
 }
 
 function compare(a,b,col) {
-  // Per la colonna 'descrizione' usiamo i primi 8 caratteri e poi la lunghezza (se numerica)
   if (col === 'descrizione') {
     const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
     const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
-    if (descA !== descB) {
-      return descA < descB ? -1 : 1;
-    }
-    // A parità di primi 8 caratteri, ordina per lunghezza (converti a numero)
+    if (descA !== descB) return descA < descB ? -1 : 1;
     const lungA = parseFloat(a.lunghezza) || 0;
     const lungB = parseFloat(b.lunghezza) || 0;
-    if (lungA !== lungB) {
-      return lungA < lungB ? -1 : 1;
-    }
-    // Se ancora uguali, usa codice_modello come fallback
+    if (lungA !== lungB) return lungA < lungB ? -1 : 1;
     const ca = (a.codice_modello || a.codice || '').toLowerCase();
     const cb = (b.codice_modello || b.codice || '').toLowerCase();
     return ca < cb ? -1 : (ca > cb ? 1 : 0);
   }
-
-  // Per le altre colonne, ordinamento standard
   if (col === 'codice_modello') {
     const va = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
     const vb = (b.codice_modello && b.codice_modello.trim() !== '') ? b.codice_modello : (b.codice || '');
@@ -684,12 +555,17 @@ function renderTabellaPaginata() {
   document.getElementById('gotoPageInput').max = totalePagine;
 
   pagina.forEach(a => {
+    if (!a.articolo_id) {
+      console.warn('⚠️ Articolo senza ID:', a);
+      return;
+    }
     const mag = magazzini.find(m => m.id == a.magazzino)?.nome || a.magazzino;
     const cat = categorie.find(c => c.id == a.categoria)?.nome || a.categoria;
     const mar = marche.find(m => m.id == a.marca)?.nome || a.marca;
     const giac = a.GIACENZA_REALE || 0;
     const row = tbody.insertRow();
     const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
+    
     row.insertCell(0).innerText = codiceMostrato;
     row.insertCell(1).innerText = a.articolo_id;
     row.insertCell(2).innerText = a.descrizione;
@@ -704,6 +580,7 @@ function renderTabellaPaginata() {
     row.insertCell(11).innerText = a.quantita_obsoleta || 0;
     row.insertCell(12).innerText = a.stato || '';
     row.insertCell(13).innerText = a.inventario_austria ? '✅' : '❌';
+    
     const tdSigle = row.insertCell(14);
     const btnSigle = document.createElement('button');
     btnSigle.textContent = '🔖';
@@ -712,14 +589,41 @@ function renderTabellaPaginata() {
     btnSigle.style.padding = '2px 6px';
     btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione, a.lunghezza);
     tdSigle.appendChild(btnSigle);
+
     const actions = row.insertCell(15);
     actions.className = 'action-buttons';
-    actions.innerHTML = `
-      <button class="btn" onclick="modificaArticolo(${a.articolo_id})">✏️</button>
-      <button class="btn btn-warning" onclick="apriModaleObsoleto(${a.articolo_id}, '${a.descrizione.replace(/'/g, "\\'")}', ${giac})">📦</button>
-      <button class="btn btn-success" onclick="apriModaleVendita(${a.articolo_id}, '${a.descrizione.replace(/'/g, "\\'")}', 'ARTICOLO', ${giac})">💰</button>
-      <button class="btn btn-danger" onclick="eliminaArticolo(${a.articolo_id})">🗑️</button>
-    `;
+    
+    const btnMod = document.createElement('button');
+    btnMod.textContent = '✏️';
+    btnMod.className = 'btn';
+    btnMod.dataset.id = a.articolo_id;
+    btnMod.onclick = function() { modificaArticolo(this.dataset.id); };
+    actions.appendChild(btnMod);
+    
+    const btnObs = document.createElement('button');
+    btnObs.textContent = '📦';
+    btnObs.className = 'btn btn-warning';
+    btnObs.dataset.id = a.articolo_id;
+    btnObs.dataset.desc = a.descrizione.replace(/'/g, "\\'");
+    btnObs.dataset.giac = giac;
+    btnObs.onclick = function() { 
+      apriModaleObsoleto(this.dataset.id, this.dataset.desc, this.dataset.giac); 
+    };
+    actions.appendChild(btnObs);
+    
+    const btnDel = document.createElement('button');
+    btnDel.textContent = '🗑️';
+    btnDel.className = 'btn btn-danger';
+    btnDel.dataset.id = a.articolo_id;
+    btnDel.onclick = function() {
+      const id = parseInt(this.dataset.id);
+      if (id && !isNaN(id)) {
+        eliminaArticolo(id);
+      } else {
+        showMessage('ID articolo non valido', 'error');
+      }
+    };
+    actions.appendChild(btnDel);
   });
   aggiornaIndicatoriOrdine();
 }
@@ -806,7 +710,6 @@ async function salvaArticolo() {
     codiceModello: codiceModelloInput.value.trim(),
     inventario_austria: inventarioAustria
   };
-  // RIMOSSO il campo siglaId
   const saveBtn = document.getElementById('saveBtn');
   saveBtn.disabled = true;
   saveBtn.innerHTML = '<span class="spinner"></span>';
@@ -902,7 +805,12 @@ async function salvaModifica() {
   } catch(err) { showMessage(err.message, 'error'); }
 }
 function chiudiModale() { document.getElementById('modalEdit').style.display = 'none'; }
+
 async function eliminaArticolo(id) {
+  if (!id || isNaN(parseInt(id))) {
+    showMessage('ID articolo non valido', 'error');
+    return;
+  }
   if (!confirm('Eliminare questo articolo? Verrà rimosso anche dai kit.')) return;
   try {
     const res = await apiFetch('/articoli/' + id, { method: 'DELETE' });
@@ -912,7 +820,7 @@ async function eliminaArticolo(id) {
 }
 
 // ============================================================
-// GESTIONE SIGLE (con colonna Impegnato)
+// GESTIONE SIGLE
 // ============================================================
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
@@ -934,8 +842,6 @@ async function caricaSigleArticolo(articoloId) {
       row.insertCell(1).innerText = s.durezza || '';
       row.insertCell(2).innerText = s.codice_modello || '';
       row.insertCell(3).innerText = s.note || '';
-
-      // Quantità
       const qtaCell = row.insertCell(4);
       const qtaInput = document.createElement('input');
       qtaInput.type = 'number';
@@ -947,13 +853,9 @@ async function caricaSigleArticolo(articoloId) {
         if (this.value === '' || this.value === '-') this.value = 0;
       });
       qtaCell.appendChild(qtaInput);
-
-      // Impegnato (quantita - giacenza)
       const impegnatoCell = row.insertCell(5);
       const impegnato = (s.quantita || 0) - (s.giacenza || 0);
       impegnatoCell.innerText = impegnato > 0 ? impegnato : 0;
-
-      // Quantità Austria
       const qtaAustriaCell = row.insertCell(6);
       const qtaAustriaInput = document.createElement('input');
       qtaAustriaInput.type = 'number';
@@ -963,14 +865,12 @@ async function caricaSigleArticolo(articoloId) {
       qtaAustriaInput.dataset.siglaId = s.id;
       qtaAustriaInput.dataset.articoloId = articoloId;
       qtaAustriaCell.appendChild(qtaAustriaInput);
-
       const actionsCell = row.insertCell(7);
       const btnSave = document.createElement('button');
       btnSave.textContent = '💾';
       btnSave.className = 'btn';
       btnSave.style.padding = '2px 6px';
       btnSave.onclick = function() {
-        console.log('💾 btnSave.click - siglaId:', s.id, 'qtaInput.value:', qtaInput.value);
         aggiornaQuantitaSigla(articoloId, s.id, qtaInput.value);
       };
       actionsCell.appendChild(btnSave);
@@ -998,26 +898,17 @@ async function caricaSigleArticolo(articoloId) {
   }
 }
 
-// Dopo il salvataggio di una sigla, ricarica la tabella articoli
 async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
-  console.log('📤 aggiornaQuantitaSigla - siglaId:', siglaId, 'nuovaQuantita:', nuovaQuantita);
   let qta = parseInt(nuovaQuantita);
-  if (isNaN(qta) || qta < 0) {
-    qta = 0;
-  }
-  console.log('📤 aggiornaQuantitaSigla - qta parsed:', qta);
+  if (isNaN(qta) || qta < 0) qta = 0;
   try {
-    console.log('📤 aggiornaQuantitaSigla - body inviato:', JSON.stringify({ quantita: qta }));
     const res = await apiFetch('/articoli/sigle/' + siglaId + '/quantita', {
       method: 'PUT',
       body: JSON.stringify({ quantita: qta })
     });
-    console.log('📤 aggiornaQuantitaSigla - risposta:', res);
     if (res.success) {
       showMessage('Quantità aggiornata', 'success');
-      // Ricarica la lista delle sigle per questo articolo
       await caricaSigleArticolo(articoloId);
-      // Ricarica la tabella degli articoli per riflettere i cambiamenti
       await caricaArticoli();
     } else {
       showMessage(res.error || res.message || 'Errore', 'error');
@@ -1111,7 +1002,6 @@ async function eliminaSigla(id) {
 function chiudiModalSigle() {
   document.getElementById('modalSigle').style.display = 'none';
   currentSigleArticoloId = null;
-  // Ricarica la tabella articoli alla chiusura del modale per sicurezza
   caricaArticoli();
 }
 
@@ -1162,16 +1052,12 @@ window.onload = async () => {
   await caricaAnagrafiche();
   attachFormEvents();
   attachSortListeners();
-  // Imposta ordinamento iniziale: per descrizione (primi 8 caratteri e lunghezza)
   sortColumn = 'descrizione';
   sortAsc = true;
   ordinaArticoli();
   renderTabellaPaginata();
-  // Attiva la freccia sulla colonna descrizione
   const arrow = document.querySelector('.sort-arrow.sort-asc[data-col="descrizione"]');
-  if (arrow) {
-    arrow.classList.add('active');
-  }
+  if (arrow) arrow.classList.add('active');
 };
 </script>
 </body>
