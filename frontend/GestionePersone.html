@@ -91,7 +91,7 @@
   <!-- TABS -->
   <div class="tabs">
     <button class="tab active" data-tab="soggetti" onclick="switchTab('soggetti')">👤 Soggetti</button>
-    <button class="tab" data-tab="utenti" onclick="switchTab('utenti')">🔐 Utenti</button>
+    <button class="tab" data-tab="utenti" onclick="switchTab('utenti')" id="tabUtentiBtn">🔐 Utenti</button>
   </div>
 
   <!-- TAB SOGGETTI -->
@@ -114,25 +114,15 @@
 
   <!-- TAB UTENTI (solo admin) -->
   <div id="tab-utenti" class="tab-content">
-    <div class="filter-bar">
-      <div class="filter-group"><label>Ruolo</label><select id="filtroRuoloUtente"><option value="">Tutti</option><option value="admin">Admin</option><option value="promoter">Promoter</option><option value="negozio">Negozio</option><option value="cliente">Cliente</option><option value="agente">Agente</option></select></div>
-      <div class="filter-group"><label>Username</label><input type="text" id="filtroUsernameUtente" placeholder="Cerca username..."></div>
-      <div style="display:flex; gap:6px;">
-        <button class="btn btn-success" onclick="apriModaleNuovoUtente()">➕ Nuovo Utente</button>
-        <button class="btn btn-secondary" onclick="caricaUtenti()">🔄 Aggiorna</button>
-      </div>
-    </div>
-    <div class="table-wrapper">
-      <table>
-        <thead><tr><th>ID</th><th>Username</th><th>Ruolo</th><th>Soggetto associato</th><th>Nome visualizzato</th><th>Email</th><th>Azioni</th></tr></thead>
-        <tbody id="tabellaUtenti"><tr><td colspan="7" class="text-center">Caricamento...</td></tr></tbody>
-      </table>
+    <div id="utentiPlaceholder" style="padding:20px; text-align:center; color:#666;">
+      ⏳ Caricamento utenti...
     </div>
   </div>
-
 </div>
 
-<!-- MODALE UNICO PER SOGGETTO + UTENTE -->
+<!-- ============================================================ -->
+<!-- MODALE UNICO PER SOGGETTO + EVENTUALE UTENTE -->
+<!-- ============================================================ -->
 <div id="modalPersona" class="modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -203,7 +193,9 @@
   </div>
 </div>
 
+<!-- ============================================================ -->
 <!-- MODALE PER SOLO UTENTE (admin) -->
+<!-- ============================================================ -->
 <div id="modalUtente" class="modal">
   <div class="modal-content" style="max-width:600px;">
     <div class="modal-header"><h3 id="modalUtenteTitle">Nuovo Utente</h3><span class="close" onclick="chiudiModalUtente()">&times;</span></div>
@@ -225,7 +217,7 @@
 
 <script>
 // ============================================================
-// UTILITY (con gestione errori 401 vs 403)
+// UTILITY
 // ============================================================
 function getAuthHeader() { const t = localStorage.getItem('token'); return t ? { 'Authorization': 'Bearer ' + t } : {}; }
 function showMessage(m, t) { const d = document.getElementById('messageArea'); d.innerHTML = '<div class="message ' + t + '">' + m + '</div>'; setTimeout(() => d.innerHTML = '', 5000); }
@@ -233,18 +225,12 @@ function showMessage(m, t) { const d = document.getElementById('messageArea'); d
 async function apiFetch(e, o = {}) {
   const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...o.headers };
   const r = await fetch('/api' + e, { ...o, headers });
-  // 401 = token scaduto → logout
+  // Solo 401 → logout
   if (r.status === 401) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = 'Login.html';
     throw new Error('Sessione scaduta');
-  }
-  // 403 = permessi insufficienti → non fare logout, solo errore
-  if (r.status === 403) {
-    let msg = 'Accesso negato';
-    try { const data = await r.json(); msg = data.message || msg; } catch(e) {}
-    throw new Error(msg);
   }
   if (!r.ok) {
     let msg = 'Errore ' + r.status;
@@ -253,7 +239,6 @@ async function apiFetch(e, o = {}) {
   }
   return r.json();
 }
-
 function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
@@ -270,7 +255,6 @@ let currentSoggettoId = null;
 let magazzini = [];
 let soggetti = [];
 let utenti = [];
-let referentiList = [];
 
 // ============================================================
 // CARICAMENTO DATI
@@ -278,6 +262,7 @@ let referentiList = [];
 async function caricaMagazzini() {
   try { magazzini = await apiFetch('/anagrafiche/magazzini'); } catch(e) { console.warn('Errore magazzini:', e.message); }
 }
+
 async function caricaSoggetti() {
   try {
     const data = await apiFetch('/soggetti');
@@ -289,30 +274,28 @@ async function caricaSoggetti() {
     applicaFiltriSoggetti();
   }
 }
+
 async function caricaUtenti() {
+  // 🔐 Se l'utente non è admin, non chiamare affatto l'API
+  if (!isAdmin) {
+    document.getElementById('utentiPlaceholder').innerHTML = `
+      <div class="message info">🔐 Solo admin può visualizzare e gestire gli utenti.</div>
+    `;
+    document.getElementById('tabUtentiBtn').style.display = 'none';
+    return;
+  }
   try {
     const r = await apiFetch('/utenti');
     if (r.success) {
       utenti = r.data || [];
-      applicaFiltriUtenti();
-    } else showMessage(r.message, 'error');
-  } catch(e) {
-    // Se l'utente non ha i permessi per vedere gli utenti, nascondiamo la tab
-    if (e.message === 'Accesso negato') {
-      document.getElementById('tab-utenti').innerHTML = '<div class="message info">Solo admin può visualizzare gli utenti.</div>';
-      document.getElementById('tab-utenti').style.display = 'block'; // così il tab non è vuoto
+      renderUtenti(utenti);
     } else {
-      showMessage('Errore caricamento utenti: '+e.message, 'error');
+      document.getElementById('utentiPlaceholder').innerHTML = '<div class="message error">'+r.message+'</div>';
     }
+  } catch(e) {
+    document.getElementById('utentiPlaceholder').innerHTML = '<div class="message error">Errore caricamento utenti: '+e.message+'</div>';
     utenti = [];
-    applicaFiltriUtenti();
   }
-}
-async function caricaReferenti() {
-  try {
-    const data = await apiFetch('/soggetti');
-    referentiList = data || [];
-  } catch(e) { console.error(e); }
 }
 
 // ============================================================
@@ -357,21 +340,45 @@ function renderSoggetti(lista) {
 }
 
 // ============================================================
-// FILTRI E RENDER UTENTI
+// RENDER UTENTI (solo admin)
 // ============================================================
+function renderUtenti(lista) {
+  const container = document.getElementById('utentiPlaceholder');
+  if (!lista.length) {
+    container.innerHTML = '<div class="message info">Nessun utente trovato.</div>';
+    return;
+  }
+  let html = `
+    <div class="filter-bar">
+      <div class="filter-group"><label>Ruolo</label><select id="filtroRuoloUtente" onchange="applicaFiltriUtenti()"><option value="">Tutti</option><option value="admin">Admin</option><option value="promoter">Promoter</option><option value="negozio">Negozio</option><option value="cliente">Cliente</option><option value="agente">Agente</option></select></div>
+      <div class="filter-group"><label>Username</label><input type="text" id="filtroUsernameUtente" placeholder="Cerca username..." oninput="applicaFiltriUtenti()"></div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-success" onclick="apriModaleNuovoUtente()">➕ Nuovo Utente</button>
+        <button class="btn btn-secondary" onclick="caricaUtenti()">🔄 Aggiorna</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>ID</th><th>Username</th><th>Ruolo</th><th>Soggetto associato</th><th>Nome visualizzato</th><th>Email</th><th>Azioni</th></tr></thead>
+        <tbody id="tabellaUtenti"></tbody>
+      </table>
+    </div>
+  `;
+  container.innerHTML = html;
+  applicaFiltriUtenti();
+}
+
 function applicaFiltriUtenti() {
-  const ruolo = document.getElementById('filtroRuoloUtente').value;
-  const username = document.getElementById('filtroUsernameUtente').value.toLowerCase();
+  const ruolo = document.getElementById('filtroRuoloUtente')?.value || '';
+  const username = document.getElementById('filtroUsernameUtente')?.value.toLowerCase() || '';
   let filtrati = utenti;
   if (ruolo) filtrati = filtrati.filter(u => u.ruolo === ruolo);
   if (username) filtrati = filtrati.filter(u => u.username.toLowerCase().includes(username));
-  renderUtenti(filtrati);
-}
-function renderUtenti(lista) {
   const tbody = document.getElementById('tabellaUtenti');
+  if (!tbody) return;
   tbody.innerHTML = '';
-  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nessun utente</td></tr>'; return; }
-  lista.forEach(u => {
+  if (!filtrati.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nessun utente</td></tr>'; return; }
+  filtrati.forEach(u => {
     const sog = soggetti.find(s => s.id == u.riferimento_id);
     const sogNome = sog ? (sog.nome||'') + ' ' + (sog.cognome||'') : '-';
     const row = tbody.insertRow();
@@ -383,12 +390,8 @@ function renderUtenti(lista) {
     row.insertCell(5).innerText = u.email || '';
     const actions = row.insertCell(6);
     actions.className = 'actions';
-    if (isAdmin) {
-      actions.innerHTML = '<button class="btn btn-sm" onclick="modificaUtente('+u.id+')">✏️</button>';
-      actions.innerHTML += '<button class="btn btn-sm btn-danger" onclick="eliminaUtente('+u.id+')">🗑️</button>';
-    } else {
-      actions.innerHTML = '<span style="color:#999;">solo admin</span>';
-    }
+    actions.innerHTML = '<button class="btn btn-sm" onclick="modificaUtente('+u.id+')">✏️</button>';
+    actions.innerHTML += '<button class="btn btn-sm btn-danger" onclick="eliminaUtente('+u.id+')">🗑️</button>';
   });
 }
 
@@ -413,7 +416,6 @@ async function apriModaleNuovo() {
   document.getElementById('modalPersonaTitle').innerText = 'Nuova Persona';
   document.getElementById('personaId').value = '';
   document.getElementById('personaTipoModale').value = 'soggetto';
-  // Reset campi soggetto
   document.getElementById('tipoSoggetto').value = 'PROMOTER';
   document.getElementById('livelloSoggetto').value = '0';
   document.getElementById('nomeSoggetto').value = '';
@@ -479,19 +481,21 @@ async function popolaCheckboxesSoggetto(sog) {
   const containerMag = document.getElementById('magazziniCheckbox');
   containerMag.innerHTML = '';
 
-  const allSoggetti = await apiFetch('/soggetti');
-  allSoggetti.forEach(s => {
-    if (s.id == document.getElementById('personaId').value) return;
-    const label = document.createElement('label');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.value = s.id;
-    cb.checked = currentRefs.includes(s.id);
-    if (!isAdmin) cb.disabled = true;
-    label.appendChild(cb);
-    label.appendChild(document.createTextNode(' ' + s.tipo + ' - ' + (s.nome||'') + ' ' + (s.cognome||'') + (s.livello ? ' (liv.'+s.livello+')' : '')));
-    containerRef.appendChild(label);
-  });
+  try {
+    const allSoggetti = await apiFetch('/soggetti');
+    allSoggetti.forEach(s => {
+      if (s.id == document.getElementById('personaId').value) return;
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = s.id;
+      cb.checked = currentRefs.includes(s.id);
+      if (!isAdmin) cb.disabled = true;
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + s.tipo + ' - ' + (s.nome||'') + ' ' + (s.cognome||'') + (s.livello ? ' (liv.'+s.livello+')' : '')));
+      containerRef.appendChild(label);
+    });
+  } catch(e) { console.warn('Errore popola referenti:', e); }
 
   magazzini.forEach(m => {
     const label = document.createElement('label');
@@ -512,9 +516,6 @@ document.getElementById('creaUtenteCheck').addEventListener('change', function()
   document.getElementById('utenteSection').style.display = this.checked ? 'block' : 'none';
 });
 
-// ============================================================
-// SALVA PERSONA
-// ============================================================
 async function salvaPersona() {
   const id = document.getElementById('personaId').value;
   const referenti = Array.from(document.querySelectorAll('#referentiCheckbox input:checked')).map(cb => parseInt(cb.value)).filter(v => !isNaN(v));
@@ -691,12 +692,10 @@ window.onload = async function() {
 
   await caricaMagazzini();
   await caricaSoggetti();
-  await caricaUtenti();  // questa può fallire per 403, gestito internamente
+  await caricaUtenti();
 
   document.getElementById('filtroTipoSoggetto').addEventListener('change', applicaFiltriSoggetti);
   document.getElementById('filtroTestoSoggetto').addEventListener('input', applicaFiltriSoggetti);
-  document.getElementById('filtroRuoloUtente').addEventListener('change', applicaFiltriUtenti);
-  document.getElementById('filtroUsernameUtente').addEventListener('input', applicaFiltriUtenti);
 };
 </script>
 </body>
