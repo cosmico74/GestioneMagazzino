@@ -47,4 +47,15 @@ try {
     process.exit(1);
 }
 
+// ROTTA TEMPORANEA PER TEST BACKUP (da rimuovere dopo)
+app.get('/api/test-backup', async (req, res) => {
+  try {
+    const { runBackup } = require('./routes/scheduler');
+    await runBackup();
+    res.send('✅ Backup eseguito con successo! Verifica su Google Drive.');
+  } catch (err) {
+    res.status(500).send('❌ Errore: ' + err.message);
+  }
+});
+
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
