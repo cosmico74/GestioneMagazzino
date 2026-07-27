@@ -1,41 +1,73 @@
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
-require('dotenv').config();
+const router = express.Router();
+const pool = require('../db');
+const { verifyToken } = require('../auth');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+router.get('/', verifyToken, async (req, res) => {
+  // 1. Verifica che l'utente sia l'amministratore principale (username = 'admin')
+  try {
+    const [userRows] = await pool.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
+    if (userRows.length === 0 || userRows[0].username !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Accesso negato: solo l\'utente admin può fare il backup.' });
+    }
+  } catch (err) {
+    console.error('Errore verifica utente:', err);
+    return res.status(500).json({ success: false, message: 'Errore interno' });
+  }
 
-console.log('🚀 Avvio server...');
+  try {
+    // 2. Ottieni tutte le tabelle del database
+    const [tables] = await pool.query('SHOW TABLES');
+    const tableNames = tables.map(row => Object.values(row)[0]);
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, '../frontend')));
+    let sql = '-- Backup del database\n';
+    sql += `-- Generato il ${new Date().toISOString()}\n`;
+    sql += '-- Utente: ' + req.userId + '\n\n';
+    sql += 'SET FOREIGN_KEY_CHECKS = 0;\n\n';
 
-console.log('📦 Caricamento routes...');
+    for (const table of tableNames) {
+      // 2a. CREATE TABLE
+      const [createResult] = await pool.query(`SHOW CREATE TABLE ${table}`);
+      const createSQL = createResult[0]['Create Table'];
+      sql += `DROP TABLE IF EXISTS \`${table}\`;\n${createSQL};\n\n`;
 
-// ---- ROTTA PER LA ROOT ----
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend', 'Login.html'));
+      // 2b. SELECT dati
+      const [rows] = await pool.query(`SELECT * FROM \`${table}\``);
+      if (rows.length === 0) continue;
+
+      const columns = Object.keys(rows[0]);
+      const columnNames = columns.map(c => `\`${c}\``).join(', ');
+
+      for (const row of rows) {
+        const values = columns.map(col => {
+          const val = row[col];
+          if (val === null) return 'NULL';
+          if (typeof val === 'string') {
+            // Escape backslashes e single quotes
+            return `'${val.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+          }
+          if (val instanceof Date) {
+            return `'${val.toISOString().slice(0, 19).replace('T', ' ')}'`;
+          }
+          if (typeof val === 'boolean') return val ? 1 : 0;
+          // Numeri e altri tipi
+          return val;
+        });
+        sql += `INSERT INTO \`${table}\` (${columnNames}) VALUES (${values.join(', ')});\n`;
+      }
+      sql += '\n';
+    }
+
+    sql += 'SET FOREIGN_KEY_CHECKS = 1;\n';
+
+    // 3. Invia il file come download
+    res.setHeader('Content-Type', 'application/sql');
+    res.setHeader('Content-Disposition', `attachment; filename=backup_${new Date().toISOString().slice(0,10)}.sql`);
+    res.send(sql);
+  } catch (err) {
+    console.error('❌ Errore durante il backup:', err);
+    res.status(500).json({ success: false, message: 'Errore durante la generazione del backup: ' + err.message });
+  }
 });
 
-try {
-    app.use('/api/auth', require('./routes/auth'));
-    app.use('/api/articoli', require('./routes/articoli'));
-    app.use('/api/kit', require('./routes/kit'));
-    app.use('/api/assegnazioni', require('./routes/assegnazioni'));
-    app.use('/api/vendite', require('./routes/vendite'));
-    app.use('/api/soggetti', require('./routes/soggetti'));
-    app.use('/api/utenti', require('./routes/utenti'));
-    app.use('/api/anagrafiche', require('./routes/anagrafiche'));
-    app.use('/api/report', require('./routes/report'));
-    app.use('/api/movimenti', require('./routes/movimenti'));
-    app.use('/api/audit', require('./routes/audit'));
-    app.use('/api/backup', require('./routes/backup'));   // ← NUOVA RIGA
-    console.log('✅ Routes caricate.');
-} catch (err) {
-    console.error('❌ Errore nel caricamento delle routes:', err);
-    process.exit(1);
-}
-
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+module.exports = router;
