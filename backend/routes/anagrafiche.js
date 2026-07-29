@@ -277,18 +277,25 @@ router.delete('/settori/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/anagrafiche/marche-per-categoria/:categoriaId
+// GET /api/anagrafiche/marche-per-categoria/:categoriaId (con filtro settore)
 // ============================================================
 router.get('/marche-per-categoria/:categoriaId', verifyToken, async (req, res) => {
   try {
     const { categoriaId } = req.params;
-    const [rows] = await pool.query(`
+    const { settore } = req.query;
+    let sql = `
       SELECT m.marca_id AS id, m.nome
       FROM marche m
       INNER JOIN categorie_marche cm ON m.marca_id = cm.marca_id
       WHERE cm.categoria_id = ?
-      ORDER BY m.nome
-    `, [categoriaId]);
+    `;
+    const params = [categoriaId];
+    if (settore) {
+      sql += ` AND m.marca_id IN (SELECT DISTINCT marca FROM articoli WHERE settore = ?)`;
+      params.push(settore);
+    }
+    sql += ' ORDER BY m.nome';
+    const [rows] = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
     console.error('Errore marche per categoria:', err);

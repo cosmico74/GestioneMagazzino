@@ -95,7 +95,7 @@ router.get('/', verifyToken, async (req, res) => {
     const params = [];
     if (req.query.magazzino) { sql += ' AND a.magazzino = ?'; params.push(req.query.magazzino); }
     if (req.query.settore) { sql += ' AND a.settore = ?'; params.push(req.query.settore); }
-    if (req.query.categoria) { sql += ' AND LOWER(a.categoria) = LOWER(?)'; params.push(req.query.categoria); }
+    if (req.query.categoria) { sql += ' AND a.categoria = ?'; params.push(req.query.categoria); }
     if (req.query.marca) { sql += ' AND a.marca = ?'; params.push(req.query.marca); }
     if (req.query.descrizione) { sql += ' AND a.descrizione LIKE ?'; params.push(`%${req.query.descrizione}%`); }
     if (req.query.lunghezza) { sql += ' AND a.lunghezza = ?'; params.push(req.query.lunghezza); }
@@ -549,7 +549,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// DELETE /api/articoli/:id - Elimina articolo (solo se non impegnato)
+// DELETE /api/articoli/:id
 // ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
   const id = req.params.id;
@@ -629,6 +629,53 @@ router.post('/:id/obsoleto', verifyToken, async (req, res) => {
   } finally {
     connection.release();
   }
+});
+
+// ============================================================
+// VALORI PER DATALIST (con filtro settore)
+// ============================================================
+router.get('/valori/:campo', verifyToken, async (req, res) => {
+  const campo = req.params.campo;
+  const map = { descrizioni: 'descrizione', lunghezze: 'lunghezza', durezze: 'durezza', modelli: 'codice_modello' };
+  const col = map[campo] || campo;
+  let sql = `SELECT DISTINCT ${col} AS ${col} FROM articoli WHERE ${col} IS NOT NULL AND ${col} != ''`;
+  const params = [];
+
+  if (req.query.magazzino) { sql += ' AND magazzino = ?'; params.push(req.query.magazzino); }
+  if (req.query.settore) { sql += ' AND settore = ?'; params.push(req.query.settore); } // 🔥 NUOVO
+  if (req.query.categoria) { sql += ' AND categoria = ?'; params.push(req.query.categoria); }
+  if (req.query.marca) { sql += ' AND marca = ?'; params.push(req.query.marca); }
+
+  const filterableFields = ['descrizione', 'codice_modello', 'lunghezza', 'durezza'];
+  for (const f of filterableFields) {
+    if (f !== col && req.query[f]) {
+      sql += ` AND ${f} = ?`;
+      params.push(req.query[f]);
+    }
+  }
+
+  sql += ` ORDER BY ${col}`;
+  const [rows] = await db.query(sql, params);
+  res.json(rows);
+});
+
+// ============================================================
+// VALORI CATEGORIE (con filtro settore) - NUOVA ROUTE
+// ============================================================
+router.get('/valori/categorie', verifyToken, async (req, res) => {
+  let sql = `SELECT DISTINCT categoria AS categoria FROM articoli WHERE categoria IS NOT NULL`;
+  const params = [];
+  if (req.query.settore) {
+    sql += ' AND settore = ?';
+    params.push(req.query.settore);
+  }
+  if (req.query.magazzino) {
+    sql += ' AND magazzino = ?';
+    params.push(req.query.magazzino);
+  }
+  sql += ' ORDER BY categoria';
+  const [rows] = await db.query(sql, params);
+  res.json(rows);
 });
 
 // ============================================================
@@ -734,34 +781,6 @@ router.get('/valori/attacchi', verifyToken, async (req, res) => {
     console.error('❌ Errore /valori/attacchi:', err);
     res.status(500).json({ error: err.message });
   }
-});
-
-// ============================================================
-// VALORI PER DATALIST
-// ============================================================
-router.get('/valori/:campo', verifyToken, async (req, res) => {
-  const campo = req.params.campo;
-  const map = { descrizioni: 'descrizione', lunghezze: 'lunghezza', durezze: 'durezza', modelli: 'codice_modello' };
-  const col = map[campo] || campo;
-  let sql = `SELECT DISTINCT ${col} AS ${col} FROM articoli WHERE ${col} IS NOT NULL AND ${col} != ''`;
-  const params = [];
-
-  if (req.query.magazzino) { sql += ' AND magazzino = ?'; params.push(req.query.magazzino); }
-  if (req.query.settore) { sql += ' AND settore = ?'; params.push(req.query.settore); }
-  if (req.query.categoria) { sql += ' AND categoria = ?'; params.push(req.query.categoria); }
-  if (req.query.marca) { sql += ' AND marca = ?'; params.push(req.query.marca); }
-
-  const filterableFields = ['descrizione', 'codice_modello', 'lunghezza', 'durezza'];
-  for (const f of filterableFields) {
-    if (f !== col && req.query[f]) {
-      sql += ` AND ${f} = ?`;
-      params.push(req.query[f]);
-    }
-  }
-
-  sql += ` ORDER BY ${col}`;
-  const [rows] = await db.query(sql, params);
-  res.json(rows);
 });
 
 module.exports = router;

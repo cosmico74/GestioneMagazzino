@@ -77,15 +77,22 @@
   <h2>📦 Gestione Kit</h2>
   <div id="messageArea"></div>
 
-  <!-- FILTRI -->
+  <!-- FILTRI con settore -->
   <div class="form-row">
     <div class="form-group" style="flex:0.5;">
       <label>Magazzino</label>
-      <select id="filtroMagazzino" onchange="caricaKit()"><option value="">Tutti</option></select>
+      <select id="filtroMagazzino" onchange="caricaKit()">
+        <option value="">Tutti</option>
+      </select>
     </div>
     <div class="form-group" style="flex:0.5;">
       <label>Settore</label>
-      <select id="filtroSettore" onchange="caricaKit()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select>
+      <select id="filtroSettore" onchange="caricaKit()">
+        <option value="">Tutti</option>
+        <option value="1" selected>Alpino</option>
+        <option value="2">Nordico</option>
+        <option value="3">Freeride</option>
+      </select>
     </div>
     <div class="form-group" style="flex:1;">
       <label>Ricerca</label>
@@ -104,14 +111,6 @@
         <div class="form-group">
           <label>Magazzino *</label>
           <select id="kitMagazzino" required></select>
-        </div>
-        <div class="form-group">
-          <label>Settore *</label>
-          <select id="kitSettore" required>
-            <option value="1">Alpino</option>
-            <option value="2">Nordico</option>
-            <option value="3">Freeride</option>
-          </select>
         </div>
         <div class="form-group">
           <label>Sci *</label>
@@ -299,11 +298,13 @@ let sortAsc = true;
 const kitMagazzinoSelect = document.getElementById('kitMagazzino');
 const kitSciSelect = document.getElementById('kitSci');
 const filtroMagazzino = document.getElementById('filtroMagazzino');
+const filtroSettore = document.getElementById('filtroSettore');
 const filtroRicerca = document.getElementById('filtroRicerca');
 
 // Edit group modal elements
 const editGroupRiepilogo = document.getElementById('editGroupRiepilogo');
 const editGroupMagazzino = document.getElementById('editGroupMagazzino');
+const editGroupSettore = document.getElementById('editGroupSettore');
 const editGroupSci = document.getElementById('editGroupSci');
 const editGroupSigla = document.getElementById('editGroupSigla');
 const editGroupLunghezza = document.getElementById('editGroupLunghezza');
@@ -338,7 +339,7 @@ function getLabelSkistopper(skistopper) {
 }
 
 // ============================================================
-// CARICAMENTO ANAGRAFICHE (con settore per sci/attacchi)
+// CARICAMENTO ANAGRAFICHE
 // ============================================================
 async function caricaAnagrafiche() {
   try {
@@ -773,7 +774,16 @@ async function salvaKit() {
 // ============================================================
 async function caricaKit() {
   try {
-    const res = await apiFetch('/kit');
+    const params = new URLSearchParams();
+    const magFilter = filtroMagazzino.value;
+    const settore = filtroSettore.value;
+    const search = filtroRicerca.value.toLowerCase();
+
+    if (magFilter) params.append('magazzino', magFilter);
+    if (settore) params.append('settore', settore);
+    // Nota: il filtro per ricerca viene fatto lato client per flessibilità
+
+    const res = await apiFetch('/kit?' + params.toString());
     if (Array.isArray(res)) {
       allKits = res;
     } else if (res.success && Array.isArray(res.data)) {
@@ -782,6 +792,16 @@ async function caricaKit() {
       allKits = [];
       console.warn('⚠️ Risposta /kit non riconosciuta:', res);
     }
+
+    // Filtro lato client per ricerca
+    if (search) {
+      allKits = allKits.filter(k =>
+        (k.codice_kit || '').toLowerCase().includes(search) ||
+        (k.descrizione || '').toLowerCase().includes(search) ||
+        (k.sigla_sci || '').toLowerCase().includes(search)
+      );
+    }
+
     console.log('📦 Kit caricati:', allKits.length);
     popolaTabellaKit();
   } catch (err) {
@@ -796,22 +816,6 @@ function popolaTabellaKit() {
   tbody.innerHTML = '';
 
   let filtered = allKits;
-  const magFilter = filtroMagazzino.value;
-  const search = filtroRicerca.value.toLowerCase();
-  const settoreFilter = document.getElementById('filtroSettore').value;
-  if (magFilter) {
-    filtered = filtered.filter(k => String(k.magazzino) === magFilter);
-  }
-  if (settoreFilter) {
-    filtered = filtered.filter(k => String(k.settore) === settoreFilter);
-  }
-  if (search) {
-    filtered = filtered.filter(k =>
-      (k.codice_kit || '').toLowerCase().includes(search) ||
-      (k.descrizione || '').toLowerCase().includes(search) ||
-      (k.sigla_sci || '').toLowerCase().includes(search)
-    );
-  }
 
   if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="13" class="text-center">Nessun kit trovato</td></tr>';
@@ -929,6 +933,7 @@ function apriEditGroupModal(kits) {
   const skistopper = firstKit.skistopper_descrizione || 'Nessuno';
   const mag = magazzini.find(m => m.id == firstKit.magazzino)?.nome || 'Magazzino ' + firstKit.magazzino;
   const assegnato = firstKit.ultimo_destinatario || 'In magazzino';
+  const settore = firstKit.settore || 1;
   
   editGroupRiepilogo.innerHTML = `
     <strong>Gruppo (${kits.length} kit)</strong> — ${desc}<br>
@@ -937,6 +942,7 @@ function apriEditGroupModal(kits) {
     </span>
   `;
   editGroupMagazzino.textContent = mag;
+  editGroupSettore.textContent = ['Alpino','Nordico','Freeride'][settore-1] || '';
   editGroupSci.textContent = desc;
   editGroupSigla.textContent = sigla;
   editGroupLunghezza.textContent = lung ? lung + ' cm' : '-';

@@ -136,7 +136,7 @@
     <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
   </div>
 
-  <!-- FORM INSERIMENTO (SOLO CAMPI EXTRA, SENZA DUPLICARE MAGAZZINO/SETTORE/CATEGORIA/MARCA) -->
+  <!-- FORM INSERIMENTO -->
   <form id="articleForm" onsubmit="return false;">
     <div class="form-row-3col">
       <div class="form-group"><label>Descrizione *</label><input type="text" id="descrizione" list="descrizioneList" required autocomplete="off"><datalist id="descrizioneList"></datalist></div>
@@ -467,7 +467,7 @@ async function caricaArticoli() {
     const params = new URLSearchParams();
     const f = getCurrentFilters();
     if (f.magazzino) params.append('magazzino', f.magazzino);
-    if (f.settore) params.append('settore', f.settore);
+    if (f.settore) params.append('settore', f.settore);   // <-- AGGIUNTO
     if (f.categoria) params.append('categoria', f.categoria);
     if (f.marca) params.append('marca', f.marca);
     if (f.descrizione) params.append('descrizione', f.descrizione);
@@ -539,25 +539,7 @@ function resetForm() {
 }
 
 // ============================================================
-// RESTO DEL CODICE (MODIFICHE, ORDINAMENTO, SIGLE, ECC.)
-// ============================================================
-// ... (tutte le funzioni rimanenti sono identiche alla versione precedente: 
-// modificaArticolo, caricaSelectsModale, salvaModifica, eliminaArticolo, 
-// gestione sigle, obsoleto, ordinamento, paginazione, ecc.)
-// Per brevità non le riscrivo, ma sono le stesse del file precedente.
-// ============================================================
-
-function resetFiltri() {
-  document.getElementById('filtroMagazzino').value = '';
-  document.getElementById('filtroSettore').value = '1';
-  document.getElementById('filtroCategoria').value = '';
-  document.getElementById('filtroMarca').value = '';
-  document.getElementById('filtroDescrizione').value = '';
-  caricaArticoli();
-}
-
-// ============================================================
-// ORDINAMENTO E PAGINAZIONE (invariati)
+// ORDINAMENTO E PAGINAZIONE
 // ============================================================
 function compare(a,b,col) {
   if (col === 'descrizione') {
@@ -720,6 +702,14 @@ function vaiAPagina(val) {
     if (p <= max) { paginaCorrente = p; renderTabellaPaginata(); }
   }
 }
+function resetFiltri() {
+  document.getElementById('filtroMagazzino').value = '';
+  document.getElementById('filtroSettore').value = '1';
+  document.getElementById('filtroCategoria').value = '';
+  document.getElementById('filtroMarca').value = '';
+  document.getElementById('filtroDescrizione').value = '';
+  caricaArticoli();
+}
 function attachSortListeners() {
   document.querySelectorAll('#tabellaArticoli th[data-sort]').forEach(th => {
     th.addEventListener('click', (e) => {
@@ -739,7 +729,7 @@ function attachSortListeners() {
 }
 
 // ============================================================
-// MODIFICA / ELIMINA / SIGLE (invariati)
+// MODIFICA / ELIMINA
 // ============================================================
 async function modificaArticolo(id) {
   const art = articoliCorrente.find(a => a.articolo_id == id);
@@ -823,7 +813,7 @@ async function eliminaArticolo(id) {
 }
 
 // ============================================================
-// GESTIONE SIGLE (invariata)
+// GESTIONE SIGLE
 // ============================================================
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
@@ -833,33 +823,200 @@ async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   document.getElementById('modalSigle').style.display = 'flex';
 }
 async function caricaSigleArticolo(articoloId) {
-  // ... (invariata)
+  try {
+    const sigle = await apiFetch('/articoli/' + articoloId + '/sigle');
+    const tbody = document.getElementById('sigleTableBody');
+    tbody.innerHTML = '';
+    if (!Array.isArray(sigle)) { showMessage('Formato dati non valido', 'error'); return; }
+    sigle.forEach(s => {
+      const row = tbody.insertRow();
+      row.insertCell(0).innerText = s.sigla;
+      row.insertCell(1).innerText = s.durezza || '';
+      row.insertCell(2).innerText = s.codice_modello || '';
+      row.insertCell(3).innerText = s.note || '';
+      const qtaCell = row.insertCell(4);
+      const qtaInput = document.createElement('input');
+      qtaInput.type = 'number';
+      qtaInput.min = 0;
+      qtaInput.value = s.quantita || 0;
+      qtaInput.style.width = '80px';
+      qtaInput.dataset.siglaId = s.id;
+      qtaInput.addEventListener('input', function() {
+        if (this.value === '' || this.value === '-') this.value = 0;
+      });
+      qtaCell.appendChild(qtaInput);
+      const impegnatoCell = row.insertCell(5);
+      const impegnato = (s.quantita || 0) - (s.giacenza || 0);
+      impegnatoCell.innerText = impegnato > 0 ? impegnato : 0;
+      const qtaAustriaCell = row.insertCell(6);
+      const qtaAustriaInput = document.createElement('input');
+      qtaAustriaInput.type = 'number';
+      qtaAustriaInput.min = 0;
+      qtaAustriaInput.value = s.quantita_austria || 0;
+      qtaAustriaInput.style.width = '80px';
+      qtaAustriaInput.dataset.siglaId = s.id;
+      qtaAustriaInput.dataset.articoloId = articoloId;
+      qtaAustriaCell.appendChild(qtaAustriaInput);
+      const actionsCell = row.insertCell(7);
+      const btnSave = document.createElement('button');
+      btnSave.textContent = '💾';
+      btnSave.className = 'btn';
+      btnSave.style.padding = '2px 6px';
+      btnSave.onclick = function() {
+        aggiornaQuantitaSigla(articoloId, s.id, qtaInput.value);
+      };
+      actionsCell.appendChild(btnSave);
+      const btnSaveAustria = document.createElement('button');
+      btnSaveAustria.textContent = '🇦🇹';
+      btnSaveAustria.className = 'btn';
+      btnSaveAustria.style.padding = '2px 6px';
+      btnSaveAustria.style.background = '#f39c12';
+      btnSaveAustria.onclick = () => aggiornaQuantitaAustriaSigla(s.id, qtaAustriaInput.value);
+      actionsCell.appendChild(btnSaveAustria);
+      const btnMod = document.createElement('button');
+      btnMod.textContent = '✏️';
+      btnMod.className = 'btn';
+      btnMod.onclick = () => apriModificaSigla(s.id, articoloId, s.sigla, s.note || '', s.quantita_austria || 0);
+      actionsCell.appendChild(btnMod);
+      const btnDel = document.createElement('button');
+      btnDel.textContent = '🗑️';
+      btnDel.className = 'btn btn-danger';
+      btnDel.onclick = () => eliminaSigla(s.id);
+      actionsCell.appendChild(btnDel);
+    });
+  } catch(err) {
+    showMessage('Errore caricamento sigle', 'error');
+    console.error(err);
+  }
 }
 async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
-  // ... (invariata)
+  let qta = parseInt(nuovaQuantita);
+  if (isNaN(qta) || qta < 0) qta = 0;
+  try {
+    const res = await apiFetch('/articoli/sigle/' + siglaId + '/quantita', {
+      method: 'PUT',
+      body: JSON.stringify({ quantita: qta })
+    });
+    if (res.success) {
+      showMessage('Quantità aggiornata', 'success');
+      await caricaSigleArticolo(articoloId);
+      await caricaArticoli();
+    } else {
+      showMessage(res.error || res.message || 'Errore', 'error');
+    }
+  } catch(err) {
+    showMessage('Errore: ' + err.message, 'error');
+    console.error('❌ Errore aggiornaQuantitaSigla:', err);
+  }
 }
 async function aggiornaQuantitaAustriaSigla(siglaId, nuovaQuantita) {
-  // ... (invariata)
+  const qta = parseInt(nuovaQuantita);
+  if (isNaN(qta) || qta < 0) { showMessage('Quantità Austria non valida', 'error'); return; }
+  try {
+    const res = await apiFetch('/articoli/sigle/' + siglaId + '/austria', { method: 'PUT', body: JSON.stringify({ quantita_austria: qta }) });
+    if (res.success) {
+      showMessage('Quantità Austria aggiornata', 'success');
+      if (currentSigleArticoloId) {
+        await caricaSigleArticolo(currentSigleArticoloId);
+        await caricaArticoli();
+      }
+    } else showMessage(res.message, 'error');
+  } catch(err) { showMessage(err.message, 'error'); }
 }
 async function aggiungiSigla() {
-  // ... (invariata)
+  const sigla = document.getElementById('nuovaSigla').value.trim();
+  if (!sigla) { showMessage('Inserisci la sigla', 'error'); return; }
+  const quantita = parseInt(document.getElementById('nuovaSiglaQuantita').value) || 0;
+  const quantitaAustria = parseInt(document.getElementById('nuovaSiglaQuantitaAustria').value) || 0;
+  const payload = {
+    sigla,
+    durezza: document.getElementById('nuovaSiglaDurezza').value.trim(),
+    codice_modello: document.getElementById('nuovaSiglaModello').value.trim(),
+    note: document.getElementById('nuovaSiglaNote').value.trim(),
+    quantita: quantita,
+    quantita_austria: quantitaAustria
+  };
+  try {
+    await apiFetch('/articoli/' + currentSigleArticoloId + '/sigle', { method: 'POST', body: JSON.stringify(payload) });
+    showMessage('Sigla aggiunta', 'success');
+    document.getElementById('nuovaSigla').value = '';
+    document.getElementById('nuovaSiglaDurezza').value = '';
+    document.getElementById('nuovaSiglaModello').value = '';
+    document.getElementById('nuovaSiglaNote').value = '';
+    document.getElementById('nuovaSiglaQuantita').value = 0;
+    document.getElementById('nuovaSiglaQuantitaAustria').value = 0;
+    await caricaSigleArticolo(currentSigleArticoloId);
+    await caricaArticoli();
+  } catch(err) { showMessage(err.message, 'error'); }
 }
 function apriModificaSigla(id, articoloId, sigla, nota, quantitaAustria) {
-  // ... (invariata)
+  currentModificaSiglaId = id;
+  currentSigleArticoloId = articoloId;
+  document.getElementById('modSiglaInput').value = sigla || '';
+  document.getElementById('modNotaInput').value = nota || '';
+  document.getElementById('modQuantitaAustriaInput').value = quantitaAustria || 0;
+  document.getElementById('modalModificaSigla').style.display = 'flex';
 }
-function chiudiModificaSigla() { /* ... */ }
-async function salvaModificaSigla() { /* ... */ }
-async function eliminaSigla(id) { /* ... */ }
-function chiudiModalSigle() { /* ... */ }
+function chiudiModificaSigla() {
+  document.getElementById('modalModificaSigla').style.display = 'none';
+  currentModificaSiglaId = null;
+}
+async function salvaModificaSigla() {
+  if (!currentModificaSiglaId) return;
+  const sigla = document.getElementById('modSiglaInput').value.trim();
+  const nota = document.getElementById('modNotaInput').value.trim();
+  const quantitaAustria = parseInt(document.getElementById('modQuantitaAustriaInput').value) || 0;
+  if (!sigla) { showMessage('La sigla è obbligatoria', 'error'); return; }
+  const payload = { sigla };
+  if (nota !== '') payload.note = nota;
+  payload.quantita_austria = quantitaAustria;
+  try {
+    await apiFetch('/articoli/sigle/' + currentModificaSiglaId, { method: 'PUT', body: JSON.stringify(payload) });
+    showMessage('Sigla aggiornata', 'success');
+    chiudiModificaSigla();
+    if (currentSigleArticoloId) {
+      await caricaSigleArticolo(currentSigleArticoloId);
+      await caricaArticoli();
+    }
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+async function eliminaSigla(id) {
+  if (!confirm('Eliminare sigla?')) return;
+  try {
+    await apiFetch('/articoli/sigle/' + id, { method: 'DELETE' });
+    await caricaSigleArticolo(currentSigleArticoloId);
+    await caricaArticoli();
+  } catch(err) { showMessage(err.message, 'error'); }
+}
+function chiudiModalSigle() {
+  document.getElementById('modalSigle').style.display = 'none';
+  currentSigleArticoloId = null;
+  caricaArticoli();
+}
 
 // ============================================================
-// OBSOLESCENZA (invariata)
+// OBSOLESCENZA
 // ============================================================
 function apriModaleObsoleto(id, descrizione, disponibile) {
-  // ... (invariata)
+  currentObsId = id;
+  document.getElementById('obsArticoloDesc').innerText = descrizione;
+  document.getElementById('obsDisponibile').innerText = disponibile;
+  document.getElementById('obsQuantita').max = disponibile;
+  document.getElementById('obsQuantita').value = 1;
+  document.getElementById('obsNote').value = '';
+  document.getElementById('modalObsoleto').style.display = 'flex';
 }
-function chiudiModalObsoleto() { /* ... */ }
-async function confermaObsolescenza() { /* ... */ }
+function chiudiModalObsoleto() { document.getElementById('modalObsoleto').style.display = 'none'; currentObsId = null; }
+async function confermaObsolescenza() {
+  const quantita = parseInt(document.getElementById('obsQuantita').value);
+  const note = document.getElementById('obsNote').value.trim();
+  if (isNaN(quantita) || quantita <= 0) { showMessage('Quantità non valida', 'error'); return; }
+  try {
+    const res = await apiFetch('/articoli/' + currentObsId + '/obsoleto', { method: 'POST', body: JSON.stringify({ quantita, note }) });
+    if (res.success) { showMessage(res.message, 'success'); chiudiModalObsoleto(); caricaArticoli(); }
+    else showMessage(res.message, 'error');
+  } catch(err) { showMessage(err.message, 'error'); }
+}
 
 // ============================================================
 // INIT
