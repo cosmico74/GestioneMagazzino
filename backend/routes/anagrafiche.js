@@ -303,4 +303,93 @@ router.get('/marche-per-categoria/:categoriaId', verifyToken, async (req, res) =
   }
 });
 
+// ============================================================
+// SETTORI MARCHE - Gestione abbinamenti
+// ============================================================
+
+// GET /api/anagrafiche/settori-marche/tutti
+router.get('/settori-marche/tutti', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT sm.*, s.nome AS settore_nome, m.nome AS marca_nome
+      FROM settori_marche sm
+      LEFT JOIN settori s ON sm.settore_id = s.settore_id
+      LEFT JOIN marche m ON sm.marca_id = m.marca_id
+      ORDER BY s.nome, m.nome
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /settori-marche/tutti:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/anagrafiche/settori-marche/:settoreId
+router.get('/settori-marche/:settoreId', verifyToken, async (req, res) => {
+  const { settoreId } = req.params;
+  try {
+    const [rows] = await pool.query(`
+      SELECT m.marca_id AS id, m.nome
+      FROM settori_marche sm
+      LEFT JOIN marche m ON sm.marca_id = m.marca_id
+      WHERE sm.settore_id = ? AND m.attivo = 1
+      ORDER BY m.nome
+    `, [settoreId]);
+    res.json(rows);
+  } catch (err) {
+    console.error(`Errore GET /settori-marche/${settoreId}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/anagrafiche/settori-marche
+router.post('/settori-marche', verifyToken, async (req, res) => {
+  if (req.userRole !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Solo admin può modificare gli abbinamenti' });
+  }
+  const { settore_id, marca_id } = req.body;
+  if (!settore_id || !marca_id) {
+    return res.status(400).json({ success: false, message: 'settore_id e marca_id obbligatori' });
+  }
+  try {
+    const [settore] = await pool.query('SELECT settore_id FROM settori WHERE settore_id = ?', [settore_id]);
+    if (!settore.length) {
+      return res.status(404).json({ success: false, message: 'Settore non trovato' });
+    }
+    const [marca] = await pool.query('SELECT marca_id FROM marche WHERE marca_id = ?', [marca_id]);
+    if (!marca.length) {
+      return res.status(404).json({ success: false, message: 'Marca non trovata' });
+    }
+    await pool.query(
+      'INSERT INTO settori_marche (settore_id, marca_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE settore_id = VALUES(settore_id)',
+      [settore_id, marca_id]
+    );
+    res.json({ success: true, message: 'Associazione creata' });
+  } catch (err) {
+    console.error('Errore POST /settori-marche:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE /api/anagrafiche/settori-marche
+router.delete('/settori-marche', verifyToken, async (req, res) => {
+  if (req.userRole !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Solo admin può modificare gli abbinamenti' });
+  }
+  const { settore_id, marca_id } = req.body;
+  if (!settore_id || !marca_id) {
+    return res.status(400).json({ success: false, message: 'settore_id e marca_id obbligatori' });
+  }
+  try {
+    await pool.query(
+      'DELETE FROM settori_marche WHERE settore_id = ? AND marca_id = ?',
+      [settore_id, marca_id]
+    );
+    res.json({ success: true, message: 'Associazione rimossa' });
+  } catch (err) {
+    console.error('Errore DELETE /settori-marche:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

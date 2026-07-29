@@ -1125,18 +1125,31 @@ async function confermaObsolescenza() {
 // INIT
 // ============================================================
 function attachFormEvents() {
-  const selects = [magazzinoSelect, settoreSelect, categoriaSelect, marcaSelect];
-  selects.forEach(s => s.addEventListener('change', () => {
-    refreshAllDatalists();
-    caricaArticoli();
-  }));
+  // Listener per i select del form (per aggiornare datalist)
+  const formSelects = ['magazzino', 'settore', 'categoria', 'marca'];
+  formSelects.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', () => {
+        refreshAllDatalists();
+        caricaArticoli();
+      });
+    }
+  });
+
+  // Listener per i filtri (già gestiti da onchange nel HTML, ma aggiungiamo per sicurezza)
+  // I filtri hanno già gli eventi onchange nel markup, quindi non serve aggiungerli qui.
+  // Tuttavia, per il filtro settore gestiamo il cambio marche tramite onSettoreChanged() nel HTML.
+
   const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
   inputs.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', () => {
-      refreshAllDatalists();
-      caricaArticoli();
-    });
+    if (el) {
+      el.addEventListener('input', () => {
+        refreshAllDatalists();
+        caricaArticoli();
+      });
+    }
   });
 }
 
