@@ -362,6 +362,7 @@ let currentObsId = null;
 let currentSigleArticoloId = null;
 let currentModificaSiglaId = null;
 
+// Elementi del form di inserimento (usati per i listener)
 const magazzinoSelect = document.getElementById('magazzino');
 const settoreSelect = document.getElementById('settore');
 const categoriaSelect = document.getElementById('categoria');
@@ -371,6 +372,8 @@ const codiceModelloInput = document.getElementById('codice_modello');
 const lunghezzaInput = document.getElementById('lunghezza');
 const durezzaInput = document.getElementById('durezza');
 const quantitaInput = document.getElementById('quantita');
+
+// Elementi dei filtri
 const filtroMag = document.getElementById('filtroMagazzino');
 const filtroSettore = document.getElementById('filtroSettore');
 const filtroCat = document.getElementById('filtroCategoria');
@@ -429,13 +432,12 @@ async function caricaAnagrafiche() {
     const categoriaDefault = filtroCat.value || '';
     await caricaMarchePerCategoria(categoriaDefault, filtroMar);
 
-    // 🔥 Listener per cambio categoria nel filtro
+    // 🔥 Listener per cambio categoria nei filtri
     filtroCat.addEventListener('change', async function() {
       const categoriaId = this.value;
       if (categoriaId) {
         await caricaMarchePerCategoria(categoriaId, filtroMar);
       } else {
-        // Carica tutte le marche
         const data = await apiFetch('/anagrafiche/marche');
         popolaSelect(filtroMar, data, 'id', 'nome');
       }
@@ -454,11 +456,9 @@ async function caricaAnagrafiche() {
       }
     });
 
-    // Settore nel modale di modifica (non filtra le marche)
-    document.getElementById('editSettore').addEventListener('change', async function() {
-      // Il settore non filtra le marche, ma può essere usato per altri scopi
-      // Se vuoi che il settore filtri le marche, usa l'endpoint settori-marche
-      // Altrimenti lascia invariato
+    // Eventuali listener per il settore nel modale (se necessario)
+    document.getElementById('editSettore').addEventListener('change', function() {
+      // Il settore non filtra le marche, ma possiamo lasciarlo per future estensioni
     });
 
     await refreshAllDatalists();
@@ -1120,18 +1120,31 @@ async function confermaObsolescenza() {
 // INIT
 // ============================================================
 function attachFormEvents() {
+  // Listener per i select del form di inserimento
   const selects = [magazzinoSelect, settoreSelect, categoriaSelect, marcaSelect];
-  selects.forEach(s => s.addEventListener('change', () => {
-    refreshAllDatalists();
-    caricaArticoli();
-  }));
+  selects.forEach(s => {
+    if (s) {
+      s.addEventListener('change', () => {
+        refreshAllDatalists();
+        caricaArticoli();
+      });
+    } else {
+      console.warn('Elemento select del form non trovato');
+    }
+  });
+
+  // Listener per gli input del form
   const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
   inputs.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', () => {
-      refreshAllDatalists();
-      caricaArticoli();
-    });
+    if (el) {
+      el.addEventListener('input', () => {
+        refreshAllDatalists();
+        caricaArticoli();
+      });
+    } else {
+      console.warn('Elemento input del form non trovato:', id);
+    }
   });
 }
 
