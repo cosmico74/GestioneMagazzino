@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>📦 Gestione Articoli</title>
+  <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -125,10 +126,10 @@
   <div class="header-bar"><h2>📦 Gestione Articoli</h2></div>
   <div id="messageArea"></div>
 
-  <!-- FILTRI (UNICA BARRA) -->
+  <!-- FILTRI -->
   <div class="filter-row">
     <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-    <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+    <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="onSettoreChanged()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
     <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
     <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
     <div class="filter-group"><label>Descrizione</label><input type="text" id="filtroDescrizione" placeholder="Cerca..." oninput="caricaArticoli()"></div>
@@ -361,6 +362,21 @@ let currentObsId = null;
 let currentSigleArticoloId = null;
 let currentModificaSiglaId = null;
 
+const magazzinoSelect = document.getElementById('magazzino');
+const settoreSelect = document.getElementById('settore');
+const categoriaSelect = document.getElementById('categoria');
+const marcaSelect = document.getElementById('marca');
+const descrizioneInput = document.getElementById('descrizione');
+const codiceModelloInput = document.getElementById('codice_modello');
+const lunghezzaInput = document.getElementById('lunghezza');
+const durezzaInput = document.getElementById('durezza');
+const quantitaInput = document.getElementById('quantita');
+const filtroMag = document.getElementById('filtroMagazzino');
+const filtroSettore = document.getElementById('filtroSettore');
+const filtroCat = document.getElementById('filtroCategoria');
+const filtroMar = document.getElementById('filtroMarca');
+const filtroDesc = document.getElementById('filtroDescrizione');
+
 // ============================================================
 // ANAGRAFICHE + DATALIST
 // ============================================================
@@ -368,6 +384,28 @@ function popolaSelect(sel, items, valKey, textKey) {
   sel.innerHTML = '<option value="">Seleziona</option>';
   if (!items || !items.length) return;
   items.forEach(i => sel.appendChild(new Option(i[textKey], i[valKey])));
+}
+
+// 🔥 Nuova funzione: carica marche in base al settore
+async function caricaMarchePerSettore(settoreId, selectElement, defaultValue = null) {
+  if (!settoreId) {
+    // Carica tutte le marche
+    const data = await apiFetch('/anagrafiche/marche');
+    popolaSelect(selectElement, data, 'id', 'nome');
+    if (defaultValue !== null) selectElement.value = defaultValue;
+    return;
+  }
+  try {
+    const data = await apiFetch('/anagrafiche/settori-marche/' + settoreId);
+    popolaSelect(selectElement, data, 'id', 'nome');
+    if (defaultValue !== null) selectElement.value = defaultValue;
+  } catch(e) {
+    console.error('Errore caricamento marche per settore:', e);
+    // Fallback: carica tutte le marche
+    const data = await apiFetch('/anagrafiche/marche');
+    popolaSelect(selectElement, data, 'id', 'nome');
+    if (defaultValue !== null) selectElement.value = defaultValue;
+  }
 }
 
 async function caricaAnagrafiche() {
@@ -379,23 +417,40 @@ async function caricaAnagrafiche() {
       apiFetch('/anagrafiche/marche')
     ]);
 
-    // ========== FILTRI (barra superiore) ==========
-    const filtroMag = document.getElementById('filtroMagazzino');
-    const filtroCat = document.getElementById('filtroCategoria');
-    const filtroMar = document.getElementById('filtroMarca');
+    // Popola dropdown dei filtri (tranne marche che dipendono dal settore)
     popolaSelect(filtroMag, magazzini, 'id', 'nome');
     popolaSelect(filtroCat, categorie, 'id', 'nome');
-    popolaSelect(filtroMar, marche, 'id', 'nome');
 
-    // Default filtri: Race, Sci, Kästle (se esistono)
-    const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
-    if (defaultMag) filtroMag.value = defaultMag.id;
-    const defaultCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
-    if (defaultCat) filtroCat.value = defaultCat.id;
-    const defaultMar = marche.find(m => m.nome.toLowerCase() === 'kästle' || m.nome.toLowerCase() === 'kastle');
-    if (defaultMar) filtroMar.value = defaultMar.id;
+    // Carica marche in base al settore di default (Alpino = 1)
+    const settoreDefault = filtroSettore.value || 1;
+    await caricaMarchePerSettore(settoreDefault, filtroMar);
 
-    // ========== LISTENER PER FILTRAGGIO MARCHE PER CATEGORIA (solo nel modale) ==========
+    // Listener per cambio settore nel filtro
+    filtroSettore.addEventListener('change', async function() {
+      const settoreId = this.value;
+      if (settoreId) {
+        await caricaMarchePerSettore(settoreId, filtroMar);
+      } else {
+        // Carica tutte le marche
+        const data = await apiFetch('/anagrafiche/marche');
+        popolaSelect(filtroMar, data, 'id', 'nome');
+      }
+      caricaArticoli();
+    });
+
+    // Listener per il modale di modifica – cambio settore => aggiorna marche
+    document.getElementById('editSettore').addEventListener('change', async function() {
+      const settoreId = this.value;
+      const marcaSelect = document.getElementById('editMarca');
+      if (settoreId) {
+        await caricaMarchePerSettore(settoreId, marcaSelect);
+      } else {
+        const data = await apiFetch('/anagrafiche/marche');
+        popolaSelect(marcaSelect, data, 'id', 'nome');
+      }
+    });
+
+    // Listener per filtro categorie nel modale (come già era)
     document.getElementById('editCategoria').addEventListener('change', async function() {
       const categoriaId = this.value;
       const marcaSelect = document.getElementById('editMarca');
@@ -416,6 +471,21 @@ async function caricaAnagrafiche() {
   } catch(err) { showMessage('Errore caricamento anagrafiche', 'error'); }
 }
 
+// Gestione cambio settore dal filtro
+async function onSettoreChanged() {
+  const settoreId = filtroSettore.value;
+  if (settoreId) {
+    await caricaMarchePerSettore(settoreId, filtroMar);
+  } else {
+    const data = await apiFetch('/anagrafiche/marche');
+    popolaSelect(filtroMar, data, 'id', 'nome');
+  }
+  caricaArticoli();
+}
+
+// ============================================================
+// DATALIST (invariato)
+// ============================================================
 const endpointMap = {
   descrizione: '/articoli/valori/descrizioni',
   lunghezza: '/articoli/valori/lunghezze',
@@ -423,16 +493,16 @@ const endpointMap = {
   codice_modello: '/articoli/valori/modelli'
 };
 
-// ========== FUNZIONE FILTRI (legge SOLO dalla barra di filtri superiore) ==========
 function getCurrentFilters() {
   return {
-    magazzino: document.getElementById('filtroMagazzino').value,
-    settore: document.getElementById('filtroSettore').value,
-    categoria: document.getElementById('filtroCategoria').value,
-    marca: document.getElementById('filtroMarca').value,
-    descrizione: document.getElementById('filtroDescrizione').value,
+    magazzino: filtroMag.value,
+    settore: filtroSettore.value,
+    categoria: filtroCat.value,
+    marca: filtroMar.value,
+    descrizione: filtroDesc.value,
   };
 }
+
 async function aggiornaDatalist(campo) {
   const endpoint = endpointMap[campo];
   if (!endpoint) return;
@@ -454,35 +524,28 @@ async function aggiornaDatalist(campo) {
     }
   } catch(e) { console.error(e); }
 }
+
 async function refreshAllDatalists() {
   for (let campo of Object.keys(endpointMap)) await aggiornaDatalist(campo);
 }
 
 // ============================================================
-// CRUD ARTICOLI (caricaArticoli usa SOLO i filtri della barra superiore)
+// CRUD ARTICOLI (caricaArticoli)
 // ============================================================
 async function caricaArticoli() {
   try {
     const params = new URLSearchParams();
     const f = getCurrentFilters();
-    console.log('🔍 FILTRI INViati:', f);   // <-- AGGIUNGI
-
     if (f.magazzino) params.append('magazzino', f.magazzino);
     if (f.settore) params.append('settore', f.settore);
     if (f.categoria) params.append('categoria', f.categoria);
     if (f.marca) params.append('marca', f.marca);
     if (f.descrizione) params.append('descrizione', f.descrizione);
-
-    const url = '/articoli?' + params.toString();
-    console.log('🔗 URL chiamata:', url); // <-- AGGIUNGI
-
-    const res = await apiFetch(url);
-    console.log('📦 RISPOSTA:', res); // <-- AGGIUNGI
-
+    // NON aggiungere min_giacenza per vedere tutti gli articoli
+    const res = await apiFetch('/articoli?' + params.toString());
     if (res.success) {
       articoliCorrente = res.data;
       articoliFiltrati = [...articoliCorrente];
-      console.log('✅ Articoli caricati:', articoliFiltrati.length); // <-- AGGIUNGI
       paginaCorrente = 1;
       ordinaArticoli();
       renderTabellaPaginata();
@@ -491,15 +554,15 @@ async function caricaArticoli() {
 }
 
 // ============================================================
-// SALVA ARTICOLO (usa i valori dalla barra di filtri)
+// SALVA ARTICOLO
 // ============================================================
 async function salvaArticolo() {
-  const descrizione = document.getElementById('descrizione').value.trim();
-  const magazzino = document.getElementById('filtroMagazzino').value;
-  const settore = document.getElementById('filtroSettore').value;
-  const categoria = document.getElementById('filtroCategoria').value;
-  const marca = document.getElementById('filtroMarca').value;
-  const quantita = parseInt(document.getElementById('quantita').value);
+  const descrizione = descrizioneInput.value.trim();
+  const magazzino = filtroMag.value;
+  const settore = filtroSettore.value;
+  const categoria = filtroCat.value;
+  const marca = filtroMar.value;
+  const quantita = parseInt(quantitaInput.value);
   if (!descrizione) { showMessage('La descrizione è obbligatoria', 'error'); return; }
   if (!magazzino) { showMessage('Seleziona un magazzino nei filtri', 'error'); return; }
   if (!settore) { showMessage('Seleziona un settore nei filtri', 'error'); return; }
@@ -513,12 +576,12 @@ async function salvaArticolo() {
     settore: parseInt(settore),
     categoria: parseInt(categoria),
     marca: parseInt(marca),
-    lunghezza: document.getElementById('lunghezza').value.trim(),
-    durezza: document.getElementById('durezza').value.trim(),
+    lunghezza: lunghezzaInput.value.trim(),
+    durezza: durezzaInput.value.trim(),
     quantita: quantita,
     versione: document.getElementById('versione').value.trim(),
     note: document.getElementById('note').value.trim(),
-    codiceModello: document.getElementById('codice_modello').value.trim(),
+    codiceModello: codiceModelloInput.value.trim(),
     inventario_austria: document.getElementById('inventarioAustria').checked
   };
   const saveBtn = document.getElementById('saveBtn');
@@ -537,17 +600,28 @@ async function salvaArticolo() {
 }
 
 function resetForm() {
-  document.getElementById('descrizione').value = '';
-  document.getElementById('codice_modello').value = '';
-  document.getElementById('lunghezza').value = '';
-  document.getElementById('durezza').value = '';
-  document.getElementById('quantita').value = 1;
+  descrizioneInput.value = '';
+  codiceModelloInput.value = '';
+  lunghezzaInput.value = '';
+  durezzaInput.value = '';
+  quantitaInput.value = 1;
   document.getElementById('note').value = '';
   document.getElementById('inventarioAustria').checked = true;
 }
 
+function resetFiltri() {
+  filtroMag.value = '';
+  filtroSettore.value = '';
+  filtroCat.value = '';
+  filtroMar.value = '';
+  filtroDesc.value = '';
+  // Ricarica tutte le marche (perché settore vuoto)
+  caricaMarchePerSettore(null, filtroMar);
+  caricaArticoli();
+}
+
 // ============================================================
-// ORDINAMENTO E PAGINAZIONE
+// ORDINAMENTO E PAGINAZIONE (invariati)
 // ============================================================
 function compare(a,b,col) {
   if (col === 'descrizione') {
@@ -575,6 +649,7 @@ function compare(a,b,col) {
   if (va > vb) return 1;
   return 0;
 }
+
 function ordinaArticoli() {
   articoliFiltrati.sort((a,b) => {
     let r = compare(a,b,sortColumn);
@@ -583,6 +658,7 @@ function ordinaArticoli() {
     return r;
   });
 }
+
 function handleSort(col, direction) {
   if (direction === 'asc') sortAsc = true;
   else if (direction === 'desc') sortAsc = false;
@@ -596,6 +672,7 @@ function handleSort(col, direction) {
   renderTabellaPaginata();
   aggiornaIndicatoriOrdine();
 }
+
 function aggiornaIndicatoriOrdine() {
   document.querySelectorAll('.sort-arrow').forEach(el => el.classList.remove('active'));
   const colonnaCorrente = sortColumn;
@@ -606,6 +683,7 @@ function aggiornaIndicatoriOrdine() {
   if (sortAsc) { if (frecciaAsc) frecciaAsc.classList.add('active'); }
   else { if (frecciaDesc) frecciaDesc.classList.add('active'); }
 }
+
 function renderTabellaPaginata() {
   const tbody = document.getElementById('tabellaBody');
   tbody.innerHTML = '';
@@ -649,7 +727,7 @@ function renderTabellaPaginata() {
     row.insertCell(12).innerText = a.quantita_obsoleta || 0;
     row.insertCell(13).innerText = a.stato || '';
     row.insertCell(14).innerText = a.inventario_austria ? '✅' : '❌';
-    
+
     const tdSigle = row.insertCell(15);
     const btnSigle = document.createElement('button');
     btnSigle.textContent = '🔖';
@@ -688,6 +766,7 @@ function renderTabellaPaginata() {
   });
   aggiornaIndicatoriOrdine();
 }
+
 function updatePagination(totali, start, end) {
   document.getElementById('paginationStats').innerText = 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali;
   document.getElementById('paginationCurrentPage').innerText = paginaCorrente;
@@ -696,6 +775,7 @@ function updatePagination(totali, start, end) {
   document.getElementById('btnNextPage').disabled = (paginaCorrente >= totPag);
   document.getElementById('gotoPageInput').max = totPag || 1;
 }
+
 function cambiaRighePerPagina() {
   righePerPagina = parseInt(document.getElementById('rowsPerPage').value);
   paginaCorrente = 1;
@@ -710,14 +790,7 @@ function vaiAPagina(val) {
     if (p <= max) { paginaCorrente = p; renderTabellaPaginata(); }
   }
 }
-function resetFiltri() {
-  document.getElementById('filtroMagazzino').value = '';
-  document.getElementById('filtroSettore').value = '1';
-  document.getElementById('filtroCategoria').value = '';
-  document.getElementById('filtroMarca').value = '';
-  document.getElementById('filtroDescrizione').value = '';
-  caricaArticoli();
-}
+
 function attachSortListeners() {
   document.querySelectorAll('#tabellaArticoli th[data-sort]').forEach(th => {
     th.addEventListener('click', (e) => {
@@ -739,25 +812,6 @@ function attachSortListeners() {
 // ============================================================
 // MODIFICA / ELIMINA
 // ============================================================
-async function modificaArticolo(id) {
-  const art = articoliCorrente.find(a => a.articolo_id == id);
-  if (!art) return;
-  document.getElementById('editId').value = art.articolo_id;
-  await caricaSelectsModale();
-  document.getElementById('editMagazzino').value = art.magazzino;
-  document.getElementById('editSettore').value = art.settore;
-  document.getElementById('editCategoria').value = art.categoria;
-  document.getElementById('editMarca').value = art.marca;
-  document.getElementById('editDescrizione').value = art.descrizione;
-  document.getElementById('editLunghezza').value = art.lunghezza || '';
-  document.getElementById('editDurezza').value = art.durezza || '';
-  document.getElementById('editCodiceModello').value = art.codice_modello || '';
-  document.getElementById('editQuantita').value = art.quantita_totale;
-  document.getElementById('editNote').value = art.note || '';
-  document.getElementById('editInventarioAustria').checked = art.inventario_austria == 1;
-  await refreshEditDatalists();
-  document.getElementById('modalEdit').style.display = 'flex';
-}
 async function caricaSelectsModale() {
   const [mag,set,cat,mar] = await Promise.all([
     apiFetch('/anagrafiche/magazzini'),
@@ -768,8 +822,10 @@ async function caricaSelectsModale() {
   popolaSelect(document.getElementById('editMagazzino'), mag, 'id', 'nome');
   popolaSelect(document.getElementById('editSettore'), set, 'id', 'nome');
   popolaSelect(document.getElementById('editCategoria'), cat, 'id', 'nome');
-  popolaSelect(document.getElementById('editMarca'), mar, 'id', 'nome');
+  // Non popoliamo ancora le marche perché dipendono dal settore
+  // verrà fatto in modificaArticolo dopo aver impostato il settore
 }
+
 async function refreshEditDatalists() {
   const editFields = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
   for (let f of editFields) {
@@ -784,6 +840,32 @@ async function refreshEditDatalists() {
     });
   }
 }
+
+async function modificaArticolo(id) {
+  const art = articoliCorrente.find(a => a.articolo_id == id);
+  if (!art) return;
+  document.getElementById('editId').value = art.articolo_id;
+  await caricaSelectsModale();
+
+  document.getElementById('editMagazzino').value = art.magazzino;
+  document.getElementById('editSettore').value = art.settore;
+  document.getElementById('editCategoria').value = art.categoria;
+
+  // Carica marche in base al settore dell'articolo
+  const marcaSelect = document.getElementById('editMarca');
+  await caricaMarchePerSettore(art.settore, marcaSelect, art.marca);
+
+  document.getElementById('editDescrizione').value = art.descrizione;
+  document.getElementById('editLunghezza').value = art.lunghezza || '';
+  document.getElementById('editDurezza').value = art.durezza || '';
+  document.getElementById('editCodiceModello').value = art.codice_modello || '';
+  document.getElementById('editQuantita').value = art.quantita_totale;
+  document.getElementById('editNote').value = art.note || '';
+  document.getElementById('editInventarioAustria').checked = art.inventario_austria == 1;
+  await refreshEditDatalists();
+  document.getElementById('modalEdit').style.display = 'flex';
+}
+
 async function salvaModifica() {
   const id = document.getElementById('editId').value;
   const inventarioAustria = document.getElementById('editInventarioAustria').checked;
@@ -806,7 +888,9 @@ async function salvaModifica() {
     else showMessage(res.message, 'error');
   } catch(err) { showMessage(err.message, 'error'); }
 }
+
 function chiudiModale() { document.getElementById('modalEdit').style.display = 'none'; }
+
 async function eliminaArticolo(id) {
   if (!id || isNaN(parseInt(id))) {
     showMessage('ID articolo non valido', 'error');
@@ -821,7 +905,7 @@ async function eliminaArticolo(id) {
 }
 
 // ============================================================
-// GESTIONE SIGLE
+// GESTIONE SIGLE (invariata)
 // ============================================================
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
@@ -830,6 +914,7 @@ async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   await caricaSigleArticolo(articoloId);
   document.getElementById('modalSigle').style.display = 'flex';
 }
+
 async function caricaSigleArticolo(articoloId) {
   try {
     const sigle = await apiFetch('/articoli/' + articoloId + '/sigle');
@@ -897,6 +982,7 @@ async function caricaSigleArticolo(articoloId) {
     console.error(err);
   }
 }
+
 async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
   let qta = parseInt(nuovaQuantita);
   if (isNaN(qta) || qta < 0) qta = 0;
@@ -917,6 +1003,7 @@ async function aggiornaQuantitaSigla(articoloId, siglaId, nuovaQuantita) {
     console.error('❌ Errore aggiornaQuantitaSigla:', err);
   }
 }
+
 async function aggiornaQuantitaAustriaSigla(siglaId, nuovaQuantita) {
   const qta = parseInt(nuovaQuantita);
   if (isNaN(qta) || qta < 0) { showMessage('Quantità Austria non valida', 'error'); return; }
@@ -931,6 +1018,7 @@ async function aggiornaQuantitaAustriaSigla(siglaId, nuovaQuantita) {
     } else showMessage(res.message, 'error');
   } catch(err) { showMessage(err.message, 'error'); }
 }
+
 async function aggiungiSigla() {
   const sigla = document.getElementById('nuovaSigla').value.trim();
   if (!sigla) { showMessage('Inserisci la sigla', 'error'); return; }
@@ -957,6 +1045,7 @@ async function aggiungiSigla() {
     await caricaArticoli();
   } catch(err) { showMessage(err.message, 'error'); }
 }
+
 function apriModificaSigla(id, articoloId, sigla, nota, quantitaAustria) {
   currentModificaSiglaId = id;
   currentSigleArticoloId = articoloId;
@@ -965,10 +1054,12 @@ function apriModificaSigla(id, articoloId, sigla, nota, quantitaAustria) {
   document.getElementById('modQuantitaAustriaInput').value = quantitaAustria || 0;
   document.getElementById('modalModificaSigla').style.display = 'flex';
 }
+
 function chiudiModificaSigla() {
   document.getElementById('modalModificaSigla').style.display = 'none';
   currentModificaSiglaId = null;
 }
+
 async function salvaModificaSigla() {
   if (!currentModificaSiglaId) return;
   const sigla = document.getElementById('modSiglaInput').value.trim();
@@ -988,6 +1079,7 @@ async function salvaModificaSigla() {
     }
   } catch(err) { showMessage(err.message, 'error'); }
 }
+
 async function eliminaSigla(id) {
   if (!confirm('Eliminare sigla?')) return;
   try {
@@ -996,6 +1088,7 @@ async function eliminaSigla(id) {
     await caricaArticoli();
   } catch(err) { showMessage(err.message, 'error'); }
 }
+
 function chiudiModalSigle() {
   document.getElementById('modalSigle').style.display = 'none';
   currentSigleArticoloId = null;
@@ -1003,7 +1096,7 @@ function chiudiModalSigle() {
 }
 
 // ============================================================
-// OBSOLESCENZA
+// OBSOLESCENZA (invariata)
 // ============================================================
 function apriModaleObsoleto(id, descrizione, disponibile) {
   currentObsId = id;
@@ -1014,7 +1107,9 @@ function apriModaleObsoleto(id, descrizione, disponibile) {
   document.getElementById('obsNote').value = '';
   document.getElementById('modalObsoleto').style.display = 'flex';
 }
+
 function chiudiModalObsoleto() { document.getElementById('modalObsoleto').style.display = 'none'; currentObsId = null; }
+
 async function confermaObsolescenza() {
   const quantita = parseInt(document.getElementById('obsQuantita').value);
   const note = document.getElementById('obsNote').value.trim();
@@ -1029,9 +1124,26 @@ async function confermaObsolescenza() {
 // ============================================================
 // INIT
 // ============================================================
+function attachFormEvents() {
+  const selects = [magazzinoSelect, settoreSelect, categoriaSelect, marcaSelect];
+  selects.forEach(s => s.addEventListener('change', () => {
+    refreshAllDatalists();
+    caricaArticoli();
+  }));
+  const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
+  inputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => {
+      refreshAllDatalists();
+      caricaArticoli();
+    });
+  });
+}
+
 window.onload = async () => {
   if (!restoreSession()) { window.location.href = 'Login.html'; return; }
   await caricaAnagrafiche();
+  attachFormEvents();
   attachSortListeners();
   sortColumn = 'descrizione';
   sortAsc = true;
