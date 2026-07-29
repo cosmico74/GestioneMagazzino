@@ -8,7 +8,7 @@ const { verifyToken } = require('../auth');
 // ============================================================
 router.get('/austria', verifyToken, async (req, res) => {
   try {
-    const { magazzino } = req.query;
+    const { magazzino, settore, categoria, marca } = req.query;
     let sql = `
       SELECT 
         a.articolo_id,
@@ -25,10 +25,10 @@ router.get('/austria', verifyToken, async (req, res) => {
       WHERE COALESCE((SELECT SUM(s.quantita_austria) FROM sigle_articoli s WHERE s.articolo_id = a.articolo_id AND s.attivo = 1), 0) > 0
     `;
     const params = [];
-    if (magazzino) {
-      sql += ' AND a.magazzino = ?';
-      params.push(magazzino);
-    }
+    if (magazzino) { sql += ' AND a.magazzino = ?'; params.push(magazzino); }
+    if (settore) { sql += ' AND a.settore = ?'; params.push(settore); }
+    if (categoria) { sql += ' AND a.categoria = ?'; params.push(categoria); }
+    if (marca) { sql += ' AND a.marca = ?'; params.push(marca); }
     sql += ' ORDER BY a.codice';
     const [rows] = await pool.query(sql, params);
     res.json({ success: true, data: rows });
@@ -43,7 +43,7 @@ router.get('/austria', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/italia', verifyToken, async (req, res) => {
   try {
-    const { magazzino, tipo, raggruppa, filtro_codice, filtro_descrizione, filtro_lunghezza } = req.query;
+    const { magazzino, tipo, raggruppa, filtro_codice, filtro_descrizione, filtro_lunghezza, settore, categoria, marca } = req.query;
     const includeArticoli = tipo === 'ARTICOLO' || tipo === 'ENTRAMBI' || !tipo;
     const includeKit = tipo === 'KIT' || tipo === 'ENTRAMBI' || !tipo;
     const raggruppaAttivo = raggruppa === 'true';
@@ -74,26 +74,15 @@ router.get('/italia', verifyToken, async (req, res) => {
         WHERE a.quantita_totale > 0
       `;
       const paramsMag = [];
-      if (magazzino) {
-        sqlMagazzino += ' AND a.magazzino = ?';
-        paramsMag.push(magazzino);
-      }
-      if (filtro_codice) {
-        sqlMagazzino += ' AND a.codice_modello LIKE ?';
-        paramsMag.push(`%${filtro_codice}%`);
-      }
-      if (filtro_descrizione) {
-        sqlMagazzino += ' AND a.descrizione LIKE ?';
-        paramsMag.push(`%${filtro_descrizione}%`);
-      }
-      if (filtro_lunghezza) {
-        sqlMagazzino += ' AND a.lunghezza LIKE ?';
-        paramsMag.push(`%${filtro_lunghezza}%`);
-      }
+      if (magazzino) { sqlMagazzino += ' AND a.magazzino = ?'; paramsMag.push(magazzino); }
+      if (settore) { sqlMagazzino += ' AND a.settore = ?'; paramsMag.push(settore); }
+      if (categoria) { sqlMagazzino += ' AND a.categoria = ?'; paramsMag.push(categoria); }
+      if (marca) { sqlMagazzino += ' AND a.marca = ?'; paramsMag.push(marca); }
+      if (filtro_codice) { sqlMagazzino += ' AND a.codice_modello LIKE ?'; paramsMag.push(`%${filtro_codice}%`); }
+      if (filtro_descrizione) { sqlMagazzino += ' AND a.descrizione LIKE ?'; paramsMag.push(`%${filtro_descrizione}%`); }
+      if (filtro_lunghezza) { sqlMagazzino += ' AND a.lunghezza LIKE ?'; paramsMag.push(`%${filtro_lunghezza}%`); }
       sqlMagazzino += ' ORDER BY a.codice';
       let [rowsMag] = await pool.query(sqlMagazzino, paramsMag);
-
-      // Filtra per giacenza > 0
       rowsMag = rowsMag.filter(row => row.giacenza > 0);
 
       if (raggruppaAttivo) {
@@ -135,7 +124,6 @@ router.get('/italia', verifyToken, async (req, res) => {
       } else {
         rowsMag = rowsMag.map(row => ({ ...row, sigle: '' }));
       }
-
       risultati = risultati.concat(rowsMag.map(r => ({ ...r, tipo_oggetto: 'ARTICOLO' })));
 
       // 2. Articoli assegnati
@@ -161,22 +149,13 @@ router.get('/italia', verifyToken, async (req, res) => {
         WHERE cs.tipo_oggetto = 'ARTICOLO' AND cs.quantita > 0
       `;
       const paramsAssegnati = [];
-      if (magazzino) {
-        sqlAssegnati += ' AND a.magazzino = ?';
-        paramsAssegnati.push(magazzino);
-      }
-      if (filtro_codice) {
-        sqlAssegnati += ' AND a.codice_modello LIKE ?';
-        paramsAssegnati.push(`%${filtro_codice}%`);
-      }
-      if (filtro_descrizione) {
-        sqlAssegnati += ' AND a.descrizione LIKE ?';
-        paramsAssegnati.push(`%${filtro_descrizione}%`);
-      }
-      if (filtro_lunghezza) {
-        sqlAssegnati += ' AND a.lunghezza LIKE ?';
-        paramsAssegnati.push(`%${filtro_lunghezza}%`);
-      }
+      if (magazzino) { sqlAssegnati += ' AND a.magazzino = ?'; paramsAssegnati.push(magazzino); }
+      if (settore) { sqlAssegnati += ' AND a.settore = ?'; paramsAssegnati.push(settore); }
+      if (categoria) { sqlAssegnati += ' AND a.categoria = ?'; paramsAssegnati.push(categoria); }
+      if (marca) { sqlAssegnati += ' AND a.marca = ?'; paramsAssegnati.push(marca); }
+      if (filtro_codice) { sqlAssegnati += ' AND a.codice_modello LIKE ?'; paramsAssegnati.push(`%${filtro_codice}%`); }
+      if (filtro_descrizione) { sqlAssegnati += ' AND a.descrizione LIKE ?'; paramsAssegnati.push(`%${filtro_descrizione}%`); }
+      if (filtro_lunghezza) { sqlAssegnati += ' AND a.lunghezza LIKE ?'; paramsAssegnati.push(`%${filtro_lunghezza}%`); }
       sqlAssegnati += ' ORDER BY a.codice';
       let [rowsAssegnati] = await pool.query(sqlAssegnati, paramsAssegnati);
 
@@ -218,7 +197,6 @@ router.get('/italia', verifyToken, async (req, res) => {
       } else {
         rowsAssegnati = rowsAssegnati.map(row => ({ ...row, sigle: '' }));
       }
-
       risultati = risultati.concat(rowsAssegnati.map(r => ({ ...r, tipo_oggetto: 'ARTICOLO' })));
     }
 
@@ -248,28 +226,18 @@ router.get('/italia', verifyToken, async (req, res) => {
         WHERE k.quantita > 0
       `;
       const paramsKitMag = [];
-      if (magazzino) {
-        sqlKitMagazzino += ' AND k.magazzino = ?';
-        paramsKitMag.push(magazzino);
-      }
-      if (filtro_codice) {
-        sqlKitMagazzino += ' AND k.codice_kit LIKE ?';
-        paramsKitMag.push(`%${filtro_codice}%`);
-      }
-      if (filtro_descrizione) {
-        sqlKitMagazzino += ' AND k.descrizione LIKE ?';
-        paramsKitMag.push(`%${filtro_descrizione}%`);
-      }
+      if (magazzino) { sqlKitMagazzino += ' AND k.magazzino = ?'; paramsKitMag.push(magazzino); }
+      if (settore) { sqlKitMagazzino += ' AND k.settore = ?'; paramsKitMag.push(settore); }
+      // I kit non hanno categoria e marca direttamente, quindi non li filtro qui.
+      if (filtro_codice) { sqlKitMagazzino += ' AND k.codice_kit LIKE ?'; paramsKitMag.push(`%${filtro_codice}%`); }
+      if (filtro_descrizione) { sqlKitMagazzino += ' AND k.descrizione LIKE ?'; paramsKitMag.push(`%${filtro_descrizione}%`); }
       if (filtro_lunghezza) {
         sqlKitMagazzino += ' AND EXISTS (SELECT 1 FROM kit_dettaglio kd LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id WHERE kd.kit_id = k.id AND kd.tipo_articolo = "SCI" AND a.lunghezza LIKE ?)';
         paramsKitMag.push(`%${filtro_lunghezza}%`);
       }
       sqlKitMagazzino += ' ORDER BY k.codice_kit';
       let [rowsKitMag] = await pool.query(sqlKitMagazzino, paramsKitMag);
-
-      // Filtra per giacenza > 0
       rowsKitMag = rowsKitMag.filter(row => row.giacenza > 0);
-
       risultati = risultati.concat(rowsKitMag.map(r => ({ ...r, tipo_oggetto: 'KIT' })));
 
       // 2. Kit assegnati
@@ -298,18 +266,10 @@ router.get('/italia', verifyToken, async (req, res) => {
         WHERE cs.tipo_oggetto = 'KIT' AND cs.quantita > 0
       `;
       const paramsKitAss = [];
-      if (magazzino) {
-        sqlKitAssegnati += ' AND k.magazzino = ?';
-        paramsKitAss.push(magazzino);
-      }
-      if (filtro_codice) {
-        sqlKitAssegnati += ' AND k.codice_kit LIKE ?';
-        paramsKitAss.push(`%${filtro_codice}%`);
-      }
-      if (filtro_descrizione) {
-        sqlKitAssegnati += ' AND k.descrizione LIKE ?';
-        paramsKitAss.push(`%${filtro_descrizione}%`);
-      }
+      if (magazzino) { sqlKitAssegnati += ' AND k.magazzino = ?'; paramsKitAss.push(magazzino); }
+      if (settore) { sqlKitAssegnati += ' AND k.settore = ?'; paramsKitAss.push(settore); }
+      if (filtro_codice) { sqlKitAssegnati += ' AND k.codice_kit LIKE ?'; paramsKitAss.push(`%${filtro_codice}%`); }
+      if (filtro_descrizione) { sqlKitAssegnati += ' AND k.descrizione LIKE ?'; paramsKitAss.push(`%${filtro_descrizione}%`); }
       if (filtro_lunghezza) {
         sqlKitAssegnati += ' AND EXISTS (SELECT 1 FROM kit_dettaglio kd LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id WHERE kd.kit_id = k.id AND kd.tipo_articolo = "SCI" AND a.lunghezza LIKE ?)';
         paramsKitAss.push(`%${filtro_lunghezza}%`);
@@ -331,7 +291,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/soggetti', verifyToken, async (req, res) => {
   try {
-    const { soggetto_id, modalita } = req.query;
+    const { soggetto_id, modalita, settore, categoria, marca } = req.query;
     if (!soggetto_id) {
       return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
     }
@@ -387,8 +347,37 @@ router.get('/soggetti', verifyToken, async (req, res) => {
 
     async function getDataForSoggetto(sId, sTipo) {
       let result = [];
+
+      // Costruisci condizioni di filtro per articoli e kit (settore, categoria, marca)
+      let filterConditions = '';
+      let filterParams = [];
+      if (settore || categoria || marca) {
+        filterConditions = ' AND (';
+        const conditions = [];
+        if (settore) {
+          conditions.push('(cs.tipo_oggetto = "ARTICOLO" AND a.settore = ?) OR (cs.tipo_oggetto = "KIT" AND k.settore = ?)');
+          filterParams.push(settore, settore);
+        }
+        if (categoria) {
+          conditions.push('(cs.tipo_oggetto = "ARTICOLO" AND a.categoria = ?)');
+          filterParams.push(categoria);
+          // Per i kit, la categoria non è diretta; potremmo ignorare o fare JOIN con dettagli
+          // Per semplicità, per ora ignoriamo la categoria sui kit.
+        }
+        if (marca) {
+          conditions.push('(cs.tipo_oggetto = "ARTICOLO" AND a.marca = ?)');
+          filterParams.push(marca);
+        }
+        if (conditions.length) {
+          filterConditions += conditions.join(' OR ');
+          filterConditions += ')';
+        } else {
+          filterConditions = '';
+        }
+      }
+
       if (modalitaVal === 'incarico' || modalitaVal === 'entrambi') {
-        const [rows] = await pool.query(`
+        let sql = `
           SELECT cs.*,
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.descrizione ELSE k.descrizione END AS descrizione,
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.codice ELSE k.codice_kit END AS codice,
@@ -408,7 +397,13 @@ router.get('/soggetti', verifyToken, async (req, res) => {
           LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
           LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
           WHERE cs.destinazione_tipo = ? AND cs.destinazione_id = ? AND cs.quantita > 0
-        `, [sTipo, sId]);
+        `;
+        const params = [sTipo, sId];
+        if (filterConditions) {
+          sql += filterConditions;
+          params.push(...filterParams);
+        }
+        const [rows] = await pool.query(sql, params);
         rows.forEach(row => {
           result.push({
             tipo: row.tipo_oggetto,
@@ -428,7 +423,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       }
 
       if (modalitaVal === 'inviati' || modalitaVal === 'entrambi') {
-        const [rows] = await pool.query(`
+        let sql = `
           SELECT cs.*,
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.descrizione ELSE k.descrizione END AS descrizione,
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.codice ELSE k.codice_kit END AS codice,
@@ -448,7 +443,13 @@ router.get('/soggetti', verifyToken, async (req, res) => {
           LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
           LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
           WHERE cs.provenienza_tipo = ? AND cs.provenienza_id = ? AND cs.quantita > 0
-        `, [sTipo, sId]);
+        `;
+        const params = [sTipo, sId];
+        if (filterConditions) {
+          sql += filterConditions;
+          params.push(...filterParams);
+        }
+        const [rows] = await pool.query(sql, params);
         rows.forEach(row => {
           result.push({
             tipo: row.tipo_oggetto,
