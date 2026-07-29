@@ -77,22 +77,15 @@
   <h2>📦 Gestione Kit</h2>
   <div id="messageArea"></div>
 
-  <!-- FILTRI con settore -->
+  <!-- FILTRI -->
   <div class="form-row">
     <div class="form-group" style="flex:0.5;">
       <label>Magazzino</label>
-      <select id="filtroMagazzino" onchange="caricaKit()">
-        <option value="">Tutti</option>
-      </select>
+      <select id="filtroMagazzino" onchange="caricaKit()"><option value="">Tutti</option></select>
     </div>
     <div class="form-group" style="flex:0.5;">
       <label>Settore</label>
-      <select id="filtroSettore" onchange="caricaKit()">
-        <option value="">Tutti</option>
-        <option value="1" selected>Alpino</option>
-        <option value="2">Nordico</option>
-        <option value="3">Freeride</option>
-      </select>
+      <select id="filtroSettore" onchange="caricaKit()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select>
     </div>
     <div class="form-group" style="flex:1;">
       <label>Ricerca</label>
@@ -103,7 +96,7 @@
     </div>
   </div>
 
-  <!-- FORM NUOVO KIT con settore -->
+  <!-- FORM NUOVO KIT -->
   <div style="background:#f8f9fa; border-radius:10px; padding:15px; margin-bottom:20px;">
     <h3 id="formTitle">Nuovo Kit</h3>
     <form id="kitForm" onsubmit="return false;">
@@ -345,12 +338,11 @@ function getLabelSkistopper(skistopper) {
 }
 
 // ============================================================
-// CARICAMENTO ANAGRAFICHE
+// CARICAMENTO ANAGRAFICHE (con settore per sci/attacchi)
 // ============================================================
 async function caricaAnagrafiche() {
   try {
     magazzini = await apiFetch('/anagrafiche/magazzini');
-    console.log('📦 Magazzini caricati:', magazzini);
 
     const sel = filtroMagazzino;
     sel.innerHTML = '<option value="">Tutti</option>';
@@ -375,8 +367,10 @@ async function caricaAnagrafiche() {
     window.attCat = attCat;
     window.skCat = skCat;
 
-    await caricaSci(sciCat);
-    await caricaArticoliPerCategoria(attCat, skCat);
+    // Carica sci e attacchi con settore di default (1 = Alpino)
+    const defaultSettore = document.getElementById('kitSettore').value || 1;
+    await caricaSci(defaultSettore);
+    await caricaArticoliPerCategoria(defaultSettore);
     await caricaSigleUsate();
 
     if (articoliSci.length > 0) {
@@ -394,14 +388,27 @@ async function caricaAnagrafiche() {
     });
 
     kitMagazzinoSelect.addEventListener('change', async () => {
-      await caricaSci(sciCat);
-      await caricaArticoliPerCategoria(attCat, skCat);
+      const settore = document.getElementById('kitSettore').value || 1;
+      await caricaSci(settore);
+      await caricaArticoliPerCategoria(settore);
       await caricaSigleUsate();
       if (kitSciSelect.value) {
         await caricaSiglePerSci(kitSciSelect.value);
       }
       aggiornaTutteLeRighe();
       caricaKit();
+    });
+
+    // Listener per cambio settore nel form (ricarica sci e attacchi)
+    document.getElementById('kitSettore').addEventListener('change', async function() {
+      const settore = this.value;
+      if (settore) {
+        await caricaSci(settore);
+        await caricaArticoliPerCategoria(settore);
+        const sciId = kitSciSelect.value;
+        if (sciId) await caricaSiglePerSci(sciId, settore);
+        aggiornaTutteLeRighe();
+      }
     });
 
     sortColumn = 'descrizione';
@@ -415,12 +422,13 @@ async function caricaAnagrafiche() {
 }
 
 // ============================================================
-// CARICA SCI
+// CARICA SCI (con filtro settore)
 // ============================================================
-async function caricaSci(sciCat) {
+async function caricaSci(settore = null) {
   let params = new URLSearchParams({ min_giacenza: '1' });
   if (kitMagazzinoSelect.value) params.append('magazzino', kitMagazzinoSelect.value);
-  if (sciCat) params.append('categoria', sciCat.id);
+  if (window.sciCat) params.append('categoria', window.sciCat.id);
+  if (settore) params.append('settore', settore);
 
   const sciRes = await apiFetch('/articoli?' + params.toString());
   const articoliSciRaw = sciRes.success ? sciRes.data : [];
@@ -455,9 +463,9 @@ async function caricaSci(sciCat) {
 }
 
 // ============================================================
-// CARICA ARTICOLI PER CATEGORIA (attacchi e skistoppers)
+// CARICA ARTICOLI PER CATEGORIA (attacchi e skistoppers) con settore
 // ============================================================
-async function caricaArticoliPerCategoria(attCat, skCat) {
+async function caricaArticoliPerCategoria(settore = null) {
   const magId = kitMagazzinoSelect.value;
   if (!magId) {
     articoliAttacchi = [];
@@ -467,12 +475,14 @@ async function caricaArticoliPerCategoria(attCat, skCat) {
 
   try {
     let params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
-    if (attCat) params.append('categoria', attCat.id);
+    if (window.attCat) params.append('categoria', window.attCat.id);
+    if (settore) params.append('settore', settore);
     const attRes = await apiFetch('/articoli?' + params.toString());
     articoliAttacchi = attRes.success ? attRes.data : [];
 
     params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
-    if (skCat) params.append('categoria', skCat.id);
+    if (window.skCat) params.append('categoria', window.skCat.id);
+    if (settore) params.append('settore', settore);
     const skRes = await apiFetch('/articoli?' + params.toString());
     articoliSkistopper = skRes.success ? skRes.data : [];
 
@@ -498,7 +508,7 @@ async function caricaSigleUsate() {
 // ============================================================
 // CARICA SIGLE PER SCI
 // ============================================================
-async function caricaSiglePerSci(sciId) {
+async function caricaSiglePerSci(sciId, settore = null) {
   if (!sciId) {
     currentSigleDisponibili = [];
     return;
@@ -710,9 +720,11 @@ async function salvaKit() {
     return;
   }
 
+  const settore = parseInt(document.getElementById('kitSettore').value) || 1;
   const payload = {
     magazzino: parseInt(magazzino),
     sci_id: parseInt(sciId),
+    settore: settore,
     note: note || null,
     righe: righe
   };
@@ -736,8 +748,8 @@ async function salvaKit() {
       const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
       const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
       
-      await caricaSci(sciCat);
-      await caricaArticoliPerCategoria(attCat, skCat);
+      await caricaSci(settore);
+      await caricaArticoliPerCategoria(settore);
       await caricaSigleUsate();
       if (kitSciSelect.value) {
         await caricaSiglePerSci(kitSciSelect.value);
@@ -757,7 +769,7 @@ async function salvaKit() {
 }
 
 // ============================================================
-// CARICA KIT (con raggruppamento)
+// CARICA KIT (con filtro settore)
 // ============================================================
 async function caricaKit() {
   try {
@@ -786,8 +798,12 @@ function popolaTabellaKit() {
   let filtered = allKits;
   const magFilter = filtroMagazzino.value;
   const search = filtroRicerca.value.toLowerCase();
+  const settoreFilter = document.getElementById('filtroSettore').value;
   if (magFilter) {
     filtered = filtered.filter(k => String(k.magazzino) === magFilter);
+  }
+  if (settoreFilter) {
+    filtered = filtered.filter(k => String(k.settore) === settoreFilter);
   }
   if (search) {
     filtered = filtered.filter(k =>
@@ -798,15 +814,13 @@ function popolaTabellaKit() {
   }
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="12" class="text-center">Nessun kit trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
 
-  // Raggruppamento per descrizione, lunghezza, sigla, attacco, skistopper, ultimo_destinatario
+  // Raggruppamento
   const groups = {};
   filtered.forEach(k => {
-    // Recupera attacco e skistopper dai dettagli (dobbiamo averli nel kit)
-    // Assumiamo che il backend abbia già questi campi
     const attacco = k.attacco_descrizione || 'N/A';
     const skistopper = k.skistopper_descrizione || 'Nessuno';
     const key = `${k.descrizione}|${k.lunghezza_sci || ''}|${k.sigla_sci || ''}|${attacco}|${skistopper}|${k.ultimo_destinatario || 'In magazzino'}`;
@@ -818,6 +832,7 @@ function popolaTabellaKit() {
         attacco: attacco,
         skistopper: skistopper,
         magazzino: k.magazzino,
+        settore: k.settore || 1,
         ultimo_destinatario: k.ultimo_destinatario || 'In magazzino',
         quantita_totale: 0,
         kits: [],
@@ -828,7 +843,6 @@ function popolaTabellaKit() {
     groups[key].kits.push(k);
   });
 
-  // Ordina i gruppi per descrizione (primi 8 caratteri) e lunghezza
   const sortedGroups = Object.values(groups).sort((a, b) => {
     const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
     const descB = (b.descrizione || '').substring(0, 8).toLowerCase();
@@ -843,23 +857,21 @@ function popolaTabellaKit() {
     const mag = magazzini.find(m => m.id == group.magazzino)?.nome || 'Magazzino ' + group.magazzino;
     const row = tbody.insertRow();
 
-    // Colonna ID / Gruppo
     const idDisplay = group.kits.length > 1 ? 
       `<span class="badge-kit-count">${group.kits.length} kit</span>` : 
       firstKit.id;
     row.insertCell(0).innerHTML = idDisplay;
-
     row.insertCell(1).innerText = group.kits.length > 1 ? '—' : (firstKit.codice_kit || '-');
     row.insertCell(2).innerText = group.descrizione || '-';
     row.insertCell(3).innerText = group.sigla_sci || 'NA';
     row.insertCell(4).innerText = group.attacco || 'N/A';
     row.insertCell(5).innerText = group.lunghezza_sci || '-';
     row.insertCell(6).innerText = group.skistopper || 'Nessuno';
-    row.insertCell(7).innerText = mag;
-    row.insertCell(8).innerText = group.quantita_totale || 0;
+    row.insertCell(7).innerText = ['Alpino','Nordico','Freeride'][(group.settore || 1) - 1] || '';
+    row.insertCell(8).innerText = mag;
+    row.insertCell(9).innerText = group.quantita_totale || 0;
 
-    // Assegnato a
-    const tdAssegnato = row.insertCell(9);
+    const tdAssegnato = row.insertCell(10);
     const assegnato = group.ultimo_destinatario || 'In magazzino';
     const span = document.createElement('span');
     span.textContent = assegnato;
@@ -869,13 +881,11 @@ function popolaTabellaKit() {
     }
     tdAssegnato.appendChild(span);
 
-    row.insertCell(10).innerText = group.note || '';
+    row.insertCell(11).innerText = group.note || '';
 
-    // Azioni
-    const actions = row.insertCell(11);
+    const actions = row.insertCell(12);
     actions.className = 'action-buttons';
     if (group.kits.length > 1) {
-      // Pulsante per modificare il gruppo
       const btnGroup = document.createElement('button');
       btnGroup.textContent = '✏️';
       btnGroup.className = 'btn btn-warning btn-sm';
@@ -883,7 +893,6 @@ function popolaTabellaKit() {
       btnGroup.onclick = () => apriEditGroupModal(group.kits);
       actions.appendChild(btnGroup);
       
-      // Pulsante per dettaglio gruppo (mostra i singoli kit)
       const btnDetail = document.createElement('button');
       btnDetail.textContent = '📋';
       btnDetail.className = 'btn btn-secondary btn-sm';
@@ -891,7 +900,6 @@ function popolaTabellaKit() {
       btnDetail.onclick = () => apriDetailGroupModal(group.kits);
       actions.appendChild(btnDetail);
     } else {
-      // Singolo kit: pulsanti modifica/elimina
       const kit = group.kits[0];
       const btnMod = document.createElement('button');
       btnMod.textContent = '✏️';
@@ -912,11 +920,7 @@ function popolaTabellaKit() {
 // ============================================================
 function apriEditGroupModal(kits) {
   if (!kits || !kits.length) return;
-  
-  // Salva gli ID del gruppo
   groupKitIds = kits.map(k => k.id);
-  
-  // Riepilogo
   const firstKit = kits[0];
   const desc = firstKit.descrizione || 'Kit';
   const lung = firstKit.lunghezza_sci || '';
@@ -932,7 +936,6 @@ function apriEditGroupModal(kits) {
       Sigla: ${sigla} | Lunghezza: ${lung} cm | Attacco: ${attacco} | Skistopper: ${skistopper}
     </span>
   `;
-  
   editGroupMagazzino.textContent = mag;
   editGroupSci.textContent = desc;
   editGroupSigla.textContent = sigla;
@@ -940,13 +943,10 @@ function apriEditGroupModal(kits) {
   editGroupAttacco.textContent = attacco;
   editGroupSkistopper.textContent = skistopper;
   editGroupAssegnato.textContent = assegnato;
-  
-  // Quantità totale attuale
   let totale = 0;
   kits.forEach(k => totale += k.quantita || 0);
   editGroupQuantita.value = totale;
   editGroupNumeroKit.textContent = kits.length;
-  
   document.getElementById('editGroupModal').style.display = 'flex';
 }
 
@@ -961,17 +961,14 @@ async function salvaEditGroup() {
     showMessage('Nessun kit selezionato', 'error');
     return;
   }
-  
   const nuovaQuantita = parseInt(editGroupQuantita.value);
   if (isNaN(nuovaQuantita) || nuovaQuantita < 0) {
     showMessage('Inserisci una quantità valida (>= 0)', 'error');
     return;
   }
-  
   const btn = document.getElementById('saveEditGroupBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Aggiornamento...';
-  
   try {
     const res = await apiFetch('/kit/batch-quantita', {
       method: 'PATCH',
@@ -992,11 +989,7 @@ async function salvaEditGroup() {
   }
 }
 
-// ============================================================
-// MODALE DETTAGLIO GRUPPO (mostra i singoli kit)
-// ============================================================
 function apriDetailGroupModal(kits) {
-  // Ricarica i dettagli completi per ogni kit
   Promise.all(kits.map(k => apiFetch('/kit/' + k.id)))
     .then(details => {
       let html = '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;">';
@@ -1017,8 +1010,6 @@ function apriDetailGroupModal(kits) {
         </tr>`;
       });
       html += '</table>';
-      
-      // Mostra in un modale semplice
       const modal = document.createElement('div');
       modal.className = 'modal';
       modal.style.display = 'flex';
@@ -1048,30 +1039,22 @@ function chiudiDetailModal() {
   });
 }
 
-// ============================================================
-// MODALE MODIFICA KIT (singolo)
-// ============================================================
 async function apriEditKitModal(kitId) {
   try {
     const kit = await apiFetch('/kit/' + kitId);
     if (!kit) return;
-
-    // Usa il modale esistente o creane uno semplice
     const modal = document.createElement('div');
     modal.className = 'modal';
     modal.style.display = 'flex';
-    
     const sciDet = kit.dettagli.find(d => d.tipo_articolo === 'SCI');
     const attDet = kit.dettagli.find(d => d.tipo_articolo === 'ATTACCHI');
     const skDet = kit.dettagli.find(d => d.tipo_articolo === 'SKISTOPPER');
-    
     const mag = magazzini.find(m => m.id == kit.magazzino)?.nome || kit.magazzino;
     const sciDesc = sciDet ? sciDet.articolo_descrizione || 'Sci ID ' + sciDet.articolo_id : 'N/A';
     const sciLung = kit.lunghezza_sci || '';
     const sciSigla = kit.sigla_sci || 'NA';
     const attDesc = attDet ? attDet.articolo_descrizione || 'Attacco ID ' + attDet.articolo_id : 'N/A';
     const skDesc = skDet ? skDet.articolo_descrizione || 'Skistopper ID ' + skDet.articolo_id : 'Nessuno';
-    
     modal.innerHTML = `
       <div class="modal-content" style="max-width:700px;">
         <div class="modal-header">
@@ -1118,17 +1101,13 @@ async function apriEditKitModal(kitId) {
 async function salvaEditKit(kitId) {
   const quantita = parseInt(document.getElementById('editSingleQuantita').value);
   const note = document.getElementById('editSingleNote').value.trim();
-  
   if (isNaN(quantita) || quantita < 0) {
     showMessage('Quantità non valida', 'error');
     return;
   }
-  
   try {
-    // Recupera il kit completo
     const kit = await apiFetch('/kit/' + kitId);
     if (!kit) throw new Error('Kit non trovato');
-    
     const righe = kit.dettagli
       .filter(d => d.tipo_articolo === 'ATTACCHI')
       .map(d => {
@@ -1141,23 +1120,19 @@ async function salvaEditKit(kitId) {
           quantita: quantita
         };
       });
-    
     if (!righe.length) {
       showMessage('Il kit non ha componenti validi', 'error');
       return;
     }
-    
     const payload = {
       magazzino: kit.magazzino,
       sci_id: kit.dettagli.find(d => d.tipo_articolo === 'SCI')?.articolo_id,
       note: note || null,
       righe: righe
     };
-    
     const res = await apiFetch('/kit/' + kitId, { method: 'PUT', body: JSON.stringify(payload) });
     if (res.success) {
       showMessage('Kit aggiornato!', 'success');
-      // Chiudi il modale
       const modal = document.querySelector('.modal:not([id])');
       if (modal) modal.style.display = 'none';
       caricaKit();
@@ -1169,9 +1144,6 @@ async function salvaEditKit(kitId) {
   }
 }
 
-// ============================================================
-// ELIMINA KIT
-// ============================================================
 async function eliminaKit(id) {
   if (!confirm('Eliminare questo kit? Tutte le quantità verranno rilasciate.')) return;
   try {
@@ -1182,8 +1154,9 @@ async function eliminaKit(id) {
       const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
       const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
       const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
-      await caricaSci(sciCat);
-      await caricaArticoliPerCategoria(attCat, skCat);
+      const settore = document.getElementById('kitSettore').value || 1;
+      await caricaSci(settore);
+      await caricaArticoliPerCategoria(settore);
       await caricaSigleUsate();
       if (kitSciSelect.value) {
         await caricaSiglePerSci(kitSciSelect.value);
@@ -1199,9 +1172,6 @@ async function eliminaKit(id) {
   }
 }
 
-// ============================================================
-// MODIFICA NOTA KIT (modal)
-// ============================================================
 function apriModificaKit(id, codice, nota) {
   currentKitId = id;
   document.getElementById('modKitCodice').innerText = codice;

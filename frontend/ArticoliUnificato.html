@@ -39,6 +39,10 @@
       overflow: hidden;
     }
     h2 { margin: 5px 0 8px 0; font-size: 1.3rem; border-left: 5px solid #1a73e8; padding-left: 12px; color: #1e2a3a; display: inline-block; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
+    .filter-group { flex: 1; min-width: 100px; }
+    .filter-group label { font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; display: block; color: #2c3e50; }
+    .filter-group select, .filter-group input { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: #f9fafb; }
     .form-row-5col, .form-row-3col, .form-row-4col-slim, .form-row-2col { display: grid; gap: 8px; margin-bottom: 6px; }
     .form-row-5col { grid-template-columns: repeat(5, 1fr); }
     .form-row-3col { grid-template-columns: 2fr 1fr 1fr; }
@@ -123,11 +127,21 @@
   <div class="header-bar"><h2>📦 Gestione Articoli</h2></div>
   <div id="messageArea"></div>
 
-  <!-- FORM DI INSERIMENTO E FILTRI (unificato) -->
+  <!-- FILTRI UNIFICATI -->
+  <div class="filter-row">
+    <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+    <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+    <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
+    <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
+    <div class="filter-group"><label>Descrizione</label><input type="text" id="filtroDescrizione" placeholder="Cerca..." oninput="caricaArticoli()"></div>
+    <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
+  </div>
+
+  <!-- FORM INSERIMENTO -->
   <form id="articleForm" onsubmit="return false;">
     <div class="form-row-5col">
       <div class="form-group"><label>Magazzino *</label><select id="magazzino" required></select></div>
-      <div class="form-group"><label>Settore *</label><select id="settore" required></select></div>
+      <div class="form-group"><label>Settore *</label><select id="settore" required><option value="1">Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
       <div class="form-group"><label>Categoria *</label><select id="categoria" required></select></div>
       <div class="form-group"><label>Marca *</label><select id="marca" required></select></div>
     </div>
@@ -151,7 +165,7 @@
       </div>
       <div class="form-group" style="display:flex; gap:6px; align-items:flex-end;">
         <button type="button" class="btn" id="saveBtn" onclick="salvaArticolo()">💾 Salva</button>
-        <button type="button" class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
+        <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
       </div>
     </div>
   </form>
@@ -355,19 +369,15 @@ let currentObsId = null;
 let currentSigleArticoloId = null;
 let currentModificaSiglaId = null;
 
-const magazzinoSelect = document.getElementById('magazzino');
-const settoreSelect = document.getElementById('settore');
-const categoriaSelect = document.getElementById('categoria');
-const marcaSelect = document.getElementById('marca');
-const descrizioneInput = document.getElementById('descrizione');
-const codiceModelloInput = document.getElementById('codice_modello');
-const lunghezzaInput = document.getElementById('lunghezza');
-const durezzaInput = document.getElementById('durezza');
-const quantitaInput = document.getElementById('quantita');
-
 // ============================================================
 // ANAGRAFICHE + DATALIST
 // ============================================================
+function popolaSelect(sel, items, valKey, textKey) {
+  sel.innerHTML = '<option value="">Seleziona</option>';
+  if (!items || !items.length) return;
+  items.forEach(i => sel.appendChild(new Option(i[textKey], i[valKey])));
+}
+
 async function caricaAnagrafiche() {
   try {
     [magazzini, settori, categorie, marche] = await Promise.all([
@@ -376,30 +386,118 @@ async function caricaAnagrafiche() {
       apiFetch('/anagrafiche/categorie'),
       apiFetch('/anagrafiche/marche')
     ]);
-    function popola(sel, items, valKey, textKey) {
-      sel.innerHTML = '<option value="">Seleziona</option>';
-      items.forEach(i => sel.appendChild(new Option(i[textKey], i[valKey])));
-    }
-    popola(magazzinoSelect, magazzini, 'id', 'nome');
-    popola(settoreSelect, settori, 'id', 'nome');
-    popola(categoriaSelect, categorie, 'id', 'nome');
-    popola(marcaSelect, marche, 'id', 'nome');
 
-    const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'west');
-    if (defaultMag) {
-      const exists = Array.from(magazzinoSelect.options).some(opt => opt.value == defaultMag.id);
-      if (exists) magazzinoSelect.value = defaultMag.id;
-      else if (magazzinoSelect.options.length > 1) magazzinoSelect.selectedIndex = 1;
-    } else if (magazzinoSelect.options.length > 1) magazzinoSelect.selectedIndex = 1;
+    // Filtri
+    const filtroMag = document.getElementById('filtroMagazzino');
+    const filtroCat = document.getElementById('filtroCategoria');
+    const filtroMar = document.getElementById('filtroMarca');
+    popolaSelect(filtroMag, magazzini, 'id', 'nome');
+    popolaSelect(filtroCat, categorie, 'id', 'nome');
+    popolaSelect(filtroMar, marche, 'id', 'nome');
 
-    const defaultSett = settori.find(s => s.nome.toLowerCase() === 'sci alpino');
-    if (defaultSett) settoreSelect.value = defaultSett.id;
+    // Form
+    popolaSelect(document.getElementById('magazzino'), magazzini, 'id', 'nome');
+    popolaSelect(document.getElementById('categoria'), categorie, 'id', 'nome');
+    popolaSelect(document.getElementById('marca'), marche, 'id', 'nome');
 
+    // Default filtri
+    const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
+    if (defaultMag) filtroMag.value = defaultMag.id;
     const defaultCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
-    if (defaultCat) categoriaSelect.value = defaultCat.id;
-
+    if (defaultCat) filtroCat.value = defaultCat.id;
     const defaultMar = marche.find(m => m.nome.toLowerCase() === 'kästle' || m.nome.toLowerCase() === 'kastle');
-    if (defaultMar) marcaSelect.value = defaultMar.id;
+    if (defaultMar) filtroMar.value = defaultMar.id;
+
+    // Default form
+    const defMagForm = magazzini.find(m => m.nome.toLowerCase() === 'race');
+    if (defMagForm) document.getElementById('magazzino').value = defMagForm.id;
+    const defCatForm = categorie.find(c => c.nome.toLowerCase() === 'sci');
+    if (defCatForm) document.getElementById('categoria').value = defCatForm.id;
+    const defMarForm = marche.find(m => m.nome.toLowerCase() === 'kästle' || m.nome.toLowerCase() === 'kastle');
+    if (defMarForm) document.getElementById('marca').value = defMarForm.id;
+
+    // Listener per cambio settore nel form (filtra categorie e marche)
+    document.getElementById('settore').addEventListener('change', async function() {
+      const settoreId = this.value;
+      const categoriaSelect = document.getElementById('categoria');
+      const marcaSelect = document.getElementById('marca');
+      if (settoreId) {
+        try {
+          const catRes = await apiFetch('/articoli/valori/categorie?settore=' + settoreId);
+          popolaSelect(categoriaSelect, catRes.map(item => ({ id: item.categoria, nome: item.categoria })), 'id', 'nome');
+        } catch(e) { console.warn('Errore categorie filtrate', e); }
+        const catId = categoriaSelect.value;
+        if (catId) {
+          try {
+            const marRes = await apiFetch('/anagrafiche/marche-per-categoria/' + catId + '?settore=' + settoreId);
+            popolaSelect(marcaSelect, marRes, 'id', 'nome');
+          } catch(e) { console.warn('Errore marche filtrate', e); }
+        }
+      } else {
+        // Reset a tutte le categorie e marche
+        popolaSelect(categoriaSelect, categorie, 'id', 'nome');
+        popolaSelect(marcaSelect, marche, 'id', 'nome');
+      }
+    });
+
+    // Listener per cambio categoria nel form (filtra marche)
+    document.getElementById('categoria').addEventListener('change', async function() {
+      const categoriaId = this.value;
+      const marcaSelect = document.getElementById('marca');
+      const settoreId = document.getElementById('settore').value;
+      if (categoriaId) {
+        let url = '/anagrafiche/marche-per-categoria/' + categoriaId;
+        if (settoreId) url += '?settore=' + settoreId;
+        try {
+          const marcheFiltrate = await apiFetch(url);
+          popolaSelect(marcaSelect, marcheFiltrate, 'id', 'nome');
+        } catch(e) {
+          popolaSelect(marcaSelect, marche, 'id', 'nome');
+        }
+      } else {
+        popolaSelect(marcaSelect, marche, 'id', 'nome');
+      }
+    });
+
+    // Stessi listener per il modale di modifica
+    document.getElementById('editSettore').addEventListener('change', async function() {
+      const settoreId = this.value;
+      const catSel = document.getElementById('editCategoria');
+      const marSel = document.getElementById('editMarca');
+      if (settoreId) {
+        try {
+          const catRes = await apiFetch('/articoli/valori/categorie?settore=' + settoreId);
+          popolaSelect(catSel, catRes.map(item => ({ id: item.categoria, nome: item.categoria })), 'id', 'nome');
+        } catch(e) { console.warn(e); }
+        const catId = catSel.value;
+        if (catId) {
+          try {
+            const marRes = await apiFetch('/anagrafiche/marche-per-categoria/' + catId + '?settore=' + settoreId);
+            popolaSelect(marSel, marRes, 'id', 'nome');
+          } catch(e) { console.warn(e); }
+        }
+      } else {
+        popolaSelect(catSel, categorie, 'id', 'nome');
+        popolaSelect(marSel, marche, 'id', 'nome');
+      }
+    });
+    document.getElementById('editCategoria').addEventListener('change', async function() {
+      const categoriaId = this.value;
+      const marSel = document.getElementById('editMarca');
+      const settoreId = document.getElementById('editSettore').value;
+      if (categoriaId) {
+        let url = '/anagrafiche/marche-per-categoria/' + categoriaId;
+        if (settoreId) url += '?settore=' + settoreId;
+        try {
+          const marcheFiltrate = await apiFetch(url);
+          popolaSelect(marSel, marcheFiltrate, 'id', 'nome');
+        } catch(e) {
+          popolaSelect(marSel, marche, 'id', 'nome');
+        }
+      } else {
+        popolaSelect(marSel, marche, 'id', 'nome');
+      }
+    });
 
     await refreshAllDatalists();
     await caricaArticoli();
@@ -414,14 +512,14 @@ const endpointMap = {
 };
 function getCurrentFilters() {
   return {
-    magazzino: magazzinoSelect.value,
-    settore: settoreSelect.value,
-    categoria: categoriaSelect.value,
-    marca: marcaSelect.value,
-    descrizione: descrizioneInput.value,
-    codice_modello: codiceModelloInput.value,
-    lunghezza: lunghezzaInput.value,
-    durezza: durezzaInput.value
+    magazzino: document.getElementById('filtroMagazzino').value,
+    settore: document.getElementById('filtroSettore').value,
+    categoria: document.getElementById('filtroCategoria').value,
+    marca: document.getElementById('filtroMarca').value,
+    descrizione: document.getElementById('filtroDescrizione').value,
+    codice_modello: document.getElementById('codice_modello')?.value || '',
+    lunghezza: document.getElementById('lunghezza')?.value || '',
+    durezza: document.getElementById('durezza')?.value || ''
   };
 }
 async function aggiornaDatalist(campo) {
@@ -558,33 +656,30 @@ function renderTabellaPaginata() {
   document.getElementById('gotoPageInput').max = totalePagine;
 
   pagina.forEach(a => {
-    if (!a.articolo_id) {
-      console.warn('⚠️ Articolo senza ID:', a);
-      return;
-    }
+    if (!a.articolo_id) return;
     const mag = magazzini.find(m => m.id == a.magazzino)?.nome || a.magazzino;
     const cat = categorie.find(c => c.id == a.categoria)?.nome || a.categoria;
     const mar = marche.find(m => m.id == a.marca)?.nome || a.marca;
     const giac = a.GIACENZA_REALE || 0;
     const row = tbody.insertRow();
     const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
-    
     row.insertCell(0).innerText = codiceMostrato;
     row.insertCell(1).innerText = a.articolo_id;
     row.insertCell(2).innerText = a.descrizione;
     row.insertCell(3).innerText = a.descrizione_completa;
     row.insertCell(4).innerText = mag;
-    row.insertCell(5).innerText = cat;
-    row.insertCell(6).innerText = mar;
-    row.insertCell(7).innerText = a.lunghezza || '';
-    row.insertCell(8).innerText = a.durezza || '';
-    row.insertCell(9).innerText = a.quantita_totale;
-    row.insertCell(10).innerText = giac;
-    row.insertCell(11).innerText = a.quantita_obsoleta || 0;
-    row.insertCell(12).innerText = a.stato || '';
-    row.insertCell(13).innerText = a.inventario_austria ? '✅' : '❌';
+    row.insertCell(5).innerText = settori.find(s => s.id == a.settore)?.nome || '';
+    row.insertCell(6).innerText = cat;
+    row.insertCell(7).innerText = mar;
+    row.insertCell(8).innerText = a.lunghezza || '';
+    row.insertCell(9).innerText = a.durezza || '';
+    row.insertCell(10).innerText = a.quantita_totale;
+    row.insertCell(11).innerText = giac;
+    row.insertCell(12).innerText = a.quantita_obsoleta || 0;
+    row.insertCell(13).innerText = a.stato || '';
+    row.insertCell(14).innerText = a.inventario_austria ? '✅' : '❌';
     
-    const tdSigle = row.insertCell(14);
+    const tdSigle = row.insertCell(15);
     const btnSigle = document.createElement('button');
     btnSigle.textContent = '🔖';
     btnSigle.className = 'btn';
@@ -593,42 +688,42 @@ function renderTabellaPaginata() {
     btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione, a.lunghezza);
     tdSigle.appendChild(btnSigle);
 
-    const actions = row.insertCell(15);
+    const actions = row.insertCell(16);
     actions.className = 'action-buttons';
-    
     const btnMod = document.createElement('button');
     btnMod.textContent = '✏️';
     btnMod.className = 'btn';
     btnMod.dataset.id = a.articolo_id;
     btnMod.onclick = function() { modificaArticolo(this.dataset.id); };
     actions.appendChild(btnMod);
-    
     const btnObs = document.createElement('button');
     btnObs.textContent = '📦';
     btnObs.className = 'btn btn-warning';
     btnObs.dataset.id = a.articolo_id;
     btnObs.dataset.desc = a.descrizione.replace(/'/g, "\\'");
     btnObs.dataset.giac = giac;
-    btnObs.onclick = function() { 
-      apriModaleObsoleto(this.dataset.id, this.dataset.desc, this.dataset.giac); 
-    };
+    btnObs.onclick = function() { apriModaleObsoleto(this.dataset.id, this.dataset.desc, this.dataset.giac); };
     actions.appendChild(btnObs);
-    
     const btnDel = document.createElement('button');
     btnDel.textContent = '🗑️';
     btnDel.className = 'btn btn-danger';
     btnDel.dataset.id = a.articolo_id;
     btnDel.onclick = function() {
       const id = parseInt(this.dataset.id);
-      if (id && !isNaN(id)) {
-        eliminaArticolo(id);
-      } else {
-        showMessage('ID articolo non valido', 'error');
-      }
+      if (id && !isNaN(id)) eliminaArticolo(id);
+      else showMessage('ID articolo non valido', 'error');
     };
     actions.appendChild(btnDel);
   });
   aggiornaIndicatoriOrdine();
+}
+function updatePagination(totali, start, end) {
+  document.getElementById('paginationStats').innerText = 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali;
+  document.getElementById('paginationCurrentPage').innerText = paginaCorrente;
+  const totPag = Math.ceil(totali / righePerPagina);
+  document.getElementById('btnPrevPage').disabled = (paginaCorrente <= 1);
+  document.getElementById('btnNextPage').disabled = (paginaCorrente >= totPag);
+  document.getElementById('gotoPageInput').max = totPag || 1;
 }
 function cambiaRighePerPagina() {
   righePerPagina = parseInt(document.getElementById('rowsPerPage').value);
@@ -645,15 +740,21 @@ function vaiAPagina(val) {
   }
 }
 function resetFiltri() {
-  magazzinoSelect.value = '';
-  settoreSelect.value = '';
-  categoriaSelect.value = '';
-  marcaSelect.value = '';
-  descrizioneInput.value = '';
-  codiceModelloInput.value = '';
-  lunghezzaInput.value = '';
-  durezzaInput.value = '';
+  document.getElementById('filtroMagazzino').value = '';
+  document.getElementById('filtroSettore').value = '1';
+  document.getElementById('filtroCategoria').value = '';
+  document.getElementById('filtroMarca').value = '';
+  document.getElementById('filtroDescrizione').value = '';
   caricaArticoli();
+}
+function resetForm() {
+  document.getElementById('descrizione').value = '';
+  document.getElementById('codice_modello').value = '';
+  document.getElementById('lunghezza').value = '';
+  document.getElementById('durezza').value = '';
+  document.getElementById('quantita').value = 1;
+  document.getElementById('note').value = '';
+  document.getElementById('inventarioAustria').checked = true;
 }
 function attachSortListeners() {
   document.querySelectorAll('#tabellaArticoli th[data-sort]').forEach(th => {
@@ -676,42 +777,30 @@ function attachSortListeners() {
 // ============================================================
 // SALVA / MODIFICA ARTICOLO
 // ============================================================
-function resetErrorStyles() {
-  [magazzinoSelect, settoreSelect, categoriaSelect, marcaSelect, descrizioneInput, quantitaInput].forEach(el => el.classList.remove('required-error'));
-}
 async function salvaArticolo() {
-  resetErrorStyles();
-  let missing = [];
-  if (!descrizioneInput.value.trim()) missing.push('Descrizione');
-  if (!magazzinoSelect.value) missing.push('Magazzino');
-  if (!settoreSelect.value) missing.push('Settore');
-  if (!categoriaSelect.value) missing.push('Categoria');
-  if (!marcaSelect.value) missing.push('Marca');
-  if (!quantitaInput.value || quantitaInput.value <= 0) missing.push('Quantità');
-  if (missing.length) {
-    showMessage('Campi mancanti: ' + missing.join(', '), 'error');
-    if (!descrizioneInput.value.trim()) descrizioneInput.classList.add('required-error');
-    if (!magazzinoSelect.value) magazzinoSelect.classList.add('required-error');
-    if (!settoreSelect.value) settoreSelect.classList.add('required-error');
-    if (!categoriaSelect.value) categoriaSelect.classList.add('required-error');
-    if (!marcaSelect.value) marcaSelect.classList.add('required-error');
-    if (!quantitaInput.value || quantitaInput.value <= 0) quantitaInput.classList.add('required-error');
+  const descrizione = document.getElementById('descrizione').value.trim();
+  const magazzino = document.getElementById('magazzino').value;
+  const settore = document.getElementById('settore').value;
+  const categoria = document.getElementById('categoria').value;
+  const marca = document.getElementById('marca').value;
+  const quantita = parseInt(document.getElementById('quantita').value);
+  if (!descrizione || !magazzino || !settore || !categoria || !marca || !quantita) {
+    showMessage('Campi obbligatori mancanti', 'error');
     return;
   }
-  const inventarioAustria = document.getElementById('inventarioAustria').checked;
   const payload = {
-    descrizione: descrizioneInput.value.trim(),
-    magazzino: parseInt(magazzinoSelect.value),
-    settore: parseInt(settoreSelect.value),
-    categoria: parseInt(categoriaSelect.value),
-    marca: parseInt(marcaSelect.value),
-    lunghezza: lunghezzaInput.value.trim(),
-    durezza: durezzaInput.value.trim(),
-    quantita: parseInt(quantitaInput.value),
+    descrizione,
+    magazzino: parseInt(magazzino),
+    settore: parseInt(settore),
+    categoria: parseInt(categoria),
+    marca: parseInt(marca),
+    lunghezza: document.getElementById('lunghezza').value.trim(),
+    durezza: document.getElementById('durezza').value.trim(),
+    quantita: quantita,
     versione: document.getElementById('versione').value.trim(),
     note: document.getElementById('note').value.trim(),
-    codiceModello: codiceModelloInput.value.trim(),
-    inventario_austria: inventarioAustria
+    codiceModello: document.getElementById('codice_modello').value.trim(),
+    inventario_austria: document.getElementById('inventarioAustria').checked
   };
   const saveBtn = document.getElementById('saveBtn');
   saveBtn.disabled = true;
@@ -720,13 +809,7 @@ async function salvaArticolo() {
     const res = await apiFetch('/articoli', { method: 'POST', body: JSON.stringify(payload) });
     if (res.success) {
       showMessage(res.message, 'success');
-      descrizioneInput.value = '';
-      codiceModelloInput.value = '';
-      lunghezzaInput.value = '';
-      durezzaInput.value = '';
-      quantitaInput.value = 1;
-      document.getElementById('note').value = '';
-      document.getElementById('inventarioAustria').checked = true;
+      resetForm();
       refreshAllDatalists();
       caricaArticoli();
     } else throw new Error(res.message);
@@ -748,7 +831,6 @@ async function modificaArticolo(id) {
   document.getElementById('editDurezza').value = art.durezza || '';
   document.getElementById('editCodiceModello').value = art.codice_modello || '';
   document.getElementById('editQuantita').value = art.quantita_totale;
-  document.getElementById('editQuantita').readOnly = true;
   document.getElementById('editNote').value = art.note || '';
   document.getElementById('editInventarioAustria').checked = art.inventario_austria == 1;
   await refreshEditDatalists();
@@ -761,11 +843,10 @@ async function caricaSelectsModale() {
     apiFetch('/anagrafiche/categorie'),
     apiFetch('/anagrafiche/marche')
   ]);
-  function pop(sel, items) { sel.innerHTML = '<option value="">Seleziona</option>'; items.forEach(i => sel.appendChild(new Option(i.nome, i.id))); }
-  pop(document.getElementById('editMagazzino'), mag);
-  pop(document.getElementById('editSettore'), set);
-  pop(document.getElementById('editCategoria'), cat);
-  pop(document.getElementById('editMarca'), mar);
+  popolaSelect(document.getElementById('editMagazzino'), mag, 'id', 'nome');
+  popolaSelect(document.getElementById('editSettore'), set, 'id', 'nome');
+  popolaSelect(document.getElementById('editCategoria'), cat, 'id', 'nome');
+  popolaSelect(document.getElementById('editMarca'), mar, 'id', 'nome');
 }
 async function refreshEditDatalists() {
   const editFields = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
@@ -784,7 +865,6 @@ async function refreshEditDatalists() {
 async function salvaModifica() {
   const id = document.getElementById('editId').value;
   const inventarioAustria = document.getElementById('editInventarioAustria').checked;
-  const qtaField = document.getElementById('editQuantita');
   const dati = {
     descrizione: document.getElementById('editDescrizione').value.trim(),
     lunghezza: document.getElementById('editLunghezza').value.trim(),
@@ -797,9 +877,6 @@ async function salvaModifica() {
     marca: parseInt(document.getElementById('editMarca').value),
     inventario_austria: inventarioAustria
   };
-  if (!qtaField.readOnly) {
-    dati.quantita_totale = parseInt(qtaField.value);
-  }
   if (!dati.descrizione) { showMessage('Descrizione obbligatoria', 'error'); return; }
   try {
     const res = await apiFetch('/articoli/' + id, { method: 'PUT', body: JSON.stringify(dati) });
@@ -1035,25 +1112,9 @@ async function confermaObsolescenza() {
 // ============================================================
 // INIT
 // ============================================================
-function attachFormEvents() {
-  const selects = [magazzinoSelect, settoreSelect, categoriaSelect, marcaSelect];
-  selects.forEach(s => s.addEventListener('change', () => {
-    refreshAllDatalists();
-    caricaArticoli();
-  }));
-  const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
-  inputs.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', () => {
-      refreshAllDatalists();
-      caricaArticoli();
-    });
-  });
-}
 window.onload = async () => {
   if (!restoreSession()) { window.location.href = 'Login.html'; return; }
   await caricaAnagrafiche();
-  attachFormEvents();
   attachSortListeners();
   sortColumn = 'descrizione';
   sortAsc = true;
