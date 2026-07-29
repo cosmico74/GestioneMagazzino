@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>📦 Gestione Articoli</title>
-  <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -471,6 +470,7 @@ async function caricaArticoli() {
     if (f.categoria) params.append('categoria', f.categoria);
     if (f.marca) params.append('marca', f.marca);
     if (f.descrizione) params.append('descrizione', f.descrizione);
+    // ⚠️ NON aggiungere min_giacenza per vedere tutti gli articoli
     const res = await apiFetch('/articoli?' + params.toString());
     if (res.success) {
       articoliCorrente = res.data;

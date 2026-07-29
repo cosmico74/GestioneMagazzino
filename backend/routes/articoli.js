@@ -101,6 +101,7 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.query.lunghezza) { sql += ' AND a.lunghezza = ?'; params.push(req.query.lunghezza); }
     if (req.query.durezza) { sql += ' AND a.durezza = ?'; params.push(req.query.durezza); }
     if (req.query.codice_modello) { sql += ' AND a.codice_modello = ?'; params.push(req.query.codice_modello); }
+    // ⚠️ Se non vuoi filtrare per giacenza, commenta o rimuovi il blocco seguente
     if (req.query.min_giacenza) {
       sql += ' AND (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = \'ARTICOLO\' AND oggetto_id = a.articolo_id), 0)) >= ?';
       params.push(req.query.min_giacenza);
@@ -642,7 +643,7 @@ router.get('/valori/:campo', verifyToken, async (req, res) => {
   const params = [];
 
   if (req.query.magazzino) { sql += ' AND magazzino = ?'; params.push(req.query.magazzino); }
-  if (req.query.settore) { sql += ' AND settore = ?'; params.push(req.query.settore); } // 🔥 NUOVO
+  if (req.query.settore) { sql += ' AND settore = ?'; params.push(req.query.settore); }
   if (req.query.categoria) { sql += ' AND categoria = ?'; params.push(req.query.categoria); }
   if (req.query.marca) { sql += ' AND marca = ?'; params.push(req.query.marca); }
 
@@ -660,7 +661,7 @@ router.get('/valori/:campo', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// VALORI CATEGORIE (con filtro settore) - NUOVA ROUTE
+// VALORI CATEGORIE (con filtro settore)
 // ============================================================
 router.get('/valori/categorie', verifyToken, async (req, res) => {
   let sql = `SELECT DISTINCT categoria AS categoria FROM articoli WHERE categoria IS NOT NULL`;

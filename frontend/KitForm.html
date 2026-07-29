@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+  <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>📦 Gestione Kit</title>
-  <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
@@ -51,20 +51,49 @@
     .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
     .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; }
     .readonly-info { background: #f8f9fa; padding: 8px 10px; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem; }
-    .assegnazione-tooltip { cursor: help; border-bottom: 1px dashed #1a73e8; position: relative; }
-    .assegnazione-tooltip:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 0; background: #1e2a3a; color: white; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; white-space: nowrap; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-    .kit-riepilogo { background: #f8f9fa; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.85rem; border-left: 3px solid #1a73e8; }
-    .badge-kit-count { display: inline-block; background: #17a2b8; color: white; border-radius: 12px; padding: 1px 8px; font-size: 0.65rem; margin-left: 4px; }
-    .group-quantity-input { width: 100px; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.8rem; }
+    .assegnazione-tooltip {
+      cursor: help;
+      border-bottom: 1px dashed #1a73e8;
+      position: relative;
+    }
+    .assegnazione-tooltip:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      background: #1e2a3a;
+      color: white;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      white-space: nowrap;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .kit-riepilogo {
+      background: #f8f9fa;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+      border-left: 3px solid #1a73e8;
+    }
+    .badge-kit-count {
+      display: inline-block;
+      background: #17a2b8;
+      color: white;
+      border-radius: 12px;
+      padding: 1px 8px;
+      font-size: 0.65rem;
+      margin-left: 4px;
+    }
   </style>
 </head>
 <body>
 
 <div class="compact-bar">
   <div style="flex: 1;"></div>
-  <div class="logo">
-    <img src="/images/kastle-logo.png" alt="Kastle">
-  </div>
+  <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
   <div style="display: flex; gap: 6px; align-items: center; flex: 1; justify-content: flex-end;">
     <span id="loginInfo" class="login-info"></span>
     <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
@@ -111,6 +140,14 @@
         <div class="form-group">
           <label>Magazzino *</label>
           <select id="kitMagazzino" required></select>
+        </div>
+        <div class="form-group">
+          <label>Settore *</label>
+          <select id="kitSettore" required>
+            <option value="1">Alpino</option>
+            <option value="2">Nordico</option>
+            <option value="3">Freeride</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Sci *</label>
@@ -182,44 +219,20 @@
     </div>
     <div id="editGroupRiepilogo" class="kit-riepilogo"></div>
     <div class="form-row">
-      <div class="form-group">
-        <label>Magazzino</label>
-        <div id="editGroupMagazzino" class="readonly-info"></div>
-      </div>
-      <div class="form-group">
-        <label>Settore</label>
-        <div id="editGroupSettore" class="readonly-info"></div>
-      </div>
-      <div class="form-group">
-        <label>Sci</label>
-        <div id="editGroupSci" class="readonly-info"></div>
-      </div>
+      <div class="form-group"><label>Magazzino</label><div id="editGroupMagazzino" class="readonly-info"></div></div>
+      <div class="form-group"><label>Settore</label><div id="editGroupSettore" class="readonly-info"></div></div>
+      <div class="form-group"><label>Sci</label><div id="editGroupSci" class="readonly-info"></div></div>
     </div>
     <div class="form-row">
-      <div class="form-group">
-        <label>Sigla Sci</label>
-        <div id="editGroupSigla" class="readonly-info"></div>
-      </div>
-      <div class="form-group">
-        <label>Lunghezza</label>
-        <div id="editGroupLunghezza" class="readonly-info"></div>
-      </div>
+      <div class="form-group"><label>Sigla Sci</label><div id="editGroupSigla" class="readonly-info"></div></div>
+      <div class="form-group"><label>Lunghezza</label><div id="editGroupLunghezza" class="readonly-info"></div></div>
     </div>
     <div class="form-row">
-      <div class="form-group">
-        <label>Attacco</label>
-        <div id="editGroupAttacco" class="readonly-info"></div>
-      </div>
-      <div class="form-group">
-        <label>Skistopper</label>
-        <div id="editGroupSkistopper" class="readonly-info"></div>
-      </div>
+      <div class="form-group"><label>Attacco</label><div id="editGroupAttacco" class="readonly-info"></div></div>
+      <div class="form-group"><label>Skistopper</label><div id="editGroupSkistopper" class="readonly-info"></div></div>
     </div>
     <div class="form-row">
-      <div class="form-group">
-        <label>Assegnato a</label>
-        <div id="editGroupAssegnato" class="readonly-info"></div>
-      </div>
+      <div class="form-group"><label>Assegnato a</label><div id="editGroupAssegnato" class="readonly-info"></div></div>
       <div class="form-group">
         <label>Quantità Totale *</label>
         <input type="number" id="editGroupQuantita" class="form-control" min="0" step="1" required>
@@ -296,6 +309,7 @@ let sortColumn = 'descrizione';
 let sortAsc = true;
 
 const kitMagazzinoSelect = document.getElementById('kitMagazzino');
+const kitSettoreSelect = document.getElementById('kitSettore');
 const kitSciSelect = document.getElementById('kitSci');
 const filtroMagazzino = document.getElementById('filtroMagazzino');
 const filtroSettore = document.getElementById('filtroSettore');
@@ -353,11 +367,8 @@ async function caricaAnagrafiche() {
     magazzini.forEach(m => kitMagazzinoSelect.appendChild(new Option(m.nome, m.id)));
 
     const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
-    if (defaultMag) {
-      kitMagazzinoSelect.value = defaultMag.id;
-    } else if (kitMagazzinoSelect.options.length > 1) {
-      kitMagazzinoSelect.selectedIndex = 1;
-    }
+    if (defaultMag) kitMagazzinoSelect.value = defaultMag.id;
+    else if (kitMagazzinoSelect.options.length > 1) kitMagazzinoSelect.selectedIndex = 1;
 
     const categorie = await apiFetch('/anagrafiche/categorie');
     const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
@@ -368,8 +379,8 @@ async function caricaAnagrafiche() {
     window.attCat = attCat;
     window.skCat = skCat;
 
-    // Carica sci e attacchi con settore di default (1 = Alpino)
-    const defaultSettore = document.getElementById('kitSettore').value || 1;
+    // Carica con il settore di default
+    const defaultSettore = kitSettoreSelect.value || 1;
     await caricaSci(defaultSettore);
     await caricaArticoliPerCategoria(defaultSettore);
     await caricaSigleUsate();
@@ -389,19 +400,16 @@ async function caricaAnagrafiche() {
     });
 
     kitMagazzinoSelect.addEventListener('change', async () => {
-      const settore = document.getElementById('kitSettore').value || 1;
+      const settore = kitSettoreSelect.value || 1;
       await caricaSci(settore);
       await caricaArticoliPerCategoria(settore);
       await caricaSigleUsate();
-      if (kitSciSelect.value) {
-        await caricaSiglePerSci(kitSciSelect.value);
-      }
+      if (kitSciSelect.value) await caricaSiglePerSci(kitSciSelect.value);
       aggiornaTutteLeRighe();
       caricaKit();
     });
 
-    // Listener per cambio settore nel form (ricarica sci e attacchi)
-    document.getElementById('kitSettore').addEventListener('change', async function() {
+    kitSettoreSelect.addEventListener('change', async function() {
       const settore = this.value;
       if (settore) {
         await caricaSci(settore);
@@ -672,11 +680,13 @@ function resetForm() {
 // ============================================================
 async function salvaKit() {
   const magazzino = kitMagazzinoSelect.value;
+  const settore = kitSettoreSelect.value;
   const sciId = kitSciSelect.value;
   const note = document.getElementById('kitNote').value.trim();
   const editId = document.getElementById('kitEditId').value;
 
   if (!magazzino) { showMessage('Seleziona un magazzino', 'error'); return; }
+  if (!settore) { showMessage('Seleziona un settore', 'error'); return; }
   if (!sciId) { showMessage('Seleziona uno sci', 'error'); return; }
 
   const righe = [];
@@ -721,11 +731,10 @@ async function salvaKit() {
     return;
   }
 
-  const settore = parseInt(document.getElementById('kitSettore').value) || 1;
   const payload = {
     magazzino: parseInt(magazzino),
+    settore: parseInt(settore),
     sci_id: parseInt(sciId),
-    settore: settore,
     note: note || null,
     righe: righe
   };
@@ -743,12 +752,12 @@ async function salvaKit() {
     }
     if (res.success) {
       showMessage(editId ? 'Kit aggiornato!' : 'Kit creato!', 'success');
-      
+
       const categorie = await apiFetch('/anagrafiche/categorie');
       const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
       const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
       const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
-      
+
       await caricaSci(settore);
       await caricaArticoliPerCategoria(settore);
       await caricaSigleUsate();
@@ -781,7 +790,6 @@ async function caricaKit() {
 
     if (magFilter) params.append('magazzino', magFilter);
     if (settore) params.append('settore', settore);
-    // Nota: il filtro per ricerca viene fatto lato client per flessibilità
 
     const res = await apiFetch('/kit?' + params.toString());
     if (Array.isArray(res)) {
@@ -896,7 +904,7 @@ function popolaTabellaKit() {
       btnGroup.title = 'Modifica quantità gruppo';
       btnGroup.onclick = () => apriEditGroupModal(group.kits);
       actions.appendChild(btnGroup);
-      
+
       const btnDetail = document.createElement('button');
       btnDetail.textContent = '📋';
       btnDetail.className = 'btn btn-secondary btn-sm';
@@ -934,7 +942,7 @@ function apriEditGroupModal(kits) {
   const mag = magazzini.find(m => m.id == firstKit.magazzino)?.nome || 'Magazzino ' + firstKit.magazzino;
   const assegnato = firstKit.ultimo_destinatario || 'In magazzino';
   const settore = firstKit.settore || 1;
-  
+
   editGroupRiepilogo.innerHTML = `
     <strong>Gruppo (${kits.length} kit)</strong> — ${desc}<br>
     <span style="font-size:0.8rem;color:#555;">
@@ -1160,7 +1168,7 @@ async function eliminaKit(id) {
       const sciCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
       const attCat = categorie.find(c => c.nome.toLowerCase() === 'attacchi');
       const skCat = categorie.find(c => c.nome.toLowerCase() === 'skistoppers');
-      const settore = document.getElementById('kitSettore').value || 1;
+      const settore = kitSettoreSelect.value || 1;
       await caricaSci(settore);
       await caricaArticoliPerCategoria(settore);
       await caricaSigleUsate();

@@ -136,19 +136,19 @@ router.get('/', verifyToken, async (req, res) => {
     `;
     const params = [];
 
-    // Filtro per magazzino
+    // Filtro magazzino
     if (req.query.magazzino) {
       sql += ' AND k.magazzino = ?';
       params.push(req.query.magazzino);
     }
 
-    // 🔥 Filtro per settore (aggiunto)
+    // 🔥 Filtro settore
     if (req.query.settore) {
       sql += ' AND k.settore = ?';
       params.push(req.query.settore);
     }
 
-    // Filtro per ricerca testuale
+    // Filtro ricerca testuale (facoltativo)
     if (req.query.search) {
       sql += ' AND (k.codice_kit LIKE ? OR k.descrizione LIKE ? OR k.sigla_sci LIKE ?)';
       const search = '%' + req.query.search + '%';
@@ -183,7 +183,6 @@ router.get('/', verifyToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // ============================================================
 // GET /api/kit/sigle-usate
