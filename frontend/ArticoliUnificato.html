@@ -362,23 +362,23 @@ let currentObsId = null;
 let currentSigleArticoloId = null;
 let currentModificaSiglaId = null;
 
-// Elementi del form di inserimento (usati per i listener)
-const magazzinoSelect = document.getElementById('magazzino');
-const settoreSelect = document.getElementById('settore');
-const categoriaSelect = document.getElementById('categoria');
-const marcaSelect = document.getElementById('marca');
-const descrizioneInput = document.getElementById('descrizione');
-const codiceModelloInput = document.getElementById('codice_modello');
-const lunghezzaInput = document.getElementById('lunghezza');
-const durezzaInput = document.getElementById('durezza');
-const quantitaInput = document.getElementById('quantita');
-
 // Elementi dei filtri
 const filtroMag = document.getElementById('filtroMagazzino');
 const filtroSettore = document.getElementById('filtroSettore');
 const filtroCat = document.getElementById('filtroCategoria');
 const filtroMar = document.getElementById('filtroMarca');
 const filtroDesc = document.getElementById('filtroDescrizione');
+
+// Elementi del form di inserimento (solo gli input che esistono)
+const descrizioneInput = document.getElementById('descrizione');
+const codiceModelloInput = document.getElementById('codice_modello');
+const lunghezzaInput = document.getElementById('lunghezza');
+const durezzaInput = document.getElementById('durezza');
+const quantitaInput = document.getElementById('quantita');
+const noteInput = document.getElementById('note');
+const versioneInput = document.getElementById('versione');
+const inventarioAustriaCheck = document.getElementById('inventarioAustria');
+const saveBtn = document.getElementById('saveBtn');
 
 // ============================================================
 // FUNZIONI PER CARICARE MARCHE IN BASE ALLA CATEGORIA
@@ -574,12 +574,11 @@ async function salvaArticolo() {
     lunghezza: lunghezzaInput.value.trim(),
     durezza: durezzaInput.value.trim(),
     quantita: quantita,
-    versione: document.getElementById('versione').value.trim(),
-    note: document.getElementById('note').value.trim(),
+    versione: versioneInput.value.trim(),
+    note: noteInput.value.trim(),
     codiceModello: codiceModelloInput.value.trim(),
-    inventario_austria: document.getElementById('inventarioAustria').checked
+    inventario_austria: inventarioAustriaCheck.checked
   };
-  const saveBtn = document.getElementById('saveBtn');
   saveBtn.disabled = true;
   saveBtn.innerHTML = '<span class="spinner"></span>';
   try {
@@ -600,8 +599,8 @@ function resetForm() {
   lunghezzaInput.value = '';
   durezzaInput.value = '';
   quantitaInput.value = 1;
-  document.getElementById('note').value = '';
-  document.getElementById('inventarioAustria').checked = true;
+  noteInput.value = '';
+  inventarioAustriaCheck.checked = true;
 }
 
 function resetFiltri() {
@@ -817,8 +816,7 @@ async function caricaSelectsModale() {
   popolaSelect(document.getElementById('editMagazzino'), mag, 'id', 'nome');
   popolaSelect(document.getElementById('editSettore'), set, 'id', 'nome');
   popolaSelect(document.getElementById('editCategoria'), cat, 'id', 'nome');
-  // Non popoliamo ancora le marche perché dipendono dalla categoria
-  // verrà fatto in modificaArticolo dopo aver impostato la categoria
+  // Le marche vengono caricate in modificaArticolo dopo aver impostato la categoria
 }
 
 async function refreshEditDatalists() {
@@ -1120,20 +1118,7 @@ async function confermaObsolescenza() {
 // INIT
 // ============================================================
 function attachFormEvents() {
-  // Listener per i select del form di inserimento
-  const selects = [magazzinoSelect, settoreSelect, categoriaSelect, marcaSelect];
-  selects.forEach(s => {
-    if (s) {
-      s.addEventListener('change', () => {
-        refreshAllDatalists();
-        caricaArticoli();
-      });
-    } else {
-      console.warn('Elemento select del form non trovato');
-    }
-  });
-
-  // Listener per gli input del form
+  // Solo gli input del form che esistono realmente
   const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
   inputs.forEach(id => {
     const el = document.getElementById(id);
