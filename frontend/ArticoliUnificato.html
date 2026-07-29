@@ -129,8 +129,8 @@
   <!-- FILTRI -->
   <div class="filter-row">
     <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-    <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="onSettoreChanged()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
-    <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
+    <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+    <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
     <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
     <div class="filter-group"><label>Descrizione</label><input type="text" id="filtroDescrizione" placeholder="Cerca..." oninput="caricaArticoli()"></div>
     <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
@@ -378,34 +378,38 @@ const filtroMar = document.getElementById('filtroMarca');
 const filtroDesc = document.getElementById('filtroDescrizione');
 
 // ============================================================
-// ANAGRAFICHE + DATALIST
+// FUNZIONI PER CARICARE MARCHE IN BASE ALLA CATEGORIA
 // ============================================================
-function popolaSelect(sel, items, valKey, textKey) {
-  sel.innerHTML = '<option value="">Seleziona</option>';
-  if (!items || !items.length) return;
-  items.forEach(i => sel.appendChild(new Option(i[textKey], i[valKey])));
-}
 
-// 🔥 Nuova funzione: carica marche in base al settore
-async function caricaMarchePerSettore(settoreId, selectElement, defaultValue = null) {
-  if (!settoreId) {
-    // Carica tutte le marche
+// 🔥 Carica marche in base alla categoria selezionata
+async function caricaMarchePerCategoria(categoriaId, selectElement, defaultValue = null) {
+  if (!categoriaId) {
+    // Se non c'è categoria, carica tutte le marche
     const data = await apiFetch('/anagrafiche/marche');
     popolaSelect(selectElement, data, 'id', 'nome');
     if (defaultValue !== null) selectElement.value = defaultValue;
     return;
   }
   try {
-    const data = await apiFetch('/anagrafiche/settori-marche/' + settoreId);
+    const data = await apiFetch('/anagrafiche/marche-per-categoria/' + categoriaId);
     popolaSelect(selectElement, data, 'id', 'nome');
     if (defaultValue !== null) selectElement.value = defaultValue;
   } catch(e) {
-    console.error('Errore caricamento marche per settore:', e);
+    console.error('Errore caricamento marche per categoria:', e);
     // Fallback: carica tutte le marche
     const data = await apiFetch('/anagrafiche/marche');
     popolaSelect(selectElement, data, 'id', 'nome');
     if (defaultValue !== null) selectElement.value = defaultValue;
   }
+}
+
+// ============================================================
+// ANAGRAFICHE + DATALIST
+// ============================================================
+function popolaSelect(sel, items, valKey, textKey) {
+  sel.innerHTML = '<option value="">Seleziona</option>';
+  if (!items || !items.length) return;
+  items.forEach(i => sel.appendChild(new Option(i[textKey], i[valKey])));
 }
 
 async function caricaAnagrafiche() {
@@ -417,19 +421,19 @@ async function caricaAnagrafiche() {
       apiFetch('/anagrafiche/marche')
     ]);
 
-    // Popola dropdown dei filtri (tranne marche che dipendono dal settore)
+    // Popola dropdown dei filtri
     popolaSelect(filtroMag, magazzini, 'id', 'nome');
     popolaSelect(filtroCat, categorie, 'id', 'nome');
 
-    // Carica marche in base al settore di default (Alpino = 1)
-    const settoreDefault = filtroSettore.value || 1;
-    await caricaMarchePerSettore(settoreDefault, filtroMar);
+    // Carica marche in base alla categoria di default
+    const categoriaDefault = filtroCat.value || '';
+    await caricaMarchePerCategoria(categoriaDefault, filtroMar);
 
-    // Listener per cambio settore nel filtro
-    filtroSettore.addEventListener('change', async function() {
-      const settoreId = this.value;
-      if (settoreId) {
-        await caricaMarchePerSettore(settoreId, filtroMar);
+    // 🔥 Listener per cambio categoria nel filtro
+    filtroCat.addEventListener('change', async function() {
+      const categoriaId = this.value;
+      if (categoriaId) {
+        await caricaMarchePerCategoria(categoriaId, filtroMar);
       } else {
         // Carica tutte le marche
         const data = await apiFetch('/anagrafiche/marche');
@@ -438,32 +442,23 @@ async function caricaAnagrafiche() {
       caricaArticoli();
     });
 
-    // Listener per il modale di modifica – cambio settore => aggiorna marche
-    document.getElementById('editSettore').addEventListener('change', async function() {
-      const settoreId = this.value;
+    // 🔥 Listener per cambio categoria nel modale di modifica
+    document.getElementById('editCategoria').addEventListener('change', async function() {
+      const categoriaId = this.value;
       const marcaSelect = document.getElementById('editMarca');
-      if (settoreId) {
-        await caricaMarchePerSettore(settoreId, marcaSelect);
+      if (categoriaId) {
+        await caricaMarchePerCategoria(categoriaId, marcaSelect);
       } else {
         const data = await apiFetch('/anagrafiche/marche');
         popolaSelect(marcaSelect, data, 'id', 'nome');
       }
     });
 
-    // Listener per filtro categorie nel modale (come già era)
-    document.getElementById('editCategoria').addEventListener('change', async function() {
-      const categoriaId = this.value;
-      const marcaSelect = document.getElementById('editMarca');
-      if (categoriaId) {
-        try {
-          const marcheFiltrate = await apiFetch('/anagrafiche/marche-per-categoria/' + categoriaId);
-          popolaSelect(marcaSelect, marcheFiltrate, 'id', 'nome');
-        } catch(e) {
-          popolaSelect(marcaSelect, marche, 'id', 'nome');
-        }
-      } else {
-        popolaSelect(marcaSelect, marche, 'id', 'nome');
-      }
+    // Settore nel modale di modifica (non filtra le marche)
+    document.getElementById('editSettore').addEventListener('change', async function() {
+      // Il settore non filtra le marche, ma può essere usato per altri scopi
+      // Se vuoi che il settore filtri le marche, usa l'endpoint settori-marche
+      // Altrimenti lascia invariato
     });
 
     await refreshAllDatalists();
@@ -471,11 +466,11 @@ async function caricaAnagrafiche() {
   } catch(err) { showMessage('Errore caricamento anagrafiche', 'error'); }
 }
 
-// Gestione cambio settore dal filtro
-async function onSettoreChanged() {
-  const settoreId = filtroSettore.value;
-  if (settoreId) {
-    await caricaMarchePerSettore(settoreId, filtroMar);
+// Gestione cambio categoria dal filtro
+async function onCategoriaChanged() {
+  const categoriaId = filtroCat.value;
+  if (categoriaId) {
+    await caricaMarchePerCategoria(categoriaId, filtroMar);
   } else {
     const data = await apiFetch('/anagrafiche/marche');
     popolaSelect(filtroMar, data, 'id', 'nome');
@@ -484,7 +479,7 @@ async function onSettoreChanged() {
 }
 
 // ============================================================
-// DATALIST (invariato)
+// DATALIST
 // ============================================================
 const endpointMap = {
   descrizione: '/articoli/valori/descrizioni',
@@ -615,13 +610,13 @@ function resetFiltri() {
   filtroCat.value = '';
   filtroMar.value = '';
   filtroDesc.value = '';
-  // Ricarica tutte le marche (perché settore vuoto)
-  caricaMarchePerSettore(null, filtroMar);
+  // Ricarica tutte le marche (perché categoria vuota)
+  caricaMarchePerCategoria(null, filtroMar);
   caricaArticoli();
 }
 
 // ============================================================
-// ORDINAMENTO E PAGINAZIONE (invariati)
+// ORDINAMENTO E PAGINAZIONE
 // ============================================================
 function compare(a,b,col) {
   if (col === 'descrizione') {
@@ -822,8 +817,8 @@ async function caricaSelectsModale() {
   popolaSelect(document.getElementById('editMagazzino'), mag, 'id', 'nome');
   popolaSelect(document.getElementById('editSettore'), set, 'id', 'nome');
   popolaSelect(document.getElementById('editCategoria'), cat, 'id', 'nome');
-  // Non popoliamo ancora le marche perché dipendono dal settore
-  // verrà fatto in modificaArticolo dopo aver impostato il settore
+  // Non popoliamo ancora le marche perché dipendono dalla categoria
+  // verrà fatto in modificaArticolo dopo aver impostato la categoria
 }
 
 async function refreshEditDatalists() {
@@ -851,9 +846,9 @@ async function modificaArticolo(id) {
   document.getElementById('editSettore').value = art.settore;
   document.getElementById('editCategoria').value = art.categoria;
 
-  // Carica marche in base al settore dell'articolo
+  // Carica marche in base alla categoria dell'articolo
   const marcaSelect = document.getElementById('editMarca');
-  await caricaMarchePerSettore(art.settore, marcaSelect, art.marca);
+  await caricaMarchePerCategoria(art.categoria, marcaSelect, art.marca);
 
   document.getElementById('editDescrizione').value = art.descrizione;
   document.getElementById('editLunghezza').value = art.lunghezza || '';
@@ -1125,31 +1120,18 @@ async function confermaObsolescenza() {
 // INIT
 // ============================================================
 function attachFormEvents() {
-  // Listener per i select del form (per aggiornare datalist)
-  const formSelects = ['magazzino', 'settore', 'categoria', 'marca'];
-  formSelects.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('change', () => {
-        refreshAllDatalists();
-        caricaArticoli();
-      });
-    }
-  });
-
-  // Listener per i filtri (già gestiti da onchange nel HTML, ma aggiungiamo per sicurezza)
-  // I filtri hanno già gli eventi onchange nel markup, quindi non serve aggiungerli qui.
-  // Tuttavia, per il filtro settore gestiamo il cambio marche tramite onSettoreChanged() nel HTML.
-
+  const selects = [magazzinoSelect, settoreSelect, categoriaSelect, marcaSelect];
+  selects.forEach(s => s.addEventListener('change', () => {
+    refreshAllDatalists();
+    caricaArticoli();
+  }));
   const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
   inputs.forEach(id => {
     const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('input', () => {
-        refreshAllDatalists();
-        caricaArticoli();
-      });
-    }
+    if (el) el.addEventListener('input', () => {
+      refreshAllDatalists();
+      caricaArticoli();
+    });
   });
 }
 
