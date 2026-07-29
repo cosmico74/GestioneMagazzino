@@ -401,4 +401,74 @@ router.delete('/settori-marche', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// CATEGORIE MARCHE – Gestione abbinamenti
+// ============================================================
+
+// GET /api/anagrafiche/categorie-marche/tutti - Tutti gli abbinamenti
+router.get('/categorie-marche/tutti', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT cm.id, cm.categoria_id, cm.marca_id,
+        c.nome AS categoria_nome, m.nome AS marca_nome
+      FROM categorie_marche cm
+      LEFT JOIN categorie c ON cm.categoria_id = c.categoria_id
+      LEFT JOIN marche m ON cm.marca_id = m.marca_id
+      ORDER BY c.nome, m.nome
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /categorie-marche/tutti:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/anagrafiche/categorie-marche - Crea abbinamento
+router.post('/categorie-marche', verifyToken, async (req, res) => {
+  if (req.userRole !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Solo admin può modificare gli abbinamenti' });
+  }
+  const { categoria_id, marca_id } = req.body;
+  if (!categoria_id || !marca_id) {
+    return res.status(400).json({ success: false, message: 'categoria_id e marca_id obbligatori' });
+  }
+  try {
+    // Verifica esistenza
+    const [cat] = await pool.query('SELECT categoria_id FROM categorie WHERE categoria_id = ?', [categoria_id]);
+    if (!cat.length) return res.status(404).json({ success: false, message: 'Categoria non trovata' });
+    const [mar] = await pool.query('SELECT marca_id FROM marche WHERE marca_id = ?', [marca_id]);
+    if (!mar.length) return res.status(404).json({ success: false, message: 'Marca non trovata' });
+
+    await pool.query(
+      'INSERT INTO categorie_marche (categoria_id, marca_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE categoria_id = VALUES(categoria_id)',
+      [categoria_id, marca_id]
+    );
+    res.json({ success: true, message: 'Associazione creata' });
+  } catch (err) {
+    console.error('Errore POST /categorie-marche:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE /api/anagrafiche/categorie-marche - Elimina abbinamento
+router.delete('/categorie-marche', verifyToken, async (req, res) => {
+  if (req.userRole !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Solo admin può modificare gli abbinamenti' });
+  }
+  const { categoria_id, marca_id } = req.body;
+  if (!categoria_id || !marca_id) {
+    return res.status(400).json({ success: false, message: 'categoria_id e marca_id obbligatori' });
+  }
+  try {
+    await pool.query(
+      'DELETE FROM categorie_marche WHERE categoria_id = ? AND marca_id = ?',
+      [categoria_id, marca_id]
+    );
+    res.json({ success: true, message: 'Associazione rimossa' });
+  } catch (err) {
+    console.error('Errore DELETE /categorie-marche:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔗 Abbinamento Categorie-Marche</title>
+  <link rel="icon" type="image/png" href="/images/kastle-logo.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 25px; }
+    .compact-bar { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 0 0 12px 12px; padding: 4px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 15px; }
+    .logo { display: flex; justify-content: center; flex: 1; }
+    .logo img { height: 120px; width: auto; display: block; }
+    .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; }
+    h2 { border-left: 5px solid #1a73e8; padding-left: 15px; color: #1e2a3a; margin-top: 0; margin-bottom: 15px; }
+    .btn { background: #1a73e8; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    .btn:hover { background: #0f5bb5; transform: translateY(-1px); }
+    .btn-success { background: #27ae60; }
+    .btn-danger { background: #dc3545; }
+    .btn-secondary { background: #6c757d; }
+    .btn-sm { padding: 3px 8px; font-size: 0.7rem; }
+    .table-wrapper { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+    th { background: #f8fafc; font-weight: 600; }
+    .checkbox-group { max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e0; border-radius: 6px; padding: 10px; background: #f9fafb; }
+    .checkbox-group label { display: block; margin: 4px 0; font-weight: normal; cursor: pointer; }
+    .checkbox-group input[type="checkbox"] { margin-right: 8px; }
+    .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
+    .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
+    .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
+    .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
+    .text-center { text-align: center; }
+    .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 200px; }
+    label { display: block; font-weight: 600; font-size: 0.75rem; margin-bottom: 2px; color: #2c3e50; }
+    select, input { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.8rem; background: white; }
+    .actions { display: flex; gap: 4px; justify-content: center; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="compact-bar">
+    <div style="flex:1;"></div>
+    <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
+    <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
+      <span id="loginInfo" class="login-info"></span>
+      <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
+      <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+
+  <h2>🔗 Abbinamento Categorie e Marche</h2>
+  <div id="messageArea"></div>
+
+  <!-- Selettore Categoria -->
+  <div class="form-row">
+    <div class="form-group">
+      <label>Categoria</label>
+      <select id="categoriaSelect" onchange="caricaAssociazioni()">
+        <option value="">Seleziona una categoria</option>
+      </select>
+    </div>
+    <div class="form-group" style="flex:0.2; display:flex; align-items:flex-end;">
+      <button class="btn btn-success" onclick="salvaAssociazioni()" style="width:100%;">💾 Salva abbinamenti</button>
+    </div>
+  </div>
+
+  <!-- Checkbox per le marche -->
+  <div class="checkbox-group" id="marcheContainer">
+    <div class="text-center" style="padding:20px; color:#999;">Seleziona una categoria per gestire le marche</div>
+  </div>
+
+  <!-- Tabella riepilogo (tutti gli abbinamenti) -->
+  <h3 style="margin-top:20px;">📋 Riepilogo abbinamenti</h3>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Categoria</th>
+          <th>Marca</th>
+          <th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="riepilogoBody"><tr><td colspan="4" class="text-center">Caricamento...</td></tr></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// UTILITY
+// ============================================================
+function getAuthHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+function showMessage(msg, type) {
+  const d = document.getElementById('messageArea');
+  d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
+  setTimeout(() => d.innerHTML = '', 5000);
+}
+async function apiFetch(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
+  const r = await fetch('/api' + endpoint, { ...options, headers });
+  if (r.status === 401 || r.status === 403) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = 'Login.html';
+    throw new Error('Sessione scaduta');
+  }
+  if (!r.ok) {
+    let msg = 'Errore ' + r.status;
+    try { const data = await r.json(); msg = data.message || msg; } catch(e) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = 'Login.html';
+}
+
+// ============================================================
+// VARIABILI
+// ============================================================
+let currentUser = null;
+let categorie = [];
+let marche = [];
+let associazioni = [];
+let associazioniPerCategoria = {};
+
+// ============================================================
+// CARICAMENTO
+// ============================================================
+async function caricaCategorie() {
+  try {
+    const data = await apiFetch('/anagrafiche/categorie');
+    categorie = data || [];
+    const sel = document.getElementById('categoriaSelect');
+    sel.innerHTML = '<option value="">Seleziona una categoria</option>';
+    categorie.forEach(c => sel.appendChild(new Option(c.nome, c.id)));
+  } catch(e) { showMessage('Errore caricamento categorie', 'error'); }
+}
+
+async function caricaMarche() {
+  try {
+    const data = await apiFetch('/anagrafiche/marche');
+    marche = data || [];
+  } catch(e) { showMessage('Errore caricamento marche', 'error'); }
+}
+
+async function caricaAssociazioni() {
+  try {
+    // Recupera tutte le associazioni (dobbiamo avere un endpoint apposito)
+    // Per ora usiamo l'endpoint esistente per ottenere marche per categoria
+    // Ma per il riepilogo abbiamo bisogno di tutte le associazioni.
+    // Se non c'è un endpoint, possiamo costruirlo iterando sulle categorie.
+    // Usiamo un approccio: per ogni categoria, chiediamo le marche associate.
+    // Alternativa: creare un endpoint /categorie-marche/tutti.
+    // Per semplicità, assumiamo che il backend abbia GET /api/anagrafiche/categorie-marche
+    // che restituisce tutte le associazioni.
+    // Se non esiste, usiamo questo workaround:
+    const data = await apiFetch('/anagrafiche/categorie-marche/tutti');
+    associazioni = data || [];
+    associazioniPerCategoria = {};
+    associazioni.forEach(a => {
+      if (!associazioniPerCategoria[a.categoria_id]) associazioniPerCategoria[a.categoria_id] = [];
+      associazioniPerCategoria[a.categoria_id].push(a.marca_id);
+    });
+    renderRiepilogo();
+    // Popola checkbox per la categoria selezionata
+    const categoriaId = document.getElementById('categoriaSelect').value;
+    if (categoriaId) {
+      popolaCheckbox(parseInt(categoriaId));
+    } else {
+      document.getElementById('marcheContainer').innerHTML = '<div class="text-center" style="padding:20px; color:#999;">Seleziona una categoria per gestire le marche</div>';
+    }
+  } catch(e) {
+    showMessage('Errore caricamento associazioni: ' + e.message, 'error');
+  }
+}
+
+function popolaCheckbox(categoriaId) {
+  const container = document.getElementById('marcheContainer');
+  container.innerHTML = '';
+  if (!marche.length) {
+    container.innerHTML = '<div class="text-center" style="padding:20px; color:#999;">Nessuna marca disponibile</div>';
+    return;
+  }
+  const selected = associazioniPerCategoria[categoriaId] || [];
+  marche.forEach(m => {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = m.id;
+    cb.checked = selected.includes(m.id);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + m.nome));
+    container.appendChild(label);
+  });
+}
+
+function renderRiepilogo() {
+  const tbody = document.getElementById('riepilogoBody');
+  tbody.innerHTML = '';
+  if (!associazioni.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Nessun abbinamento</td></tr>';
+    return;
+  }
+  associazioni.forEach(a => {
+    const row = tbody.insertRow();
+    row.insertCell(0).innerText = a.id || '-';
+    const cat = categorie.find(c => c.id == a.categoria_id);
+    row.insertCell(1).innerText = cat ? cat.nome : a.categoria_id;
+    const mar = marche.find(m => m.id == a.marca_id);
+    row.insertCell(2).innerText = mar ? mar.nome : a.marca_id;
+    const actions = row.insertCell(3);
+    actions.className = 'actions';
+    const btnDel = document.createElement('button');
+    btnDel.textContent = '🗑️';
+    btnDel.className = 'btn btn-danger btn-sm';
+    btnDel.onclick = () => rimuoviAssociazione(a.categoria_id, a.marca_id);
+    actions.appendChild(btnDel);
+  });
+}
+
+async function rimuoviAssociazione(categoriaId, marcaId) {
+  if (!confirm('Rimuovere questo abbinamento?')) return;
+  try {
+    await apiFetch('/anagrafiche/categorie-marche', {
+      method: 'DELETE',
+      body: JSON.stringify({ categoria_id: categoriaId, marca_id: marcaId })
+    });
+    showMessage('Abbinamento rimosso', 'success');
+    caricaAssociazioni();
+  } catch(e) { showMessage(e.message, 'error'); }
+}
+
+// ============================================================
+// SALVA ASSOCIAZIONI
+// ============================================================
+async function salvaAssociazioni() {
+  const categoriaId = document.getElementById('categoriaSelect').value;
+  if (!categoriaId) { showMessage('Seleziona una categoria', 'error'); return; }
+  const checkboxes = document.querySelectorAll('#marcheContainer input[type="checkbox"]');
+  const selected = [];
+  checkboxes.forEach(cb => { if (cb.checked) selected.push(parseInt(cb.value)); });
+
+  const current = associazioniPerCategoria[parseInt(categoriaId)] || [];
+
+  const toAdd = selected.filter(id => !current.includes(id));
+  const toRemove = current.filter(id => !selected.includes(id));
+
+  let errors = 0;
+  for (const id of toAdd) {
+    try {
+      await apiFetch('/anagrafiche/categorie-marche', {
+        method: 'POST',
+        body: JSON.stringify({ categoria_id: parseInt(categoriaId), marca_id: id })
+      });
+    } catch(e) { errors++; showMessage('Errore aggiunta marca ' + id + ': ' + e.message, 'error'); }
+  }
+  for (const id of toRemove) {
+    try {
+      await apiFetch('/anagrafiche/categorie-marche', {
+        method: 'DELETE',
+        body: JSON.stringify({ categoria_id: parseInt(categoriaId), marca_id: id })
+      });
+    } catch(e) { errors++; showMessage('Errore rimozione marca ' + id + ': ' + e.message, 'error'); }
+  }
+
+  if (errors === 0) {
+    showMessage('Abbinamenti salvati con successo', 'success');
+    caricaAssociazioni();
+  } else {
+    showMessage('Salvataggio completato con ' + errors + ' errori', 'error');
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.onload = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
+  try { currentUser = JSON.parse(localStorage.getItem('user')); } catch(e) { logout(); return; }
+  if (currentUser.ruolo !== 'admin') {
+    document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin.</div>';
+    return;
+  }
+  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato||currentUser.username) + ' (' + currentUser.ruolo + ')';
+  await caricaCategorie();
+  await caricaMarche();
+  await caricaAssociazioni();
+};
+</script>
+</body>
+</html>

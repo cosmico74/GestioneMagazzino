@@ -52,7 +52,7 @@
       align-items: flex-end;
       border: 1px solid #e2e8f0;
     }
-    .filter-group { flex: 1; min-width: 140px; }
+    .filter-group { flex: 1; min-width: 130px; }
     .filter-group label {
       display: block;
       font-weight: 600;
@@ -61,7 +61,7 @@
       color: #2c3e50;
       margin-bottom: 2px;
     }
-    .filter-group input, .filter-group select {
+    .filter-group select, .filter-group input {
       width: 100%;
       padding: 5px 8px;
       border: 1px solid #cbd5e0;
@@ -145,7 +145,7 @@
 <body>
 <div class="container">
 
-  <!-- COMPACT BAR con LOGO CENTRATO -->
+  <!-- COMPACT BAR -->
   <div class="compact-bar">
     <div style="flex: 1;"></div>
     <div class="logo">
@@ -168,44 +168,78 @@
     <button class="tab" data-tab="soggetti" onclick="switchTab('soggetti')">👤 Per Soggetto</button>
   </div>
 
-  <!-- TAB AUSTRIA -->
+  <!-- ==================== TAB AUSTRIA ==================== -->
   <div id="tab-austria" class="tab-content active">
     <div class="filter-bar">
       <div class="filter-group">
         <label>Magazzino</label>
         <select id="austriaMagazzino"><option value="">Tutti</option></select>
       </div>
+      <!-- 🔥 FILTRI AGGIUNTI -->
+      <div class="filter-group">
+        <label>Settore</label>
+        <select id="austriaSettore">
+          <option value="">Tutti</option>
+          <option value="1">Alpino</option>
+          <option value="2">Nordico</option>
+          <option value="3">Freeride</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Categoria</label>
+        <select id="austriaCategoria"><option value="">Tutte</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Marca</label>
+        <select id="austriaMarca"><option value="">Tutte</option></select>
+      </div>
       <div class="btn-group">
         <button class="btn" onclick="caricaAustria()">🔍 Carica</button>
-        <button class="btn btn-warning" onclick="anteprimaPDF('austria')">👁️ Anteprima PDF</button>
+        <button class="btn btn-warning" onclick="anteprimaPDF('austria')">👁️ PDF</button>
         <button class="btn btn-secondary" onclick="esportaPDF('austria')">📄 PDF</button>
         <button class="btn btn-success" onclick="esportaCSV('austria')">📊 CSV</button>
       </div>
     </div>
     <div class="table-wrapper">
       <table id="austriaTable">
-        <thead>
-          <tr>
-            <th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th>
-            <th data-sort="codice_modello">Codice Modello <span class="sort-arrow" data-col="codice_modello">▲</span></th>
-            <th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th>
-            <th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th>
-            <th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th>
-            <th data-sort="quantita_totale">Quantità Totale <span class="sort-arrow" data-col="quantita_totale">▲</span></th>
-            <th data-sort="magazzino_nome">Magazzino <span class="sort-arrow" data-col="magazzino_nome">▲</span></th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th>
+          <th data-sort="codice_modello">Codice Modello <span class="sort-arrow" data-col="codice_modello">▲</span></th>
+          <th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th>
+          <th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th>
+          <th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th>
+          <th data-sort="quantita_totale">Quantità Totale <span class="sort-arrow" data-col="quantita_totale">▲</span></th>
+          <th data-sort="magazzino_nome">Magazzino <span class="sort-arrow" data-col="magazzino_nome">▲</span></th>
+        </tr></thead>
         <tbody id="austriaBody"><tr><td colspan="7" class="text-center">Caricare il report</td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <!-- TAB ITALIA -->
+  <!-- ==================== TAB ITALIA ==================== -->
   <div id="tab-italia" class="tab-content">
     <div class="filter-bar">
       <div class="filter-group">
         <label>Magazzino</label>
         <select id="italiaMagazzino"><option value="">Tutti</option></select>
+      </div>
+      <!-- 🔥 FILTRI AGGIUNTI -->
+      <div class="filter-group">
+        <label>Settore</label>
+        <select id="italiaSettore">
+          <option value="">Tutti</option>
+          <option value="1">Alpino</option>
+          <option value="2">Nordico</option>
+          <option value="3">Freeride</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Categoria</label>
+        <select id="italiaCategoria"><option value="">Tutte</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Marca</label>
+        <select id="italiaMarca"><option value="">Tutte</option></select>
       </div>
       <div class="filter-group">
         <label>Tipo</label>
@@ -228,46 +262,60 @@
         <input type="text" id="filtroLunghezza" placeholder="Lunghezza...">
       </div>
       <div class="filter-group checkbox-group">
-        <label>
-          <input type="checkbox" id="raggruppaCheck"> Raggruppa per modello
-        </label>
+        <label><input type="checkbox" id="raggruppaCheck"> Raggruppa per modello</label>
       </div>
       <div class="btn-group">
         <button class="btn" onclick="caricaItalia()">🔍 Carica</button>
-        <button class="btn btn-warning" onclick="anteprimaPDF('italia')">👁️ Anteprima PDF</button>
+        <button class="btn btn-warning" onclick="anteprimaPDF('italia')">👁️ PDF</button>
         <button class="btn btn-secondary" onclick="esportaPDF('italia')">📄 PDF</button>
         <button class="btn btn-success" onclick="esportaCSV('italia')">📊 CSV</button>
       </div>
     </div>
     <div class="table-wrapper">
       <table id="italiaTable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th data-sort="tipo_oggetto">Tipo <span class="sort-arrow" data-col="tipo_oggetto">▲</span></th>
-            <th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th>
-            <th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th>
-            <th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th>
-            <th data-sort="sigla_sci">Sigla (solo Kit) <span class="sort-arrow" data-col="sigla_sci">▲</span></th>
-            <th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th>
-            <th data-sort="stato">Stato <span class="sort-arrow" data-col="stato">▲</span></th>
-            <th data-sort="destinatario">Destinatario <span class="sort-arrow" data-col="destinatario">▲</span></th>
-            <th data-sort="quantita">Quantità <span class="sort-arrow" data-col="quantita">▲</span></th>
-            <th data-sort="giacenza">Giacenza <span class="sort-arrow" data-col="giacenza">▲</span></th>
-            <th data-sort="magazzino_nome">Magazzino <span class="sort-arrow" data-col="magazzino_nome">▲</span></th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th>#</th>
+          <th data-sort="tipo_oggetto">Tipo <span class="sort-arrow" data-col="tipo_oggetto">▲</span></th>
+          <th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th>
+          <th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th>
+          <th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th>
+          <th data-sort="sigla_sci">Sigla <span class="sort-arrow" data-col="sigla_sci">▲</span></th>
+          <th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th>
+          <th data-sort="stato">Stato <span class="sort-arrow" data-col="stato">▲</span></th>
+          <th data-sort="destinatario">Destinatario <span class="sort-arrow" data-col="destinatario">▲</span></th>
+          <th data-sort="quantita">Quantità <span class="sort-arrow" data-col="quantita">▲</span></th>
+          <th data-sort="giacenza">Giacenza <span class="sort-arrow" data-col="giacenza">▲</span></th>
+          <th data-sort="magazzino_nome">Magazzino <span class="sort-arrow" data-col="magazzino_nome">▲</span></th>
+        </tr></thead>
         <tbody id="italiaBody"><tr><td colspan="12" class="text-center">Caricare il report</td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <!-- TAB SOGGETTI -->
+  <!-- ==================== TAB SOGGETTI ==================== -->
   <div id="tab-soggetti" class="tab-content">
     <div class="filter-bar">
       <div class="filter-group">
         <label>Soggetto</label>
         <select id="soggettoSelect"><option value="">Seleziona...</option></select>
+      </div>
+      <!-- 🔥 FILTRI AGGIUNTI -->
+      <div class="filter-group">
+        <label>Settore</label>
+        <select id="soggettiSettore">
+          <option value="">Tutti</option>
+          <option value="1">Alpino</option>
+          <option value="2">Nordico</option>
+          <option value="3">Freeride</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Categoria</label>
+        <select id="soggettiCategoria"><option value="">Tutte</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Marca</label>
+        <select id="soggettiMarca"><option value="">Tutte</option></select>
       </div>
       <div class="radio-group">
         <label><input type="radio" name="soggettoMode" value="incarico" checked> In carico</label>
@@ -276,28 +324,26 @@
       </div>
       <div class="btn-group">
         <button class="btn" onclick="caricaSoggetti()">🔍 Carica</button>
-        <button class="btn btn-warning" onclick="anteprimaPDF('soggetti')">👁️ Anteprima PDF</button>
+        <button class="btn btn-warning" onclick="anteprimaPDF('soggetti')">👁️ PDF</button>
         <button class="btn btn-secondary" onclick="esportaPDF('soggetti')">📄 PDF</button>
         <button class="btn btn-success" onclick="esportaCSV('soggetti')">📊 CSV</button>
       </div>
     </div>
     <div class="table-wrapper">
       <table id="soggettiTable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th data-sort="tipo">Tipo <span class="sort-arrow" data-col="tipo">▲</span></th>
-            <th data-sort="codice_sigla">Codice / Sigla <span class="sort-arrow" data-col="codice_sigla">▲</span></th>
-            <th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th>
-            <th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th>
-            <th data-sort="sigla">Sigla <span class="sort-arrow" data-col="sigla">▲</span></th>
-            <th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th>
-            <th data-sort="quantita">Quantità <span class="sort-arrow" data-col="quantita">▲</span></th>
-            <th data-sort="stato">Stato <span class="sort-arrow" data-col="stato">▲</span></th>
-            <th data-sort="destinatario">Destinatario <span class="sort-arrow" data-col="destinatario">▲</span></th>
-            <th data-sort="data">Data <span class="sort-arrow" data-col="data">▲</span></th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th>#</th>
+          <th data-sort="tipo">Tipo <span class="sort-arrow" data-col="tipo">▲</span></th>
+          <th data-sort="codice_sigla">Codice / Sigla <span class="sort-arrow" data-col="codice_sigla">▲</span></th>
+          <th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th>
+          <th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th>
+          <th data-sort="sigla">Sigla <span class="sort-arrow" data-col="sigla">▲</span></th>
+          <th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th>
+          <th data-sort="quantita">Quantità <span class="sort-arrow" data-col="quantita">▲</span></th>
+          <th data-sort="stato">Stato <span class="sort-arrow" data-col="stato">▲</span></th>
+          <th data-sort="destinatario">Destinatario <span class="sort-arrow" data-col="destinatario">▲</span></th>
+          <th data-sort="data">Data <span class="sort-arrow" data-col="data">▲</span></th>
+        </tr></thead>
         <tbody id="soggettiBody"><tr><td colspan="11" class="text-center">Seleziona un soggetto e carica</td></tr></tbody>
       </table>
     </div>
@@ -310,25 +356,17 @@
 
 <script>
 // ============================================================
-// CONFIGURAZIONE LOGO
-// ============================================================
-const LOGO_PATH = '/images/kastle-logo.png';
-let logoBase64 = null;
-
-// ============================================================
 // UTILITY
 // ============================================================
 function getAuthHeader() {
   const token = localStorage.getItem('token');
   return token ? { 'Authorization': 'Bearer ' + token } : {};
 }
-
 function showMessage(msg, type) {
   const d = document.getElementById('messageArea');
   d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
   setTimeout(() => d.innerHTML = '', 5000);
 }
-
 async function apiFetch(endpoint, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
   const r = await fetch('/api' + endpoint, { ...options, headers });
@@ -345,13 +383,11 @@ async function apiFetch(endpoint, options = {}) {
   }
   return r.json();
 }
-
 function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   window.location.href = 'Login.html';
 }
-
 function formatDate(d) {
   if (!d) return '-';
   const dt = new Date(d);
@@ -375,11 +411,8 @@ let sortSoggetti = { col: 'descrizione', asc: true };
 function compareValues(a, b, col, asc) {
   let va = a[col] !== undefined ? a[col] : '';
   let vb = b[col] !== undefined ? b[col] : '';
-  
-  // Gestione null/undefined
   if (va === null || va === undefined) va = '';
   if (vb === null || vb === undefined) vb = '';
-  
   if (col === 'lunghezza' || col === 'quantita' || col === 'quantita_totale' || col === 'giacenza') {
     va = parseFloat(va) || 0;
     vb = parseFloat(vb) || 0;
@@ -390,7 +423,6 @@ function compareValues(a, b, col, asc) {
     va = va.toString().toLowerCase();
     vb = vb.toString().toLowerCase();
   }
-  
   if (va < vb) return asc ? -1 : 1;
   if (va > vb) return asc ? 1 : -1;
   return 0;
@@ -414,39 +446,18 @@ function sortData(data, col, asc) {
 
 function handleSort(table, col) {
   let state, dataKey, renderFn;
-  if (table === 'austria') {
-    state = sortAustria;
-    dataKey = 'austriaData';
-    renderFn = renderAustria;
-  } else if (table === 'italia') {
-    state = sortItalia;
-    dataKey = 'italiaData';
-    renderFn = renderItalia;
-  } else if (table === 'soggetti') {
-    state = sortSoggetti;
-    dataKey = 'soggettiData';
-    renderFn = renderSoggetti;
-  } else {
-    return;
-  }
-  
-  if (state.col === col) {
-    state.asc = !state.asc;
-  } else {
-    state.col = col;
-    state.asc = true;
-  }
-  
+  if (table === 'austria') { state = sortAustria; dataKey = 'austriaData'; renderFn = renderAustria; }
+  else if (table === 'italia') { state = sortItalia; dataKey = 'italiaData'; renderFn = renderItalia; }
+  else if (table === 'soggetti') { state = sortSoggetti; dataKey = 'soggettiData'; renderFn = renderSoggetti; }
+  else return;
+  if (state.col === col) state.asc = !state.asc;
+  else { state.col = col; state.asc = true; }
   const tableEl = document.getElementById(table + 'Table');
   if (tableEl) {
     tableEl.querySelectorAll('thead th .sort-arrow').forEach(el => el.classList.remove('active'));
     const arrow = tableEl.querySelector(`thead th[data-sort="${col}"] .sort-arrow`);
-    if (arrow) {
-      arrow.classList.add('active');
-      arrow.textContent = state.asc ? '▲' : '▼';
-    }
+    if (arrow) { arrow.classList.add('active'); arrow.textContent = state.asc ? '▲' : '▼'; }
   }
-  
   const data = window[dataKey] || [];
   const sorted = sortData(data, state.col, state.asc);
   window[dataKey] = sorted;
@@ -460,14 +471,12 @@ function attachSortListeners() {
       if (col) handleSort('austria', col);
     });
   });
-  
   document.querySelectorAll('#italiaTable thead th[data-sort]').forEach(th => {
     th.addEventListener('click', function(e) {
       const col = this.getAttribute('data-sort');
       if (col) handleSort('italia', col);
     });
   });
-  
   document.querySelectorAll('#soggettiTable thead th[data-sort]').forEach(th => {
     th.addEventListener('click', function(e) {
       const col = this.getAttribute('data-sort');
@@ -477,8 +486,10 @@ function attachSortListeners() {
 }
 
 // ============================================================
-// CARICAMENTO LOGO IN BASE64 PER I PDF
+// LOGO PER PDF
 // ============================================================
+const LOGO_PATH = '/images/kastle-logo.png';
+let logoBase64 = null;
 async function loadLogoAsBase64() {
   try {
     const response = await fetch(LOGO_PATH);
@@ -502,6 +513,10 @@ async function loadLogoAsBase64() {
 let currentUser = null;
 let magazzini = [];
 let soggetti = [];
+let categorie = [];
+let marche = [];
+let paginaCorrente = 1;
+let righePerPagina = 25;
 
 // ============================================================
 // CARICAMENTO ANAGRAFICHE
@@ -509,13 +524,42 @@ let soggetti = [];
 async function caricaMagazzini() {
   try {
     magazzini = await apiFetch('/anagrafiche/magazzini');
-    const selects = ['austriaMagazzino', 'italiaMagazzino'];
-    selects.forEach(id => {
+    ['austriaMagazzino', 'italiaMagazzino'].forEach(id => {
       const sel = document.getElementById(id);
-      sel.innerHTML = '<option value="">Tutti</option>';
-      magazzini.forEach(m => sel.appendChild(new Option(m.nome, m.id)));
+      if (sel) {
+        sel.innerHTML = '<option value="">Tutti</option>';
+        magazzini.forEach(m => sel.appendChild(new Option(m.nome, m.id)));
+      }
     });
   } catch(e) { console.error('Errore magazzini:', e); }
+}
+
+async function caricaCategorie() {
+  try {
+    const data = await apiFetch('/anagrafiche/categorie');
+    categorie = data || [];
+    ['austriaCategoria', 'italiaCategoria', 'soggettiCategoria'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (sel) {
+        sel.innerHTML = '<option value="">Tutte</option>';
+        categorie.forEach(c => sel.appendChild(new Option(c.nome, c.id)));
+      }
+    });
+  } catch(e) { console.error('Errore categorie:', e); }
+}
+
+async function caricaMarche() {
+  try {
+    const data = await apiFetch('/anagrafiche/marche');
+    marche = data || [];
+    ['austriaMarca', 'italiaMarca', 'soggettiMarca'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (sel) {
+        sel.innerHTML = '<option value="">Tutte</option>';
+        marche.forEach(m => sel.appendChild(new Option(m.nome, m.id)));
+      }
+    });
+  } catch(e) { console.error('Errore marche:', e); }
 }
 
 async function caricaSoggettiVisibili() {
@@ -524,31 +568,17 @@ async function caricaSoggettiVisibili() {
     soggetti = data || [];
     const sel = document.getElementById('soggettoSelect');
     sel.innerHTML = '<option value="">Seleziona...</option>';
-    
-    let canSeeAll = false;
-    if (currentUser.ruolo === 'admin') canSeeAll = true;
-    else if (currentUser.ruolo === 'promoter') {
-      if (currentUser.riferimento_id) {
-        try {
-          const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
-          if (sog.livello === 1) canSeeAll = true;
-        } catch(e) {}
-      }
-    }
+    let canSeeAll = currentUser.ruolo === 'admin' ||
+      (currentUser.ruolo === 'promoter' && currentUser.riferimento_id && 
+       (await apiFetch('/soggetti/' + currentUser.riferimento_id)).livello === 1);
     if (canSeeAll) {
       const optAll = document.createElement('option');
       optAll.value = 'tutti';
       optAll.textContent = '👥 Tutti i soggetti';
       sel.appendChild(optAll);
     }
-
     soggetti.forEach(s => {
-      let nome;
-      if (s.tipo === 'PROMOTER') {
-        nome = ((s.nome || '') + ' ' + (s.cognome || '')).trim() || s.tipo + ' ' + s.id;
-      } else {
-        nome = s.nome || s.tipo + ' ' + s.id;
-      }
+      let nome = s.tipo === 'PROMOTER' ? ((s.nome || '') + ' ' + (s.cognome || '')).trim() || s.tipo + ' ' + s.id : s.nome || s.tipo + ' ' + s.id;
       sel.appendChild(new Option(nome + ' (' + s.tipo + ')', s.id));
     });
     if (currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
@@ -577,17 +607,18 @@ function switchTab(tab) {
 // REPORT AUSTRIA
 // ============================================================
 async function caricaAustria() {
-  const magazzino = document.getElementById('austriaMagazzino').value;
+  const params = new URLSearchParams();
+  if (document.getElementById('austriaMagazzino').value) params.append('magazzino', document.getElementById('austriaMagazzino').value);
+  if (document.getElementById('austriaSettore').value) params.append('settore', document.getElementById('austriaSettore').value);
+  if (document.getElementById('austriaCategoria').value) params.append('categoria', document.getElementById('austriaCategoria').value);
+  if (document.getElementById('austriaMarca').value) params.append('marca', document.getElementById('austriaMarca').value);
   const tbody = document.getElementById('austriaBody');
   tbody.innerHTML = '<tr><td colspan="7" class="text-center">⏳ Caricamento...</td></tr>';
   try {
-    const params = new URLSearchParams();
-    if (magazzino) params.append('magazzino', magazzino);
     const r = await apiFetch('/report/austria?' + params.toString());
     if (r.success) {
       austriaData = r.data || [];
-      sortAustria.col = 'descrizione';
-      sortAustria.asc = true;
+      sortAustria.col = 'descrizione'; sortAustria.asc = true;
       austriaData = sortData(austriaData, 'descrizione', true);
       renderAustria(austriaData);
       const arrow = document.querySelector('#austriaTable thead th[data-sort="descrizione"] .sort-arrow');
@@ -602,11 +633,8 @@ async function caricaAustria() {
 function renderAustria(data) {
   const tbody = document.getElementById('austriaBody');
   tbody.innerHTML = '';
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center">📭 Nessun dato</td></tr>';
-    return;
-  }
-  data.forEach((r, i) => {
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center">📭 Nessun dato</td></tr>'; return; }
+  data.forEach(r => {
     const row = tbody.insertRow();
     row.insertCell(0).innerText = r.codice || '-';
     row.insertCell(1).innerText = r.codice_modello || '-';
@@ -622,27 +650,23 @@ function renderAustria(data) {
 // REPORT ITALIA
 // ============================================================
 async function caricaItalia() {
-  const magazzino = document.getElementById('italiaMagazzino').value;
-  const tipo = document.getElementById('italiaTipo').value;
-  const raggruppa = document.getElementById('raggruppaCheck').checked;
-  const filtroCodice = document.getElementById('filtroCodice').value;
-  const filtroDescrizione = document.getElementById('filtroDescrizione').value;
-  const filtroLunghezza = document.getElementById('filtroLunghezza').value;
+  const params = new URLSearchParams();
+  if (document.getElementById('italiaMagazzino').value) params.append('magazzino', document.getElementById('italiaMagazzino').value);
+  if (document.getElementById('italiaSettore').value) params.append('settore', document.getElementById('italiaSettore').value);
+  if (document.getElementById('italiaCategoria').value) params.append('categoria', document.getElementById('italiaCategoria').value);
+  if (document.getElementById('italiaMarca').value) params.append('marca', document.getElementById('italiaMarca').value);
+  if (document.getElementById('italiaTipo').value) params.append('tipo', document.getElementById('italiaTipo').value);
+  if (document.getElementById('raggruppaCheck').checked) params.append('raggruppa', 'true');
+  if (document.getElementById('filtroCodice').value) params.append('filtro_codice', document.getElementById('filtroCodice').value);
+  if (document.getElementById('filtroDescrizione').value) params.append('filtro_descrizione', document.getElementById('filtroDescrizione').value);
+  if (document.getElementById('filtroLunghezza').value) params.append('filtro_lunghezza', document.getElementById('filtroLunghezza').value);
   const tbody = document.getElementById('italiaBody');
   tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>';
   try {
-    const params = new URLSearchParams();
-    if (magazzino) params.append('magazzino', magazzino);
-    if (tipo) params.append('tipo', tipo);
-    if (raggruppa) params.append('raggruppa', 'true');
-    if (filtroCodice) params.append('filtro_codice', filtroCodice);
-    if (filtroDescrizione) params.append('filtro_descrizione', filtroDescrizione);
-    if (filtroLunghezza) params.append('filtro_lunghezza', filtroLunghezza);
     const r = await apiFetch('/report/italia?' + params.toString());
     if (r.success) {
       italiaData = r.data || [];
-      sortItalia.col = 'descrizione';
-      sortItalia.asc = true;
+      sortItalia.col = 'descrizione'; sortItalia.asc = true;
       italiaData = sortData(italiaData, 'descrizione', true);
       renderItalia(italiaData);
       const arrow = document.querySelector('#italiaTable thead th[data-sort="descrizione"] .sort-arrow');
@@ -658,31 +682,21 @@ function renderItalia(data) {
   const tbody = document.getElementById('italiaBody');
   tbody.innerHTML = '';
   const raggruppa = document.getElementById('raggruppaCheck').checked;
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="12" class="text-center">📭 Nessun dato</td></tr>';
-    return;
-  }
-  // Calcola il numero progressivo globale (considerando la pagina)
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="12" class="text-center">📭 Nessun dato</td></tr>'; return; }
   const start = (paginaCorrente - 1) * righePerPagina;
   data.forEach((r, idx) => {
     const row = tbody.insertRow();
     const progressivo = start + idx + 1;
     row.insertCell(0).innerText = progressivo;
-    
     const tipo = r.tipo_oggetto || 'ARTICOLO';
     const badge = tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
     const stato = r.stato || 'In magazzino';
     const statoBadge = stato === 'In magazzino' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-
     row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
     row.insertCell(2).innerText = r.codice || '-';
     row.insertCell(3).innerText = r.descrizione || '-';
     row.insertCell(4).innerText = r.lunghezza || '-';
-    if (tipo === 'KIT') {
-      row.insertCell(5).innerText = r.sigla_sci || 'NA';
-    } else {
-      row.insertCell(5).innerText = raggruppa ? (r.sigle || '') : '';
-    }
+    row.insertCell(5).innerText = tipo === 'KIT' ? (r.sigla_sci || 'NA') : (raggruppa ? (r.sigle || '') : '');
     row.insertCell(6).innerText = r.nota || '';
     row.insertCell(7).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
     row.insertCell(8).innerText = r.destinatario || '-';
@@ -697,22 +711,20 @@ function renderItalia(data) {
 // ============================================================
 async function caricaSoggetti() {
   const soggettoId = document.getElementById('soggettoSelect').value;
-  if (!soggettoId) {
-    showMessage('Seleziona un soggetto', 'info');
-    return;
-  }
+  if (!soggettoId) { showMessage('Seleziona un soggetto', 'info'); return; }
   const mode = document.querySelector('input[name="soggettoMode"]:checked');
   const modeVal = mode ? mode.value : 'incarico';
+  const params = new URLSearchParams({ soggetto_id: soggettoId, modalita: modeVal });
+  if (document.getElementById('soggettiSettore').value) params.append('settore', document.getElementById('soggettiSettore').value);
+  if (document.getElementById('soggettiCategoria').value) params.append('categoria', document.getElementById('soggettiCategoria').value);
+  if (document.getElementById('soggettiMarca').value) params.append('marca', document.getElementById('soggettiMarca').value);
   const tbody = document.getElementById('soggettiBody');
   tbody.innerHTML = '<tr><td colspan="11" class="text-center">⏳ Caricamento...</td></tr>';
-
   try {
-    const params = new URLSearchParams({ soggetto_id: soggettoId, modalita: modeVal });
     const r = await apiFetch('/report/soggetti?' + params.toString());
     if (r.success) {
       soggettiData = r.data || [];
-      sortSoggetti.col = 'descrizione';
-      sortSoggetti.asc = true;
+      sortSoggetti.col = 'descrizione'; sortSoggetti.asc = true;
       soggettiData = sortData(soggettiData, 'descrizione', true);
       renderSoggetti(soggettiData);
       const arrow = document.querySelector('#soggettiTable thead th[data-sort="descrizione"] .sort-arrow');
@@ -727,20 +739,15 @@ async function caricaSoggetti() {
 function renderSoggetti(data) {
   const tbody = document.getElementById('soggettiBody');
   tbody.innerHTML = '';
-  if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun oggetto</td></tr>';
-    return;
-  }
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun oggetto</td></tr>'; return; }
   const start = (paginaCorrente - 1) * righePerPagina;
   data.forEach((r, idx) => {
     const row = tbody.insertRow();
     const progressivo = start + idx + 1;
     row.insertCell(0).innerText = progressivo;
-    
     const badge = r.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
     const stato = r.stato || 'In carico';
     const statoBadge = stato === 'In carico' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-    
     row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + r.tipo + '</span>';
     row.insertCell(2).innerText = r.codice_sigla || '-';
     row.insertCell(3).innerText = r.descrizione || '-';
@@ -755,20 +762,10 @@ function renderSoggetti(data) {
 }
 
 // ============================================================
-// PAGINAZIONE (per Italia e Soggetti)
-// ============================================================
-let paginaCorrente = 1;
-let righePerPagina = 25;
-
-// Queste variabili vengono usate nelle funzioni render per calcolare il progressivo
-// Le funzioni render sono già state aggiornate per usare paginaCorrente e righePerPagina
-
-// ============================================================
-// GENERAZIONE PDF (invariata)
+// PDF E CSV
 // ============================================================
 async function generaPDF(tab, anteprima = false) {
   let data, columns, title, filename;
-
   if (tab === 'austria') {
     data = austriaData;
     columns = [
@@ -818,110 +815,49 @@ async function generaPDF(tab, anteprima = false) {
     ];
     title = 'Report Soggetti - Assegnazioni';
     filename = 'report_soggetti.pdf';
-  } else {
-    showMessage('Report non valido', 'error');
-    return;
-  }
-
-  if (!data || !data.length) {
-    showMessage('Nessun dato da esportare', 'error');
-    return;
-  }
-
-  const dataWithIndex = data.map((r, i) => {
-    const row = { ...r, progressivo: i + 1 };
-    if (row.stato) row.stato = row.stato.replace(/[📦📤]/g, '').trim();
-    if (row.tipo_oggetto) row.tipo_oggetto = row.tipo_oggetto.replace(/[📦📤]/g, '').trim();
-    if (row.tipo) row.tipo = row.tipo.replace(/[📦📤]/g, '').trim();
-    if (row.tipo_oggetto === 'ARTICOLO' && row.sigle) {
-      row.sigla_sci = row.sigle;
-    } else if (row.tipo_oggetto === 'KIT' && row.sigla_sci) {
-      // ok
-    } else {
-      row.sigla_sci = row.sigla_sci || '';
-    }
-    return row;
-  });
-
+  } else { showMessage('Report non valido', 'error'); return; }
+  if (!data || !data.length) { showMessage('Nessun dato da esportare', 'error'); return; }
+  const dataWithIndex = data.map((r, i) => ({ ...r, progressivo: i + 1 }));
   const doc = new jspdf.jsPDF('landscape', 'pt', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-
   if (logoBase64) {
     try {
       const img = new Image();
       img.src = logoBase64;
-      let logoWidth = 80;
-      let logoHeight = (img.height / img.width) * logoWidth;
-      if (logoHeight > 50) {
-        logoHeight = 50;
-        logoWidth = (img.width / img.height) * logoHeight;
-      }
-      const xLogo = (pageWidth - logoWidth) / 2;
-      const yLogo = 15;
-      doc.addImage(logoBase64, 'PNG', xLogo, yLogo, logoWidth, logoHeight);
+      let logoWidth = 80, logoHeight = (img.height / img.width) * logoWidth;
+      if (logoHeight > 50) { logoHeight = 50; logoWidth = (img.width / img.height) * logoHeight; }
+      doc.addImage(logoBase64, 'PNG', (pageWidth - logoWidth) / 2, 15, logoWidth, logoHeight);
       doc.setFontSize(14);
-      doc.text(title, pageWidth / 2, yLogo + logoHeight + 12, { align: 'center' });
-    } catch (e) {
-      doc.setFontSize(14);
-      doc.text(title, pageWidth / 2, 30, { align: 'center' });
-    }
-  } else {
-    doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 30, { align: 'center' });
-  }
-
+      doc.text(title, pageWidth / 2, 15 + logoHeight + 12, { align: 'center' });
+    } catch (e) { doc.setFontSize(14); doc.text(title, pageWidth / 2, 30, { align: 'center' }); }
+  } else { doc.setFontSize(14); doc.text(title, pageWidth / 2, 30, { align: 'center' }); }
   doc.setFontSize(10);
   const infoY = logoBase64 ? 90 : 50;
   doc.text('Generato il ' + new Date().toLocaleString('it-IT'), pageWidth / 2, infoY, { align: 'center' });
   doc.text('Utente: ' + (currentUser.nome_visualizzato || currentUser.username), pageWidth / 2, infoY + 14, { align: 'center' });
-
   let startY = infoY + 30;
   if (logoBase64) startY = Math.max(startY, 110);
-
   doc.autoTable({
     columns: columns,
     body: dataWithIndex,
     startY: startY,
     styles: { fontSize: 8 },
     headStyles: { fillColor: [26, 115, 232] },
-    margin: { left: 20, right: 20 },
-    didParseCell: function(data) {
-      if (data.section === 'body' && data.column.dataKey === 'tipo_oggetto' && data.cell.raw) {
-        if (data.cell.raw === 'KIT') {
-          data.cell.styles.fillColor = [255, 243, 224];
-          data.cell.styles.textColor = [230, 81, 0];
-        } else if (data.cell.raw === 'ARTICOLO') {
-          data.cell.styles.fillColor = [227, 242, 253];
-          data.cell.styles.textColor = [13, 71, 161];
-        }
-      }
-    }
+    margin: { left: 20, right: 20 }
   });
-
   if (anteprima) {
     const pdfBlob = doc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 60000);
-  } else {
-    doc.save(filename);
-  }
+  } else { doc.save(filename); }
 }
 
-function esportaPDF(tab) {
-  generaPDF(tab, false);
-}
+function esportaPDF(tab) { generaPDF(tab, false); }
+function anteprimaPDF(tab) { generaPDF(tab, true); }
 
-function anteprimaPDF(tab) {
-  generaPDF(tab, true);
-}
-
-// ============================================================
-// ESPORTAZIONE CSV
-// ============================================================
 function esportaCSV(tab) {
   let data, columns, filename;
-
   if (tab === 'austria') {
     data = austriaData;
     columns = ['codice', 'codice_modello', 'descrizione', 'lunghezza', 'nota', 'quantita_totale', 'magazzino_nome'];
@@ -935,37 +871,16 @@ function esportaCSV(tab) {
     data = soggettiData;
     columns = ['tipo', 'codice_sigla', 'descrizione', 'lunghezza', 'sigla', 'nota', 'quantita', 'stato', 'destinatario', 'data'];
     filename = 'report_soggetti.csv';
-  } else {
-    showMessage('Report non valido', 'error');
-    return;
-  }
-
-  if (!data || !data.length) {
-    showMessage('Nessun dato da esportare', 'error');
-    return;
-  }
-
+  } else { showMessage('Report non valido', 'error'); return; }
+  if (!data || !data.length) { showMessage('Nessun dato da esportare', 'error'); return; }
   const headers = {
-    codice: 'Codice',
-    codice_modello: 'Codice Modello',
-    descrizione: 'Descrizione',
-    lunghezza: 'Lunghezza',
-    nota: 'Nota',
-    quantita_totale: 'Quantità Totale',
-    magazzino_nome: 'Magazzino',
-    tipo_oggetto: 'Tipo',
-    quantita: 'Quantità',
-    giacenza: 'Giacenza',
-    stato: 'Stato',
-    destinatario: 'Destinatario',
-    sigla_sci: 'Sigla (Kit)',
-    sigle: 'Sigle',
-    tipo: 'Tipo',
-    codice_sigla: 'Codice/Sigla',
-    sigla: 'Sigla',
-    data: 'Data'
+    codice: 'Codice', codice_modello: 'Codice Modello', descrizione: 'Descrizione',
+    lunghezza: 'Lunghezza', nota: 'Nota', quantita_totale: 'Quantità Totale',
+    magazzino_nome: 'Magazzino', tipo_oggetto: 'Tipo', quantita: 'Quantità',
+    giacenza: 'Giacenza', stato: 'Stato', destinatario: 'Destinatario',
+    sigla_sci: 'Sigla (Kit)', sigle: 'Sigle', tipo: 'Tipo',
+    codice_sigla: 'Codice/Sigla', sigla: 'Sigla', data: 'Data'
   };
-
   const cleanData = data.map(row => {
     const newRow = { ...row };
     if (newRow.stato) newRow.stato = newRow.stato.replace(/[📦📤]/g, '').trim();
@@ -973,19 +888,15 @@ function esportaCSV(tab) {
     if (newRow.tipo) newRow.tipo = newRow.tipo.replace(/[📦📤]/g, '').trim();
     return newRow;
   });
-
   const headerRow = columns.map(c => headers[c] || c).join(',');
-  const rows = cleanData.map(row => {
-    return columns.map(c => {
-      let val = row[c];
-      if (val === null || val === undefined) return '';
-      if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
-        return '"' + val.replace(/"/g, '""') + '"';
-      }
-      return val;
-    }).join(',');
-  });
-
+  const rows = cleanData.map(row => columns.map(c => {
+    let val = row[c];
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+      return '"' + val.replace(/"/g, '""') + '"';
+    }
+    return val;
+  }).join(','));
   const csv = [headerRow, ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -996,11 +907,6 @@ function esportaCSV(tab) {
 }
 
 // ============================================================
-// PAGINAZIONE (per Italia e Soggetti)
-// ============================================================
-// ... (se serve, ma le funzioni render già usano paginaCorrente)
-
-// ============================================================
 // INIT
 // ============================================================
 window.onload = async function() {
@@ -1009,58 +915,62 @@ window.onload = async function() {
     document.body.innerHTML = '<div class="container"><h2>⛔ Accesso negato</h2><a href="Login.html">Login</a></div>';
     return;
   }
-
   try {
     currentUser = JSON.parse(localStorage.getItem('user'));
     if (!currentUser.riferimento_id && currentUser.RiferimentoID) {
       currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
     }
-  } catch(e) {
-    logout();
-    return;
-  }
-
-  document.getElementById('loginInfo').innerHTML =
-    '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
-
+  } catch(e) { logout(); return; }
+  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
   logoBase64 = await loadLogoAsBase64();
-
   await caricaMagazzini();
+  await caricaCategorie();
+  await caricaMarche();
   await caricaSoggettiVisibili();
 
   if (currentUser.ruolo === 'admin') {
     caricaAustria();
     caricaItalia();
   } else {
-    if (currentUser.riferimento_id) {
-      caricaSoggetti();
-    }
+    if (currentUser.riferimento_id) caricaSoggetti();
   }
-
   attachSortListeners();
 
   document.getElementById('soggettoSelect').addEventListener('change', function() {
     if (this.value) caricaSoggetti();
     else {
-      document.getElementById('soggettiBody').innerHTML =
-        '<tr><td colspan="11" class="text-center">Seleziona un soggetto e carica</td></tr>';
+      document.getElementById('soggettiBody').innerHTML = '<tr><td colspan="11" class="text-center">Seleziona un soggetto e carica</td></tr>';
       soggettiData = [];
     }
   });
-
   document.querySelectorAll('input[name="soggettoMode"]').forEach(el => {
     el.addEventListener('change', function() {
       if (document.getElementById('soggettoSelect').value) caricaSoggetti();
     });
   });
 
-  document.getElementById('italiaTipo').addEventListener('change', caricaItalia);
-  document.getElementById('italiaMagazzino').addEventListener('change', caricaItalia);
-  document.getElementById('filtroCodice').addEventListener('input', caricaItalia);
-  document.getElementById('filtroDescrizione').addEventListener('input', caricaItalia);
-  document.getElementById('filtroLunghezza').addEventListener('input', caricaItalia);
+  // Event listeners per tutti i filtri
+  ['italiaTipo', 'italiaMagazzino', 'italiaSettore', 'italiaCategoria', 'italiaMarca'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', caricaItalia);
+  });
+  ['filtroCodice', 'filtroDescrizione', 'filtroLunghezza'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', caricaItalia);
+  });
   document.getElementById('raggruppaCheck').addEventListener('change', caricaItalia);
-  document.getElementById('austriaMagazzino').addEventListener('change', caricaAustria);
+
+  ['austriaMagazzino', 'austriaSettore', 'austriaCategoria', 'austriaMarca'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', caricaAustria);
+  });
+
+  ['soggettiSettore', 'soggettiCategoria', 'soggettiMarca'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', function() {
+      if (document.getElementById('soggettoSelect').value) caricaSoggetti();
+    });
+  });
 };
 </script>
 </body>
