@@ -465,16 +465,24 @@ async function caricaArticoli() {
   try {
     const params = new URLSearchParams();
     const f = getCurrentFilters();
+    console.log('🔍 FILTRI INViati:', f);   // <-- AGGIUNGI
+
     if (f.magazzino) params.append('magazzino', f.magazzino);
-    if (f.settore) params.append('settore', f.settore);   // <-- AGGIUNTO
+    if (f.settore) params.append('settore', f.settore);
     if (f.categoria) params.append('categoria', f.categoria);
     if (f.marca) params.append('marca', f.marca);
     if (f.descrizione) params.append('descrizione', f.descrizione);
-    // ⚠️ NON aggiungere min_giacenza per vedere tutti gli articoli
-    const res = await apiFetch('/articoli?' + params.toString());
+
+    const url = '/articoli?' + params.toString();
+    console.log('🔗 URL chiamata:', url); // <-- AGGIUNGI
+
+    const res = await apiFetch(url);
+    console.log('📦 RISPOSTA:', res); // <-- AGGIUNGI
+
     if (res.success) {
       articoliCorrente = res.data;
       articoliFiltrati = [...articoliCorrente];
+      console.log('✅ Articoli caricati:', articoliFiltrati.length); // <-- AGGIUNGI
       paginaCorrente = 1;
       ordinaArticoli();
       renderTabellaPaginata();
