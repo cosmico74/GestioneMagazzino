@@ -175,7 +175,6 @@
         <label>Magazzino</label>
         <select id="austriaMagazzino"><option value="">Tutti</option></select>
       </div>
-      <!-- 🔥 FILTRI AGGIUNTI -->
       <div class="filter-group">
         <label>Settore</label>
         <select id="austriaSettore">
@@ -223,7 +222,6 @@
         <label>Magazzino</label>
         <select id="italiaMagazzino"><option value="">Tutti</option></select>
       </div>
-      <!-- 🔥 FILTRI AGGIUNTI -->
       <div class="filter-group">
         <label>Settore</label>
         <select id="italiaSettore">
@@ -299,7 +297,6 @@
         <label>Soggetto</label>
         <select id="soggettoSelect"><option value="">Seleziona...</option></select>
       </div>
-      <!-- 🔥 FILTRI AGGIUNTI -->
       <div class="filter-group">
         <label>Settore</label>
         <select id="soggettiSettore">
@@ -548,10 +545,73 @@ async function caricaCategorie() {
   } catch(e) { console.error('Errore categorie:', e); }
 }
 
+// 🔥 Funzione per caricare marche in base alla categoria
+async function caricaMarchePerCategoria(categoriaId, selectMarca) {
+  if (!selectMarca) return;
+  if (!categoriaId) {
+    // Se categoria è vuota (Tutte), carica tutte le marche
+    const data = await apiFetch('/anagrafiche/marche');
+    selectMarca.innerHTML = '<option value="">Tutte</option>';
+    data.forEach(m => selectMarca.appendChild(new Option(m.nome, m.id)));
+    return;
+  }
+  try {
+    const data = await apiFetch('/anagrafiche/marche-per-categoria/' + categoriaId);
+    selectMarca.innerHTML = '<option value="">Tutte</option>';
+    if (data && data.length) {
+      data.forEach(m => selectMarca.appendChild(new Option(m.nome, m.id)));
+    } else {
+      // Se non ci sono marche associate, aggiungi un'opzione vuota
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'Nessuna marca associata';
+      opt.disabled = true;
+      selectMarca.appendChild(opt);
+    }
+  } catch(e) {
+    console.error('Errore caricamento marche per categoria:', e);
+    // Fallback: carica tutte le marche
+    const data = await apiFetch('/anagrafiche/marche');
+    selectMarca.innerHTML = '<option value="">Tutte</option>';
+    data.forEach(m => selectMarca.appendChild(new Option(m.nome, m.id)));
+  }
+}
+
+// Inizializza i listener per filtrare marche in base alla categoria
+function initMarcheFiltri() {
+  // Tab Austria
+  const catAustria = document.getElementById('austriaCategoria');
+  const marcaAustria = document.getElementById('austriaMarca');
+  if (catAustria && marcaAustria) {
+    catAustria.addEventListener('change', function() {
+      caricaMarchePerCategoria(this.value, marcaAustria);
+    });
+  }
+
+  // Tab Italia
+  const catItalia = document.getElementById('italiaCategoria');
+  const marcaItalia = document.getElementById('italiaMarca');
+  if (catItalia && marcaItalia) {
+    catItalia.addEventListener('change', function() {
+      caricaMarchePerCategoria(this.value, marcaItalia);
+    });
+  }
+
+  // Tab Soggetti
+  const catSoggetti = document.getElementById('soggettiCategoria');
+  const marcaSoggetti = document.getElementById('soggettiMarca');
+  if (catSoggetti && marcaSoggetti) {
+    catSoggetti.addEventListener('change', function() {
+      caricaMarchePerCategoria(this.value, marcaSoggetti);
+    });
+  }
+}
+
 async function caricaMarche() {
   try {
     const data = await apiFetch('/anagrafiche/marche');
     marche = data || [];
+    // Popola i select marche con tutte le marche di default
     ['austriaMarca', 'italiaMarca', 'soggettiMarca'].forEach(id => {
       const sel = document.getElementById(id);
       if (sel) {
@@ -927,6 +987,9 @@ window.onload = async function() {
   await caricaCategorie();
   await caricaMarche();
   await caricaSoggettiVisibili();
+
+  // Inizializza i listener per filtrare marche in base alla categoria
+  initMarcheFiltri();
 
   if (currentUser.ruolo === 'admin') {
     caricaAustria();
