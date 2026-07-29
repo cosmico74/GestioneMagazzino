@@ -177,6 +177,65 @@
       <label><input type="radio" name="source" id="sourceMagazzino" value="magazzino" checked> 🏭 Dal magazzino</label>
       <label><input type="radio" name="source" id="sourceSoggetto" value="soggetto"> 👤 Da soggetto</label>
     </div>
+    <div class="filter-bar">
+    <div class="radio-group" style="flex:1; gap:20px;">
+      <label><input type="radio" name="source" id="sourceMagazzino" value="magazzino" checked> 🏭 Dal magazzino</label>
+      <label><input type="radio" name="source" id="sourceSoggetto" value="soggetto"> 👤 Da soggetto</label>
+    </div>
+    <div id="soggettoSection" style="display:none; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+      <div class="filter-group" style="min-width:120px;">
+        <label>Tipo</label>
+        <select id="sourceTipo" onchange="caricaSoggetti()">
+          <option value="PROMOTER">Promoter</option>
+          <option value="NEGOZIO">Negozio</option>
+          <option value="CLIENTE">Cliente</option>
+          <option value="AGENTE">Agente</option>
+        </select>
+      </div>
+      <div class="filter-group" style="min-width:150px;">
+        <label>Soggetto</label>
+        <select id="sourceId" onchange="caricaOggetti()">
+          <option value="">Seleziona...</option>
+        </select>
+      </div>
+    </div>
+    <!-- 🔥 AGGIUNTO FILTRO SETTORE -->
+    <div class="filter-group" style="min-width:100px;">
+      <label>Settore</label>
+      <select id="filtroSettore" onchange="caricaOggetti()">
+        <option value="">Tutti</option>
+        <option value="1" selected>Alpino</option>
+        <option value="2">Nordico</option>
+        <option value="3">Freeride</option>
+      </select>
+    </div>
+    <div class="filter-group" style="min-width:120px;">
+      <label>Magazzino</label>
+      <select id="filtroMagazzino" onchange="caricaOggetti()">
+        <option value="">Tutti</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Tipo oggetto</label>
+      <select id="filtroTipo" onchange="caricaOggetti()">
+        <option value="TUTTI">Tutti</option>
+        <option value="ARTICOLO">Articoli</option>
+        <option value="KIT">Kit</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Descrizione</label>
+      <input type="text" id="filtroDescrizione" placeholder="Cerca..." oninput="caricaOggetti()">
+    </div>
+    <div class="filter-group">
+      <label>Sigla</label>
+      <input type="text" id="filtroSigla" placeholder="Sigla..." oninput="caricaOggetti()">
+    </div>
+    <div class="btn-group" style="display:flex; gap:6px; align-items:flex-end;">
+      <button class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
+      <button class="btn btn-warning" onclick="apriModalStorico()">📜 Storico</button>
+    </div>
+  </div>
     <div id="soggettoSection" style="display:none; gap:10px; flex-wrap:wrap; align-items:flex-end;">
       <div class="filter-group" style="min-width:120px;">
         <label>Tipo</label>

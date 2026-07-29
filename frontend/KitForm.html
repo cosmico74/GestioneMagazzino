@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>📦 Gestione Kit</title>
+  <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
@@ -51,56 +51,11 @@
     .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
     .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; }
     .readonly-info { background: #f8f9fa; padding: 8px 10px; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem; }
-    .assegnazione-tooltip {
-      cursor: help;
-      border-bottom: 1px dashed #1a73e8;
-      position: relative;
-    }
-    .assegnazione-tooltip:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: 100%;
-      left: 0;
-      background: #1e2a3a;
-      color: white;
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      white-space: nowrap;
-      z-index: 1000;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .kit-riepilogo {
-      background: #f8f9fa;
-      border-radius: 6px;
-      padding: 8px 12px;
-      margin-bottom: 10px;
-      font-size: 0.85rem;
-      border-left: 3px solid #1a73e8;
-    }
-    .badge-kit-count {
-      display: inline-block;
-      background: #17a2b8;
-      color: white;
-      border-radius: 12px;
-      padding: 1px 8px;
-      font-size: 0.65rem;
-      margin-left: 4px;
-    }
-    .btn-dettaglio-gruppo {
-      background: #17a2b8;
-      color: white;
-    }
-    .btn-dettaglio-gruppo:hover {
-      background: #138496;
-    }
-    .group-quantity-input {
-      width: 100px;
-      padding: 4px 6px;
-      border: 1px solid #cbd5e0;
-      border-radius: 4px;
-      font-size: 0.8rem;
-    }
+    .assegnazione-tooltip { cursor: help; border-bottom: 1px dashed #1a73e8; position: relative; }
+    .assegnazione-tooltip:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 0; background: #1e2a3a; color: white; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; white-space: nowrap; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .kit-riepilogo { background: #f8f9fa; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.85rem; border-left: 3px solid #1a73e8; }
+    .badge-kit-count { display: inline-block; background: #17a2b8; color: white; border-radius: 12px; padding: 1px 8px; font-size: 0.65rem; margin-left: 4px; }
+    .group-quantity-input { width: 100px; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.8rem; }
   </style>
 </head>
 <body>
@@ -122,12 +77,21 @@
   <h2>📦 Gestione Kit</h2>
   <div id="messageArea"></div>
 
-  <!-- FILTRI -->
+  <!-- FILTRI con settore -->
   <div class="form-row">
     <div class="form-group" style="flex:0.5;">
       <label>Magazzino</label>
       <select id="filtroMagazzino" onchange="caricaKit()">
         <option value="">Tutti</option>
+      </select>
+    </div>
+    <div class="form-group" style="flex:0.5;">
+      <label>Settore</label>
+      <select id="filtroSettore" onchange="caricaKit()">
+        <option value="">Tutti</option>
+        <option value="1" selected>Alpino</option>
+        <option value="2">Nordico</option>
+        <option value="3">Freeride</option>
       </select>
     </div>
     <div class="form-group" style="flex:1;">
@@ -139,7 +103,7 @@
     </div>
   </div>
 
-  <!-- FORM NUOVO KIT -->
+  <!-- FORM NUOVO KIT con settore -->
   <div style="background:#f8f9fa; border-radius:10px; padding:15px; margin-bottom:20px;">
     <h3 id="formTitle">Nuovo Kit</h3>
     <form id="kitForm" onsubmit="return false;">
@@ -147,6 +111,14 @@
         <div class="form-group">
           <label>Magazzino *</label>
           <select id="kitMagazzino" required></select>
+        </div>
+        <div class="form-group">
+          <label>Settore *</label>
+          <select id="kitSettore" required>
+            <option value="1">Alpino</option>
+            <option value="2">Nordico</option>
+            <option value="3">Freeride</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Sci *</label>
@@ -184,7 +156,7 @@
     </form>
   </div>
 
-  <!-- LISTA KIT CON RAGGRUPPAMENTO -->
+  <!-- LISTA KIT -->
   <div class="table-wrapper">
     <table id="tabellaKit">
       <thead>
@@ -196,6 +168,7 @@
           <th>Attacco</th>
           <th>Lunghezza</th>
           <th>Skistopper</th>
+          <th>Settore</th>
           <th>Magazzino</th>
           <th>Quantità</th>
           <th>Assegnato a</th>
@@ -220,6 +193,10 @@
       <div class="form-group">
         <label>Magazzino</label>
         <div id="editGroupMagazzino" class="readonly-info"></div>
+      </div>
+      <div class="form-group">
+        <label>Settore</label>
+        <div id="editGroupSettore" class="readonly-info"></div>
       </div>
       <div class="form-group">
         <label>Sci</label>

@@ -48,7 +48,7 @@ router.post('/', verifyToken, async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO utenti (username, password_hash, ruolo, riferimento_id, nome_visualizzato, email)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [username, hashed, ruolo, riferimentoId || null, nomeVisualizzato || null, email || null]
+      [username, hashed, ruolo || 'promoter', riferimentoId || null, nomeVisualizzato || null, email || null]
     );
     res.json({ success: true, message: 'Utente creato', id: result.insertId });
   } catch (err) {
@@ -73,7 +73,7 @@ router.put('/:id', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username già in uso da un altro utente' });
     }
     let sql = 'UPDATE utenti SET username = ?, ruolo = ?, riferimento_id = ?, nome_visualizzato = ?, email = ?';
-    const params = [username, ruolo, riferimentoId || null, nomeVisualizzato || null, email || null];
+    const params = [username, ruolo || 'promoter', riferimentoId || null, nomeVisualizzato || null, email || null];
     if (password) {
       const hashed = await bcrypt.hash(password, 10);
       sql += ', password_hash = ?';

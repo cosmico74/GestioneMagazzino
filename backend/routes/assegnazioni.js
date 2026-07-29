@@ -484,9 +484,12 @@ router.post('/dividi', verifyToken, async (req, res) => {
 // ============================================================
 // OTTIENI OGGETTI IN CARICO
 // ============================================================
+// ============================================================
+// POST /api/assegnazioni/oggetti - con filtro settore
+// ============================================================
 router.post('/oggetti', verifyToken, async (req, res) => {
   try {
-    const { targetTipo, targetId, magazzino, includeReferenced } = req.body;
+    const { targetTipo, targetId, magazzino, includeReferenced, settore } = req.body;
     if (!targetTipo || !targetId) {
       return res.status(400).json({ success: false, message: 'Parametri mancanti' });
     }
@@ -517,12 +520,28 @@ router.post('/oggetti', verifyToken, async (req, res) => {
         WHERE cs.destinazione_tipo = ? AND cs.destinazione_id = ? AND cs.quantita > 0
       `;
       const params = [tipo, id];
+
+      // 🔥 Filtro settore
+      if (settore) {
+        sql += ' AND (a.settore = ? OR k.settore = ?)';
+        params.push(settore, settore);
+      }
+
       if (magazzino) {
         sql += ' AND (a.magazzino = ? OR k.magazzino = ?)';
         params.push(magazzino, magazzino);
       }
+
       const [rows] = await connection.query(sql, params);
       const risultati = [];
+      // ... resto del codice invariato ...
+    };
+    // ... resto della funzione ...
+  } catch (err) {
+    console.error('Errore /oggetti:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
       for (const row of rows) {
         let sigleDisponibili = [];

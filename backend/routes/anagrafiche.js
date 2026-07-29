@@ -5,7 +5,7 @@ const { verifyToken } = require('../auth');
 const router = express.Router();
 
 // ============================================================
-// GET /api/anagrafiche/magazzini – filtrati per soggetto
+// GET /api/anagrafiche/magazzini
 // ============================================================
 router.get('/magazzini', verifyToken, async (req, res) => {
   try {
@@ -64,7 +64,7 @@ router.get('/marche', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// GET /api/anagrafiche/menu – con filtro per utente admin
+// GET /api/anagrafiche/menu
 // ============================================================
 router.get('/menu', verifyToken, async (req, res) => {
   try {
@@ -94,15 +94,11 @@ router.get('/menu', verifyToken, async (req, res) => {
       if (!item.ruoli) return false;
       const ruoliAmmessi = item.ruoli.split(',').map(r => r.trim());
 
-      // Se la voce ha SOLO il ruolo 'admin' (es. Audit Log), è visibile solo all'utente con username 'admin'
       if (ruoliAmmessi.length === 1 && ruoliAmmessi[0] === 'admin') {
         return req.username === 'admin';
       }
 
-      // Se la voce non include il ruolo dell'utente, salta
       if (!ruoliAmmessi.includes(ruolo)) return false;
-
-      // Controllo livelli per promoter
       if (ruolo === 'promoter' && item.livelli && item.livelli.trim() !== '') {
         const livelliAmmessi = item.livelli.split(',').map(l => parseInt(l.trim(), 10));
         if (livello === null || !livelliAmmessi.includes(livello)) {
@@ -277,6 +273,26 @@ router.delete('/settori/:id', verifyToken, async (req, res) => {
     res.json({ success: true, message: 'Settore eliminato' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/anagrafiche/marche-per-categoria/:categoriaId
+// ============================================================
+router.get('/marche-per-categoria/:categoriaId', verifyToken, async (req, res) => {
+  try {
+    const { categoriaId } = req.params;
+    const [rows] = await pool.query(`
+      SELECT m.marca_id AS id, m.nome
+      FROM marche m
+      INNER JOIN categorie_marche cm ON m.marca_id = cm.marca_id
+      WHERE cm.categoria_id = ?
+      ORDER BY m.nome
+    `, [categoriaId]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore marche per categoria:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

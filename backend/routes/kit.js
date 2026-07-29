@@ -83,11 +83,11 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 }
 
 // ============================================================
-// GET /api/kit - Elenco kit con nome magazzino e assegnazioni
+// GET /api/kit - Elenco kit con filtro settore
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const [kits] = await db.query(`
+    let sql = `
       SELECT k.*,
         m.nome AS magazzino_nome,
         (SELECT a.lunghezza FROM kit_dettaglio kd
@@ -100,7 +100,6 @@ router.get('/', verifyToken, async (req, res) => {
          LIMIT 1) AS sigla_sci,
         u1.username AS creato_da_username,
         u2.username AS modificato_da_username,
-        -- Catena di assegnazioni (tutti i nomi in ordine cronologico)
         (SELECT GROUP_CONCAT(
            CONCAT(
              COALESCE(sog.nome, ''),
@@ -110,7 +109,6 @@ router.get('/', verifyToken, async (req, res) => {
          LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
          WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
         ) AS catena_assegnazioni,
-        -- Ultimo destinatario (nome)
         (SELECT CONCAT(
            COALESCE(sog.nome, ''),
            IF(sog.cognome IS NOT NULL AND sog.cognome != '', CONCAT(' ', sog.cognome), '')
@@ -120,7 +118,6 @@ router.get('/', verifyToken, async (req, res) => {
          ORDER BY cs.data_assegnazione DESC
          LIMIT 1
         ) AS ultimo_destinatario_nome,
-        -- Tipo dell'ultimo destinatario
         (SELECT cs.destinazione_tipo FROM carico_sintesi cs
          WHERE cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id AND cs.quantita > 0
          ORDER BY cs.data_assegnazione DESC
@@ -135,11 +132,32 @@ router.get('/', verifyToken, async (req, res) => {
       LEFT JOIN magazzini m ON k.magazzino = m.magazzino_id
       LEFT JOIN utenti u1 ON k.creato_da = u1.id
       LEFT JOIN utenti u2 ON k.modificato_da = u2.id
-      ORDER BY k.id DESC
-    `);
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (req.query.magazzino) {
+      sql += ' AND k.magazzino = ?';
+      params.push(req.query.magazzino);
+    }
+
+    // 🔥 Filtro settore
+    if (req.query.settore) {
+      sql += ' AND k.settore = ?';
+      params.push(req.query.settore);
+    }
+
+    if (req.query.search) {
+      sql += ' AND (k.codice_kit LIKE ? OR k.descrizione LIKE ? OR k.sigla_sci LIKE ?)';
+      const search = '%' + req.query.search + '%';
+      params.push(search, search, search);
+    }
+
+    sql += ' ORDER BY k.id DESC';
+
+    const [kits] = await pool.query(sql, params);
 
     const risultato = kits.map(k => {
-      // Se il kit ha un ultimo destinatario, usa il suo nome, altrimenti usa il nome del magazzino
       const ultimoDestinatario = (k.ultimo_destinatario_nome && k.ultimo_destinatario_nome.trim() !== '')
         ? k.ultimo_destinatario_nome.trim()
         : (k.magazzino_nome || 'Magazzino ' + k.magazzino);
@@ -152,7 +170,8 @@ router.get('/', verifyToken, async (req, res) => {
         ultimo_destinatario: ultimoDestinatario,
         ultimo_destinatario_tipo: k.ultimo_destinatario_tipo,
         ultimo_destinatario_id: k.ultimo_destinatario_id,
-        magazzino_nome: k.magazzino_nome || 'Magazzino ' + k.magazzino
+        magazzino_nome: k.magazzino_nome || 'Magazzino ' + k.magazzino,
+        settore: k.settore || 1
       };
     });
 
@@ -210,7 +229,8 @@ router.get('/:id', verifyToken, async (req, res) => {
       ...kit[0], 
       dettagli,
       lunghezza_sci,
-      sigla_sci
+      sigla_sci,
+      settore: kit[0].settore || 1
     });
   } catch (err) {
     console.error('❌ Errore GET /kit/:id:', err);
@@ -219,10 +239,10 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/kit
+// POST /api/kit - Creazione kit con settore
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
-  const { magazzino, sci_id, note, righe } = req.body;
+  const { magazzino, sci_id, note, righe, settore } = req.body;
   if (!magazzino || !sci_id || !righe || !righe.length) {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
   }
@@ -239,12 +259,10 @@ router.post('/', verifyToken, async (req, res) => {
     if (!sci.length) throw new Error('Sci non trovato');
 
     const giacenzaSci = await getGiacenzaArticolo(connection, sci_id);
-
     let quantitaTotaleRichiesta = 0;
     for (const riga of righe) {
       quantitaTotaleRichiesta += riga.quantita;
     }
-
     if (quantitaTotaleRichiesta > giacenzaSci) {
       await connection.rollback();
       return res.status(400).json({
@@ -286,9 +304,9 @@ router.post('/', verifyToken, async (req, res) => {
 
     const now = db.now();
     const [kitRes] = await connection.query(
-      `INSERT INTO kit (codice_kit, descrizione, quantita, magazzino, note, data_creazione, data_modifica, creato_da, modificato_da)
-       VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)`,
-      [codiceKit, descKit, magazzino, note || null, now, now, req.userId, req.userId]
+      `INSERT INTO kit (codice_kit, descrizione, quantita, magazzino, settore, note, data_creazione, data_modifica, creato_da, modificato_da)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [codiceKit, descKit, 0, magazzino, settore || 1, note || null, now, now, req.userId, req.userId]
     );
     const kitId = kitRes.insertId;
 
@@ -341,7 +359,7 @@ router.post('/', verifyToken, async (req, res) => {
 // POST /api/kit/da-carico
 // ============================================================
 router.post('/da-carico', verifyToken, async (req, res) => {
-  const { soggettoTipo, soggettoId, oggetti, destinazioneTipo, destinazioneId, magazzinoId, note } = req.body;
+  const { soggettoTipo, soggettoId, oggetti, destinazioneTipo, destinazioneId, magazzinoId, note, settore } = req.body;
   if (!soggettoTipo || !soggettoId || !oggetti || !oggetti.length) {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
   }
@@ -452,9 +470,9 @@ router.post('/da-carico', verifyToken, async (req, res) => {
 
     const now = db.now();
     const [kitRes] = await connection.query(
-      `INSERT INTO kit (codice_kit, descrizione, quantita, magazzino, note, data_creazione, data_modifica, creato_da, modificato_da)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [codiceKit, descKit, qta, magazzinoId, note || null, now, now, req.userId, req.userId]
+      `INSERT INTO kit (codice_kit, descrizione, quantita, magazzino, settore, note, data_creazione, data_modifica, creato_da, modificato_da)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [codiceKit, descKit, qta, magazzinoId, settore || 1, note || null, now, now, req.userId, req.userId]
     );
     const kitId = kitRes.insertId;
 
@@ -529,11 +547,11 @@ async function getUserLevel(userId) {
 }
 
 // ============================================================
-// PUT /api/kit/:id
+// PUT /api/kit/:id - Modifica kit con settore
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
-  const { magazzino, sci_id, note, righe } = req.body;
+  const { magazzino, sci_id, note, righe, settore } = req.body;
   if (!magazzino || !sci_id || !righe || !righe.length) {
     return res.status(400).json({ success: false, message: 'Dati incompleti' });
   }
@@ -639,8 +657,8 @@ router.put('/:id', verifyToken, async (req, res) => {
 
     const now = db.now();
     await connection.query(
-      `UPDATE kit SET magazzino = ?, note = ?, quantita = ?, descrizione = ?, data_modifica = NOW(), modificato_da = ? WHERE id = ?`,
-      [magazzino, note || null, quantitaTotaleKit, descKit, req.userId, id]
+      `UPDATE kit SET magazzino = ?, settore = ?, note = ?, quantita = ?, descrizione = ?, data_modifica = NOW(), modificato_da = ? WHERE id = ?`,
+      [magazzino, settore || 1, note || null, quantitaTotaleKit, descKit, req.userId, id]
     );
 
     const [newRow] = await connection.query('SELECT * FROM kit WHERE id = ?', [id]);
@@ -714,7 +732,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/kit/batch-quantita - Modifica quantità di più kit (con controlli)
+// PATCH /api/kit/batch-quantita
 // ============================================================
 router.patch('/batch-quantita', verifyToken, async (req, res) => {
   const { ids, quantita } = req.body;
@@ -729,7 +747,6 @@ router.patch('/batch-quantita', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // Recupera i kit e le loro quantità attuali
     const placeholders = ids.map(() => '?').join(',');
     const [kits] = await connection.query(
       `SELECT id, quantita FROM kit WHERE id IN (${placeholders})`,
@@ -740,16 +757,12 @@ router.patch('/batch-quantita', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Uno o più kit non trovati' });
     }
 
-    // Calcola la quantità attuale totale e la differenza
     let quantitaAttualeTotale = 0;
     kits.forEach(k => quantitaAttualeTotale += k.quantita);
     const differenza = quantita - quantitaAttualeTotale;
 
-    // Se stiamo aumentando, verifica le giacenze
     if (differenza > 0) {
-      // Per ogni kit, verifica che i componenti abbiano abbastanza giacenza
       for (const id of ids) {
-        // Recupera i dettagli del kit (sci, attacco, skistopper)
         const [dettagli] = await connection.query(
           `SELECT d.*, a.quantita_totale, a.quantita_in_kit, a.quantita_obsoleta,
            (SELECT COALESCE(SUM(quantita), 0) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = d.articolo_id) AS assegnato
@@ -758,12 +771,8 @@ router.patch('/batch-quantita', verifyToken, async (req, res) => {
            WHERE d.kit_id = ?`,
           [id]
         );
-
         for (const det of dettagli) {
-          // Calcola la giacenza reale dell'articolo
           const giacenza = det.quantita_totale - det.quantita_in_kit - det.quantita_obsoleta - det.assegnato;
-          // Per ogni kit, la quantità di ogni componente è det.quantita
-          // Se il kit ha quantità X, e vogliamo aumentare di differenza, per ogni componente servono differenza unità
           if (giacenza < differenza) {
             await connection.rollback();
             const [art] = await connection.query('SELECT descrizione FROM articoli WHERE articolo_id = ?', [det.articolo_id]);
@@ -776,10 +785,7 @@ router.patch('/batch-quantita', verifyToken, async (req, res) => {
       }
     }
 
-    // Se stiamo riducendo (differenza < 0), non facciamo controlli, basta rilasciare le quantità
-    // Aggiorna tutti i kit del gruppo con la nuova quantità
     for (const id of ids) {
-      // Prima, rimuovi le quantità in kit per i componenti attuali
       const [dettagli] = await connection.query(
         'SELECT articolo_id, quantita FROM kit_dettaglio WHERE kit_id = ?',
         [id]
@@ -787,17 +793,12 @@ router.patch('/batch-quantita', verifyToken, async (req, res) => {
       for (const det of dettagli) {
         await rimuoviDaKit(connection, det.articolo_id, det.quantita);
       }
-
-      // Aggiorna la quantità del kit
       await connection.query('UPDATE kit SET quantita = ? WHERE id = ?', [quantita, id]);
-
-      // Riadatta le quantità in kit per i componenti con la nuova quantità
       for (const det of dettagli) {
         await aggiungiInKit(connection, det.articolo_id, quantita);
       }
     }
 
-    // Audit per ogni kit modificato
     for (const id of ids) {
       const [newKit] = await connection.query('SELECT * FROM kit WHERE id = ?', [id]);
       await registraAudit(connection, 'kit', 'MODIFICA_BATCH', id, null, newKit[0], req.userId);
@@ -815,7 +816,7 @@ router.patch('/batch-quantita', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/kit/:id/rientro - Rientro forzato (elimina riga in carico_sintesi)
+// POST /api/kit/:id/rientro
 // ============================================================
 router.post('/:id/rientro', verifyToken, async (req, res) => {
   const kitId = req.params.id;
@@ -823,14 +824,12 @@ router.post('/:id/rientro', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // 1. Verifica che il kit esista
     const [kit] = await connection.query('SELECT * FROM kit WHERE id = ?', [kitId]);
     if (!kit.length) {
       await connection.rollback();
       return res.status(404).json({ success: false, message: 'Kit non trovato' });
     }
 
-    // 2. Elimina tutte le righe in carico_sintesi per questo kit (tranne quelle con destinazione MAGAZZINO)
     const [result] = await connection.query(
       `DELETE FROM carico_sintesi 
        WHERE tipo_oggetto = 'KIT' AND oggetto_id = ? AND destinazione_tipo != 'MAGAZZINO'`,
@@ -842,7 +841,6 @@ router.post('/:id/rientro', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Nessuna riga in carico_sintesi trovata per questo kit (escluso MAGAZZINO)' });
     }
 
-    // 3. Registra un movimento di rientro
     const [user] = await connection.query('SELECT username FROM utenti WHERE id = ?', [req.userId]);
     const operatore = user.length ? user[0].username : 'sconosciuto';
     await connection.query(
