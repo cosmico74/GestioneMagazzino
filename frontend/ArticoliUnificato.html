@@ -127,7 +127,7 @@
   <div class="header-bar"><h2>📦 Gestione Articoli</h2></div>
   <div id="messageArea"></div>
 
-  <!-- FILTRI UNIFICATI -->
+  <!-- FILTRI UNIFICATI (NON DUPLICATI) -->
   <div class="filter-row">
     <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
     <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
@@ -137,7 +137,7 @@
     <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
   </div>
 
-  <!-- FORM INSERIMENTO -->
+  <!-- FORM INSERIMENTO (NON INFLUENZA I FILTRI) -->
   <form id="articleForm" onsubmit="return false;">
     <div class="form-row-5col">
       <div class="form-group"><label>Magazzino *</label><select id="magazzino" required></select></div>
@@ -387,7 +387,7 @@ async function caricaAnagrafiche() {
       apiFetch('/anagrafiche/marche')
     ]);
 
-    // Filtri
+    // ========== FILTRI (barra superiore) ==========
     const filtroMag = document.getElementById('filtroMagazzino');
     const filtroCat = document.getElementById('filtroCategoria');
     const filtroMar = document.getElementById('filtroMarca');
@@ -395,12 +395,7 @@ async function caricaAnagrafiche() {
     popolaSelect(filtroCat, categorie, 'id', 'nome');
     popolaSelect(filtroMar, marche, 'id', 'nome');
 
-    // Form
-    popolaSelect(document.getElementById('magazzino'), magazzini, 'id', 'nome');
-    popolaSelect(document.getElementById('categoria'), categorie, 'id', 'nome');
-    popolaSelect(document.getElementById('marca'), marche, 'id', 'nome');
-
-    // Default filtri
+    // Default filtri: Race, Alpino, Sci, Kästle (se esistono)
     const defaultMag = magazzini.find(m => m.nome.toLowerCase() === 'race');
     if (defaultMag) filtroMag.value = defaultMag.id;
     const defaultCat = categorie.find(c => c.nome.toLowerCase() === 'sci');
@@ -408,7 +403,12 @@ async function caricaAnagrafiche() {
     const defaultMar = marche.find(m => m.nome.toLowerCase() === 'kästle' || m.nome.toLowerCase() === 'kastle');
     if (defaultMar) filtroMar.value = defaultMar.id;
 
-    // Default form
+    // ========== FORM INSERIMENTO ==========
+    popolaSelect(document.getElementById('magazzino'), magazzini, 'id', 'nome');
+    popolaSelect(document.getElementById('categoria'), categorie, 'id', 'nome');
+    popolaSelect(document.getElementById('marca'), marche, 'id', 'nome');
+
+    // Default form: Race, Sci, Kästle
     const defMagForm = magazzini.find(m => m.nome.toLowerCase() === 'race');
     if (defMagForm) document.getElementById('magazzino').value = defMagForm.id;
     const defCatForm = categorie.find(c => c.nome.toLowerCase() === 'sci');
@@ -416,40 +416,27 @@ async function caricaAnagrafiche() {
     const defMarForm = marche.find(m => m.nome.toLowerCase() === 'kästle' || m.nome.toLowerCase() === 'kastle');
     if (defMarForm) document.getElementById('marca').value = defMarForm.id;
 
-    // Listener per cambio settore nel form (filtra categorie e marche)
-    document.getElementById('settore').addEventListener('change', async function() {
-      const settoreId = this.value;
-      const categoriaSelect = document.getElementById('categoria');
-      const marcaSelect = document.getElementById('marca');
-      if (settoreId) {
-        try {
-          const catRes = await apiFetch('/articoli/valori/categorie?settore=' + settoreId);
-          popolaSelect(categoriaSelect, catRes.map(item => ({ id: item.categoria, nome: item.categoria })), 'id', 'nome');
-        } catch(e) { console.warn('Errore categorie filtrate', e); }
-        const catId = categoriaSelect.value;
-        if (catId) {
-          try {
-            const marRes = await apiFetch('/anagrafiche/marche-per-categoria/' + catId + '?settore=' + settoreId);
-            popolaSelect(marcaSelect, marRes, 'id', 'nome');
-          } catch(e) { console.warn('Errore marche filtrate', e); }
-        }
-      } else {
-        // Reset a tutte le categorie e marche
-        popolaSelect(categoriaSelect, categorie, 'id', 'nome');
-        popolaSelect(marcaSelect, marche, 'id', 'nome');
-      }
-    });
-
-    // Listener per cambio categoria nel form (filtra marche)
+    // ========== LISTENER PER FILTRAGGIO MARCHE PER CATEGORIA (solo nel form) ==========
     document.getElementById('categoria').addEventListener('change', async function() {
       const categoriaId = this.value;
       const marcaSelect = document.getElementById('marca');
-      const settoreId = document.getElementById('settore').value;
       if (categoriaId) {
-        let url = '/anagrafiche/marche-per-categoria/' + categoriaId;
-        if (settoreId) url += '?settore=' + settoreId;
         try {
-          const marcheFiltrate = await apiFetch(url);
+          const marcheFiltrate = await apiFetch('/anagrafiche/marche-per-categoria/' + categoriaId);
+          popolaSelect(marcaSelect, marcheFiltrate, 'id', 'nome');
+        } catch(e) {
+          popolaSelect(marcaSelect, marche, 'id', 'nome');
+        }
+      } else {
+        popolaSelect(marcaSelect, marche, 'id', 'nome');
+      }
+    });
+    document.getElementById('editCategoria').addEventListener('change', async function() {
+      const categoriaId = this.value;
+      const marcaSelect = document.getElementById('editMarca');
+      if (categoriaId) {
+        try {
+          const marcheFiltrate = await apiFetch('/anagrafiche/marche-per-categoria/' + categoriaId);
           popolaSelect(marcaSelect, marcheFiltrate, 'id', 'nome');
         } catch(e) {
           popolaSelect(marcaSelect, marche, 'id', 'nome');
@@ -459,45 +446,10 @@ async function caricaAnagrafiche() {
       }
     });
 
-    // Stessi listener per il modale di modifica
-    document.getElementById('editSettore').addEventListener('change', async function() {
-      const settoreId = this.value;
-      const catSel = document.getElementById('editCategoria');
-      const marSel = document.getElementById('editMarca');
-      if (settoreId) {
-        try {
-          const catRes = await apiFetch('/articoli/valori/categorie?settore=' + settoreId);
-          popolaSelect(catSel, catRes.map(item => ({ id: item.categoria, nome: item.categoria })), 'id', 'nome');
-        } catch(e) { console.warn(e); }
-        const catId = catSel.value;
-        if (catId) {
-          try {
-            const marRes = await apiFetch('/anagrafiche/marche-per-categoria/' + catId + '?settore=' + settoreId);
-            popolaSelect(marSel, marRes, 'id', 'nome');
-          } catch(e) { console.warn(e); }
-        }
-      } else {
-        popolaSelect(catSel, categorie, 'id', 'nome');
-        popolaSelect(marSel, marche, 'id', 'nome');
-      }
-    });
-    document.getElementById('editCategoria').addEventListener('change', async function() {
-      const categoriaId = this.value;
-      const marSel = document.getElementById('editMarca');
-      const settoreId = document.getElementById('editSettore').value;
-      if (categoriaId) {
-        let url = '/anagrafiche/marche-per-categoria/' + categoriaId;
-        if (settoreId) url += '?settore=' + settoreId;
-        try {
-          const marcheFiltrate = await apiFetch(url);
-          popolaSelect(marSel, marcheFiltrate, 'id', 'nome');
-        } catch(e) {
-          popolaSelect(marSel, marche, 'id', 'nome');
-        }
-      } else {
-        popolaSelect(marSel, marche, 'id', 'nome');
-      }
-    });
+    // ========== LISTENER PER CARICARE DATALIST ==========
+    // I campi del form 'descrizione', 'codice_modello', 'lunghezza', 'durezza' non devono ricaricare la tabella,
+    // ma solo aggiornare le datalist. Per ora rimangono come prima.
+    // I campi di filtro 'filtroDescrizione' già attivano caricaArticoli().
 
     await refreshAllDatalists();
     await caricaArticoli();
@@ -510,6 +462,8 @@ const endpointMap = {
   durezza: '/articoli/valori/durezze',
   codice_modello: '/articoli/valori/modelli'
 };
+
+// ========== FUNZIONE FILTRI (legge SOLO dalla barra di filtri superiore) ==========
 function getCurrentFilters() {
   return {
     magazzino: document.getElementById('filtroMagazzino').value,
@@ -517,9 +471,6 @@ function getCurrentFilters() {
     categoria: document.getElementById('filtroCategoria').value,
     marca: document.getElementById('filtroMarca').value,
     descrizione: document.getElementById('filtroDescrizione').value,
-    codice_modello: document.getElementById('codice_modello')?.value || '',
-    lunghezza: document.getElementById('lunghezza')?.value || '',
-    durezza: document.getElementById('durezza')?.value || ''
   };
 }
 async function aggiornaDatalist(campo) {
@@ -548,7 +499,7 @@ async function refreshAllDatalists() {
 }
 
 // ============================================================
-// CRUD ARTICOLI
+// CRUD ARTICOLI (caricaArticoli usa SOLO i filtri della barra superiore)
 // ============================================================
 async function caricaArticoli() {
   try {
@@ -559,9 +510,7 @@ async function caricaArticoli() {
     if (f.categoria) params.append('categoria', f.categoria);
     if (f.marca) params.append('marca', f.marca);
     if (f.descrizione) params.append('descrizione', f.descrizione);
-    if (f.codice_modello) params.append('codice_modello', f.codice_modello);
-    if (f.lunghezza) params.append('lunghezza', f.lunghezza);
-    if (f.durezza) params.append('durezza', f.durezza);
+    // Non inviamo i campi del form (codice_modello, lunghezza, durezza) come filtri
     const res = await apiFetch('/articoli?' + params.toString());
     if (res.success) {
       articoliCorrente = res.data;
@@ -573,6 +522,9 @@ async function caricaArticoli() {
   } catch(err) { showMessage(err.message, 'error'); }
 }
 
+// ============================================================
+// ORDINAMENTO
+// ============================================================
 function compare(a,b,col) {
   if (col === 'descrizione') {
     const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
@@ -648,12 +600,7 @@ function renderTabellaPaginata() {
   const start = (paginaCorrente - 1) * righePerPagina;
   const end = Math.min(start + righePerPagina, totali);
   const pagina = articoliFiltrati.slice(start, end);
-
-  document.getElementById('paginationStats').innerText = 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali;
-  document.getElementById('paginationCurrentPage').innerText = paginaCorrente;
-  document.getElementById('btnPrevPage').disabled = (paginaCorrente <= 1);
-  document.getElementById('btnNextPage').disabled = (paginaCorrente >= totalePagine);
-  document.getElementById('gotoPageInput').max = totalePagine;
+  updatePagination(totali, start, end);
 
   pagina.forEach(a => {
     if (!a.articolo_id) return;
