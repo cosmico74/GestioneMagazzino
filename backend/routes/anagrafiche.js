@@ -90,14 +90,23 @@ router.get('/menu', verifyToken, async (req, res) => {
       ORDER BY ordine
     `);
 
+    // 🔥 SE ADMIN, MOSTRA TUTTO SENZA FILTRI
+    if (ruolo === 'admin') {
+      const menuData = menuRows.map(item => ({
+        id: item.id,
+        titolo: item.titolo,
+        descrizione: item.descrizione,
+        icona: item.icona,
+        url: item.url,
+        ordine: item.ordine
+      }));
+      return res.json(menuData);
+    }
+
+    // Per gli altri ruoli, applica i filtri
     const allowed = menuRows.filter(item => {
       if (!item.ruoli) return false;
       const ruoliAmmessi = item.ruoli.split(',').map(r => r.trim());
-
-      if (ruoliAmmessi.length === 1 && ruoliAmmessi[0] === 'admin') {
-        return req.username === 'admin';
-      }
-
       if (!ruoliAmmessi.includes(ruolo)) return false;
       if (ruolo === 'promoter' && item.livelli && item.livelli.trim() !== '') {
         const livelliAmmessi = item.livelli.split(',').map(l => parseInt(l.trim(), 10));
