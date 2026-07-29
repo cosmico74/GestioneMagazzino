@@ -369,7 +369,7 @@ const filtroCat = document.getElementById('filtroCategoria');
 const filtroMar = document.getElementById('filtroMarca');
 const filtroDesc = document.getElementById('filtroDescrizione');
 
-// Elementi del form di inserimento (solo gli input che esistono)
+// Elementi del form di inserimento
 const descrizioneInput = document.getElementById('descrizione');
 const codiceModelloInput = document.getElementById('codice_modello');
 const lunghezzaInput = document.getElementById('lunghezza');
@@ -424,15 +424,12 @@ async function caricaAnagrafiche() {
       apiFetch('/anagrafiche/marche')
     ]);
 
-    // Popola dropdown dei filtri
     popolaSelect(filtroMag, magazzini, 'id', 'nome');
     popolaSelect(filtroCat, categorie, 'id', 'nome');
 
-    // Carica marche in base alla categoria di default
     const categoriaDefault = filtroCat.value || '';
     await caricaMarchePerCategoria(categoriaDefault, filtroMar);
 
-    // 🔥 Listener per cambio categoria nei filtri
     filtroCat.addEventListener('change', async function() {
       const categoriaId = this.value;
       if (categoriaId) {
@@ -444,7 +441,6 @@ async function caricaAnagrafiche() {
       caricaArticoli();
     });
 
-    // 🔥 Listener per cambio categoria nel modale di modifica
     document.getElementById('editCategoria').addEventListener('change', async function() {
       const categoriaId = this.value;
       const marcaSelect = document.getElementById('editMarca');
@@ -456,7 +452,6 @@ async function caricaAnagrafiche() {
       }
     });
 
-    // Eventuali listener per il settore nel modale (se necessario)
     document.getElementById('editSettore').addEventListener('change', function() {
       // Il settore non filtra le marche, ma possiamo lasciarlo per future estensioni
     });
@@ -525,10 +520,13 @@ async function refreshAllDatalists() {
 }
 
 // ============================================================
-// CRUD ARTICOLI (caricaArticoli)
+// CRUD ARTICOLI
 // ============================================================
 async function caricaArticoli() {
   try {
+    // 🔥 AGGIUNTO: aggiorna i datalist PRIMA di caricare gli articoli
+    await refreshAllDatalists();
+
     const params = new URLSearchParams();
     const f = getCurrentFilters();
     if (f.magazzino) params.append('magazzino', f.magazzino);
@@ -536,7 +534,6 @@ async function caricaArticoli() {
     if (f.categoria) params.append('categoria', f.categoria);
     if (f.marca) params.append('marca', f.marca);
     if (f.descrizione) params.append('descrizione', f.descrizione);
-    // NON aggiungere min_giacenza per vedere tutti gli articoli
     const res = await apiFetch('/articoli?' + params.toString());
     if (res.success) {
       articoliCorrente = res.data;
@@ -609,7 +606,6 @@ function resetFiltri() {
   filtroCat.value = '';
   filtroMar.value = '';
   filtroDesc.value = '';
-  // Ricarica tutte le marche (perché categoria vuota)
   caricaMarchePerCategoria(null, filtroMar);
   caricaArticoli();
 }
@@ -816,7 +812,6 @@ async function caricaSelectsModale() {
   popolaSelect(document.getElementById('editMagazzino'), mag, 'id', 'nome');
   popolaSelect(document.getElementById('editSettore'), set, 'id', 'nome');
   popolaSelect(document.getElementById('editCategoria'), cat, 'id', 'nome');
-  // Le marche vengono caricate in modificaArticolo dopo aver impostato la categoria
 }
 
 async function refreshEditDatalists() {
@@ -844,7 +839,6 @@ async function modificaArticolo(id) {
   document.getElementById('editSettore').value = art.settore;
   document.getElementById('editCategoria').value = art.categoria;
 
-  // Carica marche in base alla categoria dell'articolo
   const marcaSelect = document.getElementById('editMarca');
   await caricaMarchePerCategoria(art.categoria, marcaSelect, art.marca);
 
@@ -898,7 +892,7 @@ async function eliminaArticolo(id) {
 }
 
 // ============================================================
-// GESTIONE SIGLE (invariata)
+// GESTIONE SIGLE
 // ============================================================
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
@@ -1089,7 +1083,7 @@ function chiudiModalSigle() {
 }
 
 // ============================================================
-// OBSOLESCENZA (invariata)
+// OBSOLESCENZA
 // ============================================================
 function apriModaleObsoleto(id, descrizione, disponibile) {
   currentObsId = id;
@@ -1118,7 +1112,6 @@ async function confermaObsolescenza() {
 // INIT
 // ============================================================
 function attachFormEvents() {
-  // Solo gli input del form che esistono realmente
   const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
   inputs.forEach(id => {
     const el = document.getElementById(id);
