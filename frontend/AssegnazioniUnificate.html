@@ -171,48 +171,48 @@
 
   <!-- Filtri "Dal magazzino" - ORDINE: Magazzino, Settore, Categoria, Marca, poi gli altri -->
   <div id="magazzinoSection" class="filter-bar" style="display:none;">
-    <div class="filter-group">
-      <label>Magazzino</label>
-      <select id="magazzinoSelect" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"></select>
-    </div>
-    <div class="filter-group">
-      <label>Settore</label>
-      <select id="filtroSettoreMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();">
-        <option value="">Tutti</option>
-        <option value="1">Alpino</option>
-        <option value="2">Nordico</option>
-        <option value="3">Freeride</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label>Categoria</label>
-      <select id="filtroCategoria" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
-    </div>
-    <div class="filter-group">
-      <label>Marca</label>
-      <select id="filtroMarcaMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
-    </div>
-    <div class="filter-group">
-      <label>Tipo oggetto</label>
-      <select id="tipoOggettoMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();">
-        <option value="TUTTI">Tutti</option>
-        <option value="ARTICOLO">Articoli</option>
-        <option value="KIT">Kit</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label>Sigla</label>
-      <select id="filtroSigla" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
-    </div>
-    <div class="filter-group">
-      <label>Lunghezza sci</label>
-      <select id="filtroLunghezza" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
-    </div>
-    <div style="display:flex; gap:6px; align-items:flex-end;">
-      <button class="btn" onclick="applicaFiltriMagazzino()">🔍 Filtra</button>
-      <button class="btn btn-secondary" onclick="resetFiltriMagazzino()">🔄 Reset</button>
-    </div>
+  <div class="filter-group">
+    <label>Magazzino</label>
+    <select id="magazzinoSelect" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"></select>
   </div>
+  <div class="filter-group">
+    <label>Settore</label>
+    <select id="filtroSettoreMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();">
+      <option value="">Tutti</option>
+      <option value="1">Alpino</option>
+      <option value="2">Nordico</option>
+      <option value="3">Freeride</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Categoria</label>
+    <select id="filtroCategoria" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Marca</label>
+    <select id="filtroMarcaMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Tipo oggetto</label>
+    <select id="tipoOggettoMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();">
+      <option value="TUTTI">Tutti</option>
+      <option value="ARTICOLO">Articoli</option>
+      <option value="KIT">Kit</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Sigla</label>
+    <select id="filtroSigla" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Lunghezza sci</label>
+    <select id="filtroLunghezza" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
+  </div>
+  <div style="display:flex; gap:6px; align-items:flex-end;">
+    <button class="btn" onclick="applicaFiltriMagazzino()">🔍 Filtra</button>
+    <button class="btn btn-secondary" onclick="resetFiltriMagazzino()">🔄 Reset</button>
+  </div>
+</div>
 
   <!-- TABELLA -->
   <div class="table-wrapper" id="tableWrapper" style="position:relative;">
