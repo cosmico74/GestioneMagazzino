@@ -39,7 +39,7 @@ router.get('/austria', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT ITALIA – con filtri settore, categoria, marca
+// REPORT ITALIA
 // ============================================================
 router.get('/italia', verifyToken, async (req, res) => {
   try {
@@ -301,27 +301,24 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
     }
 
-    // Costruisci le condizioni di filtro per articoli e kit
+    // Costruisci le condizioni di filtro per articoli e kit (usando apici singoli)
     let filterConditions = '';
     let filterParams = [];
     if (settore || categoria || marca) {
       const conditions = [];
       if (settore) {
-        conditions.push('(cs.tipo_oggetto = "ARTICOLO" AND a.settore = ?)');
+        conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.settore = ?)');
         filterParams.push(settore);
-        // Per i kit, se hanno settore
-        conditions.push('(cs.tipo_oggetto = "KIT" AND k.settore = ?)');
+        conditions.push('(cs.tipo_oggetto = \'KIT\' AND k.settore = ?)');
         filterParams.push(settore);
       }
       if (categoria) {
-        conditions.push('(cs.tipo_oggetto = "ARTICOLO" AND a.categoria = ?)');
+        conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.categoria = ?)');
         filterParams.push(categoria);
-        // I kit non hanno categoria, quindi non li filtro per categoria
       }
       if (marca) {
-        conditions.push('(cs.tipo_oggetto = "ARTICOLO" AND a.marca = ?)');
+        conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.marca = ?)');
         filterParams.push(marca);
-        // I kit non hanno marca
       }
       if (conditions.length) {
         filterConditions = ' AND (' + conditions.join(' OR ') + ')';
