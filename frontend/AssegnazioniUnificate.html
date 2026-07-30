@@ -528,10 +528,18 @@ function onTipoSoggettoChanged() {
   popolaTabella();
   caricaSoggettiPerTipo();
 }
+
 function onSoggettoChanged() {
-  if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
-  else if (radioCarico.checked && currentUser && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) caricaOggettiInCarico();
-  else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
+  if (radioCarico.checked && sourceId.value) {
+    showLoading();
+    caricaOggettiInCarico().finally(() => hideLoading());
+  } else if (radioCarico.checked && currentUser && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
+    showLoading();
+    caricaOggettiInCarico().finally(() => hideLoading());
+  } else {
+    oggetti = []; oggettiOriginali = [];
+    popolaTabella();
+  }
 }
 
 // ============================================================
@@ -741,15 +749,23 @@ async function getOggettiAssegnati(tipo, id) {
     };
   });
 }
+
+// ============================================================
+// CARICAMENTO OGGETTI IN CARICO (da soggetto)
+// ============================================================
 async function caricaOggettiInCarico() {
+  // Mostra lo spinner di caricamento
   showLoading();
-  oggetti = []; oggettiOriginali = [];
-  
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  oggetti = [];
+  oggettiOriginali = [];
+
   var tipo, id;
   var isAdmin = (currentUser.ruolo === 'admin');
   var mode = document.querySelector('input[name="caricoMode"]:checked');
   var modeVal = mode ? mode.value : 'incarico';
-  
+
   if (isAdmin) {
     tipo = sourceTipo.value;
     id = sourceId.value;
@@ -768,18 +784,23 @@ async function caricaOggettiInCarico() {
       }
     }
   }
-  
-  if (!tipo || !id) { popolaTabella(); hideLoading(); return; }
-  
+
+  if (!tipo || !id) {
+    popolaTabella();
+    hideLoading();
+    return;
+  }
+
   try {
-    var inc = [], ass = [];
-    
-    // IN POSSESSO: soggetto SELEZIONATO come destinazione
+    var inc = [],
+      ass = [];
+
+    // --- IN POSSESSO: soggetto SELEZIONATO come destinazione ---
     if (modeVal === 'incarico' || modeVal === 'entrambi') {
       inc = await getOggettiInCarico(tipo, id);
     }
-    
-    // INVIATO AD ALTRI: UTENTE LOGGATO come provenienza
+
+    // --- INVIATO AD ALTRI: UTENTE LOGGATO come provenienza ---
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       if (!isAdmin && currentUser.riferimento_id) {
         var mioTipo = currentUser.ruolo.toUpperCase();
@@ -791,14 +812,14 @@ async function caricaOggettiInCarico() {
         ass = [];
       }
     }
-    
+
     var tutti = [];
     if (modeVal === 'incarico') tutti = inc;
     else if (modeVal === 'assegnati') tutti = ass;
     else tutti = inc.concat(ass);
     oggettiOriginali = tutti;
 
-    // Filtro destinatario (solo per assegnati)
+    // --- Filtro destinatario (solo per assegnati) ---
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       var referenti = [];
       var provenienzaId = isAdmin ? id : (currentUser.riferimento_id || null);
@@ -808,7 +829,7 @@ async function caricaOggettiInCarico() {
           referenti = refData.filter(function(s) {
             return s.tipo === 'PROMOTER' && s.id != provenienzaId;
           });
-        } catch(e) { console.error(e); }
+        } catch (e) { console.error(e); }
       }
 
       if (referenti.length > 0) {
@@ -826,7 +847,8 @@ async function caricaOggettiInCarico() {
       var fv = filtroDestinatario.value;
       if (fv && referenti.length > 0) {
         var parts = fv.split('|');
-        var fT = parts[0], fId = parts[1];
+        var fT = parts[0],
+          fId = parts[1];
         oggettiOriginali = tutti.filter(function(r) {
           return r.destinazioneTipo === fT && String(r.destinazioneId) === fId;
         });
@@ -838,7 +860,7 @@ async function caricaOggettiInCarico() {
       oggettiOriginali = tutti;
     }
 
-    // Applica filtro per tipo (ARTICOLO / KIT / ENTRAMBI)
+    // --- Applica filtro per tipo (ARTICOLO / KIT / ENTRAMBI) ---
     var tipoSelezionato = document.querySelector('input[name="tipoOggetto"]:checked');
     var filtroTipo = tipoSelezionato ? tipoSelezionato.value : 'ENTRAMBI';
     if (filtroTipo === 'ENTRAMBI') {
@@ -855,23 +877,35 @@ async function caricaOggettiInCarico() {
       else if (modeVal === 'assegnati') thQuantita.innerText = 'Qtà assegnata';
       else thQuantita.innerText = 'Qtà';
     }
+
     paginaCorrente = 1;
     sortOggetti();
     popolaTabella();
-  } catch(e) {
+
+    // Nascondi lo spinner dopo aver popolato la tabella
+    hideLoading();
+  } catch (e) {
     showMessage('Errore: ' + e.message, 'error');
     oggetti = [];
     popolaTabella();
-  } finally { hideLoading(); }
+    hideLoading();
+  }
 }
 
 // ============================================================
 // CARICAMENTO DAL MAGAZZINO (con filtri settore, categoria, marca)
 // ============================================================
 async function caricaOggettiDaMagazzino() {
+  // Mostra lo spinner di caricamento
   showLoading();
-  
-  // 1. Leggi i filtri
+  // Forza un piccolo ritardo per far sì che lo spinner venga renderizzato
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  // Resetta gli array
+  oggetti = [];
+  oggettiOriginali = [];
+
+  // Leggi i valori dei filtri
   var magId = magazzinoSelect.value;
   if (!magId) {
     showMessage('Seleziona un magazzino', 'info');
@@ -879,7 +913,10 @@ async function caricaOggettiDaMagazzino() {
     hideLoading();
     return;
   }
-  
+
+  var magSelezionato = magazzini.find(function(m) { return m.id == magId; });
+  var magNome = magSelezionato ? magSelezionato.nome : 'Magazzino ' + magId;
+
   var tipo = tipoOggettoMagazzino.value;
   var fSig = filtroSigla.value;
   var fLung = filtroLunghezza.value;
@@ -887,20 +924,6 @@ async function caricaOggettiDaMagazzino() {
   var fSettore = filtroSettoreMagazzino.value;
   var fMarca = filtroMarcaMagazzino.value;
 
-  // 2. Controllo cache: se i filtri non sono cambiati, evita la ricarica
-  var chiave = magId + '|' + tipo + '|' + fSig + '|' + fLung + '|' + fCat + '|' + fSettore + '|' + fMarca;
-  if (chiave === ultimiFiltriMagazzino) {
-    console.log('🔄 Filtri identici, nessuna ricarica');
-    hideLoading();
-    return;
-  }
-  ultimiFiltriMagazzino = chiave;
-
-  var magSelezionato = magazzini.find(function(m) { return m.id == magId; });
-  var magNome = magSelezionato ? magSelezionato.nome : 'Magazzino ' + magId;
-
-  oggetti = [];
-  oggettiOriginali = [];
   var lista = [];
   var sigleUniche = {};
   var lunghezzeUniche = {};
@@ -910,14 +933,13 @@ async function caricaOggettiDaMagazzino() {
     var includeKit = (tipo === 'TUTTI' || tipo === 'KIT');
     var promesse = [];
 
+    // --- Carica articoli ---
     if (includeArticoli) {
       var paramsArt = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
       if (fLung) paramsArt.append('lunghezza', fLung);
       if (fCat) paramsArt.append('categoria', fCat);
       if (fSettore) paramsArt.append('settore', fSettore);
       if (fMarca) paramsArt.append('marca', fMarca);
-      // Limita il numero di risultati per migliorare le prestazioni (opzionale)
-      // paramsArt.append('limit', '200');
       promesse.push(
         apiFetch('/articoli?' + paramsArt.toString())
           .then(function(r) { return { type: 'articoli', data: r.success ? r.data : [] }; })
@@ -925,15 +947,14 @@ async function caricaOggettiDaMagazzino() {
       );
     }
 
+    // --- Carica kit ---
     if (includeKit) {
       var paramsKit = new URLSearchParams();
       if (magId) paramsKit.append('magazzino', magId);
       if (fSettore) paramsKit.append('settore', fSettore);
-      // Se hai molti kit, limita anche qui
-      // paramsKit.append('limit', '100');
       promesse.push(
         apiFetch('/kit?' + paramsKit.toString())
-          .then(function(r2) { 
+          .then(function(r2) {
             var kits = r2.success ? r2.data : (Array.isArray(r2) ? r2 : []);
             return { type: 'kit', data: kits };
           })
@@ -941,18 +962,10 @@ async function caricaOggettiDaMagazzino() {
       );
     }
 
-    // Se non ci sono promesse, esci
-    if (promesse.length === 0) {
-      oggetti = [];
-      oggettiOriginali = [];
-      popolaTabella();
-      hideLoading();
-      return;
-    }
-
+    // Attendi il completamento di tutte le richieste
     var results = await Promise.all(promesse);
 
-    // Articoli
+    // --- Processa articoli ---
     var articoliResult = results.find(function(res) { return res.type === 'articoli'; });
     if (articoliResult) {
       var articoli = articoliResult.data;
@@ -985,7 +998,7 @@ async function caricaOggettiDaMagazzino() {
       }
     }
 
-    // Kit
+    // --- Processa kit ---
     var kitResult = results.find(function(res) { return res.type === 'kit'; });
     if (kitResult) {
       var kits = kitResult.data;
@@ -996,7 +1009,7 @@ async function caricaOggettiDaMagazzino() {
         try {
           var assegnato = await apiFetch('/assegnazioni/quantita-assegnata-kit?kit_id=' + kit.id);
           dispKit = kit.quantita - (assegnato.quantita || 0);
-        } catch(e) {
+        } catch (e) {
           console.warn('⚠️ Errore nel recupero quantità assegnata per kit', kit.id, e);
         }
         if (dispKit <= 0) continue;
@@ -1030,8 +1043,10 @@ async function caricaOggettiDaMagazzino() {
       }
     }
 
-    // Aggiorna dropdown e tabella
+    // --- Aggiorna dropdown filtri (sigle e lunghezze) ---
     aggiornaDropdownFiltri(sigleUniche, lunghezzeUniche);
+
+    // --- Imposta i dati e aggiorna la tabella ---
     oggetti = lista;
     oggettiOriginali = lista;
     var thQuantita = document.getElementById('thQuantita');
@@ -1039,12 +1054,14 @@ async function caricaOggettiDaMagazzino() {
     paginaCorrente = 1;
     sortOggetti();
     popolaTabella();
-  } catch(e) {
+
+    // Nascondi lo spinner dopo aver popolato la tabella
+    hideLoading();
+  } catch (e) {
     showMessage('Errore magazzino: ' + e.message, 'error');
     oggetti = [];
     popolaTabella();
-  } finally { 
-    hideLoading(); 
+    hideLoading();
   }
 }
 
