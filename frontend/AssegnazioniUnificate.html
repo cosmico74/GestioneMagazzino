@@ -90,12 +90,16 @@
       display: none;
       position: absolute;
       top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0.7); z-index: 100;
-      justify-content: center; align-items: center; border-radius: 12px;
-      flex-direction: column; gap: 10px;
+      background: rgba(255,255,255,0.8);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      border-radius: 12px;
+      flex-direction: column;
+      gap: 10px;
     }
     #loadingOverlay.show { display: flex; }
-    #loadingOverlay span { font-size: 0.9rem; color: #1a73e8; }
+    #loadingOverlay span { font-size: 0.9rem; color: #1a73e8; font-weight: 600; }
     .kit-quantita-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .kit-quantita-table th { background: #f1f5f9; font-size: 0.7rem; padding: 4px 6px; text-align: left; position: static; }
     .kit-quantita-table td { padding: 4px 6px; font-size: 0.7rem; vertical-align: middle; }
@@ -169,50 +173,50 @@
     </div>
   </div>
 
-  <!-- Filtri "Dal magazzino" - ORDINE: Magazzino, Settore, Categoria, Marca, poi gli altri -->
+  <!-- Filtri "Dal magazzino" -->
   <div id="magazzinoSection" class="filter-bar" style="display:none;">
-  <div class="filter-group">
-    <label>Magazzino</label>
-    <select id="magazzinoSelect" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"></select>
+    <div class="filter-group">
+      <label>Magazzino</label>
+      <select id="magazzinoSelect" onchange="caricaOggettiDaMagazzino()"></select>
+    </div>
+    <div class="filter-group">
+      <label>Settore</label>
+      <select id="filtroSettoreMagazzino" onchange="caricaOggettiDaMagazzino()">
+        <option value="">Tutti</option>
+        <option value="1">Alpino</option>
+        <option value="2">Nordico</option>
+        <option value="3">Freeride</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Categoria</label>
+      <select id="filtroCategoria" onchange="caricaOggettiDaMagazzino()"><option value="">Tutte</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Marca</label>
+      <select id="filtroMarcaMagazzino" onchange="caricaOggettiDaMagazzino()"><option value="">Tutte</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Tipo oggetto</label>
+      <select id="tipoOggettoMagazzino" onchange="caricaOggettiDaMagazzino()">
+        <option value="TUTTI">Tutti</option>
+        <option value="ARTICOLO">Articoli</option>
+        <option value="KIT">Kit</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Sigla</label>
+      <select id="filtroSigla" onchange="caricaOggettiDaMagazzino()"><option value="">Tutte</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Lunghezza sci</label>
+      <select id="filtroLunghezza" onchange="caricaOggettiDaMagazzino()"><option value="">Tutte</option></select>
+    </div>
+    <div style="display:flex; gap:6px; align-items:flex-end;">
+      <button class="btn" onclick="caricaOggettiDaMagazzino()">🔍 Filtra</button>
+      <button class="btn btn-secondary" onclick="resetFiltriMagazzino()">🔄 Reset</button>
+    </div>
   </div>
-  <div class="filter-group">
-    <label>Settore</label>
-    <select id="filtroSettoreMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();">
-      <option value="">Tutti</option>
-      <option value="1">Alpino</option>
-      <option value="2">Nordico</option>
-      <option value="3">Freeride</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label>Categoria</label>
-    <select id="filtroCategoria" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
-  </div>
-  <div class="filter-group">
-    <label>Marca</label>
-    <select id="filtroMarcaMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
-  </div>
-  <div class="filter-group">
-    <label>Tipo oggetto</label>
-    <select id="tipoOggettoMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();">
-      <option value="TUTTI">Tutti</option>
-      <option value="ARTICOLO">Articoli</option>
-      <option value="KIT">Kit</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label>Sigla</label>
-    <select id="filtroSigla" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
-  </div>
-  <div class="filter-group">
-    <label>Lunghezza sci</label>
-    <select id="filtroLunghezza" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
-  </div>
-  <div style="display:flex; gap:6px; align-items:flex-end;">
-    <button class="btn" onclick="applicaFiltriMagazzino()">🔍 Filtra</button>
-    <button class="btn btn-secondary" onclick="resetFiltriMagazzino()">🔄 Reset</button>
-  </div>
-</div>
 
   <!-- TABELLA -->
   <div class="table-wrapper" id="tableWrapper" style="position:relative;">
@@ -306,7 +310,7 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiAssignModal()">Annulla</button><button class="btn btn-success" onclick="confermaAssegnazione()">Conferma</button></div>
 </div></div>
 
-<!-- ===== MODALE EDIT ASSEGNAZIONE (con sezione Dividi e Trasferisci) ===== -->
+<!-- ===== MODALE EDIT ASSEGNAZIONE ===== -->
 <div id="editAssignmentModal" class="modal">
   <div class="modal-content" style="max-width:600px;">
     <h3>✏️ Modifica assegnazione</h3>
@@ -321,9 +325,7 @@
       <button class="btn btn-secondary" onclick="chiudiEditModal()">Annulla</button>
       <button class="btn btn-success" onclick="confermaModificaSingola()">Conferma</button>
     </div>
-
     <hr style="margin: 15px 0;">
-
     <h4>✂️ Dividi e trasferisci</h4>
     <p class="warning-badge">⚠️ Questa operazione trasferisce una parte dell'oggetto a un altro soggetto.</p>
     <div class="form-group">
@@ -365,7 +367,7 @@
   <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiConfirmModal()">Annulla</button><button class="btn btn-danger" id="confirmActionBtn" onclick="eseguiConferma()">Conferma</button></div>
 </div></div>
 
-<!-- ===== MODALE CREA KIT DA CARICO (con quantità) ===== -->
+<!-- ===== MODALE CREA KIT DA CARICO ===== -->
 <div id="modalCreaKitDaCarico" class="modal">
   <div class="modal-content" style="max-width:700px;">
     <h3>📦 Crea Kit da carico</h3>
@@ -380,16 +382,6 @@
 </div>
 
 <script>
-  // ============================================================
-// DEBOUNCE - Evita chiamate API multiple durante la digitazione
-// ============================================================
-function debounce(func, wait) {
-  let timeout;
-  return function(...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(this, args), wait);
-  };
-}
 // ============================================================
 // UTILITY
 // ============================================================
@@ -436,9 +428,6 @@ function logout() {
 // ============================================================
 // VARIABILI GLOBALI
 // ============================================================
-// Cache per evitare ricariche duplicate
-var ultimiFiltriMagazzino = '';
-var ultimiFiltriCarico = '';
 var currentUser = null;
 var userLevel = 0;
 var magazzini = [], categorie = [], marche = [];
@@ -466,9 +455,7 @@ var tipoArticoli = document.getElementById('tipoArticoli');
 var tipoKit = document.getElementById('tipoKit');
 var tipoEntrambi = document.getElementById('tipoEntrambi');
 var magazzinoSelect = document.getElementById('magazzinoSelect');
-var tipoOggettoMagazzino = document.getElementById('tipoOggettoMagazzino').addEventListener('change', function() {
-  if (radioMagazzino.checked) caricaOggettiDaMagazzino();
-});
+var tipoOggettoMagazzino = document.getElementById('tipoOggettoMagazzino');
 var filtroSigla = document.getElementById('filtroSigla');
 var filtroLunghezza = document.getElementById('filtroLunghezza');
 var filtroCategoria = document.getElementById('filtroCategoria');
@@ -530,17 +517,17 @@ function onTipoSoggettoChanged() {
   popolaTabella();
   caricaSoggettiPerTipo();
 }
-
 function onSoggettoChanged() {
   if (radioCarico.checked && sourceId.value) {
     showLoading();
-    caricaOggettiInCarico().finally(() => hideLoading());
+    caricaOggettiInCarico();
   } else if (radioCarico.checked && currentUser && currentUser.ruolo !== 'admin' && currentUser.riferimento_id) {
     showLoading();
-    caricaOggettiInCarico().finally(() => hideLoading());
+    caricaOggettiInCarico();
   } else {
     oggetti = []; oggettiOriginali = [];
     popolaTabella();
+    hideLoading();
   }
 }
 
@@ -569,7 +556,7 @@ async function caricaSoggettiPerTipo() {
     if (sel.options.length > 1 && !sel.value) sel.selectedIndex = 1;
     if (radioCarico.checked) {
       if (sel.value) caricaOggettiInCarico();
-      else caricaOggettiInCarico(); // fallback per vedere i propri
+      else caricaOggettiInCarico();
     } else {
       oggetti = []; oggettiOriginali = []; popolaTabella();
     }
@@ -654,7 +641,7 @@ function applicaFiltroTipo() {
 }
 
 // ============================================================
-// CARICAMENTO OGGETTI IN CARICO
+// GET OGGETTI IN CARICO
 // ============================================================
 async function getOggettiInCarico(tipo, id) {
   var body = { targetTipo: tipo, targetId: parseInt(id) };
@@ -715,6 +702,7 @@ async function getOggettiInCarico(tipo, id) {
   }
   return result;
 }
+
 async function getOggettiAssegnati(tipo, id) {
   var r = await apiFetch('/assegnazioni/inviati?provenienza_tipo=' + tipo + '&provenienza_id=' + id);
   return r.map(function(row) {
@@ -753,7 +741,7 @@ async function getOggettiAssegnati(tipo, id) {
 }
 
 // ============================================================
-// CARICAMENTO OGGETTI IN CARICO (da soggetto)
+// CARICAMENTO OGGETTI IN CARICO
 // ============================================================
 async function caricaOggettiInCarico() {
   showLoading();
@@ -793,15 +781,12 @@ async function caricaOggettiInCarico() {
   }
 
   try {
-    var inc = [],
-      ass = [];
+    var inc = [], ass = [];
 
-    // IN POSSESSO: soggetto SELEZIONATO come destinazione
     if (modeVal === 'incarico' || modeVal === 'entrambi') {
       inc = await getOggettiInCarico(tipo, id);
     }
 
-    // INVIATO AD ALTRI: UTENTE LOGGATO come provenienza
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       if (!isAdmin && currentUser.riferimento_id) {
         var mioTipo = currentUser.ruolo.toUpperCase();
@@ -820,7 +805,6 @@ async function caricaOggettiInCarico() {
     else tutti = inc.concat(ass);
     oggettiOriginali = tutti;
 
-    // Filtro destinatario (solo per assegnati)
     if (modeVal === 'assegnati' || modeVal === 'entrambi') {
       var referenti = [];
       var provenienzaId = isAdmin ? id : (currentUser.riferimento_id || null);
@@ -848,8 +832,7 @@ async function caricaOggettiInCarico() {
       var fv = filtroDestinatario.value;
       if (fv && referenti.length > 0) {
         var parts = fv.split('|');
-        var fT = parts[0],
-          fId = parts[1];
+        var fT = parts[0], fId = parts[1];
         oggettiOriginali = tutti.filter(function(r) {
           return r.destinazioneTipo === fT && String(r.destinazioneId) === fId;
         });
@@ -861,7 +844,6 @@ async function caricaOggettiInCarico() {
       oggettiOriginali = tutti;
     }
 
-    // Applica filtro per tipo (ARTICOLO / KIT / ENTRAMBI)
     var tipoSelezionato = document.querySelector('input[name="tipoOggetto"]:checked');
     var filtroTipo = tipoSelezionato ? tipoSelezionato.value : 'ENTRAMBI';
     if (filtroTipo === 'ENTRAMBI') {
@@ -882,26 +864,21 @@ async function caricaOggettiInCarico() {
     paginaCorrente = 1;
     sortOggetti();
     popolaTabella();
-
-    requestAnimationFrame(function() {
-      hideLoading();
-    });
+    hideLoading();
   } catch (e) {
     showMessage('Errore: ' + e.message, 'error');
     oggetti = [];
     popolaTabella();
-    requestAnimationFrame(function() {
-      hideLoading();
-    });
+    hideLoading();
   }
 }
 
 // ============================================================
-// CARICAMENTO DAL MAGAZZINO (con filtri settore, categoria, marca, tipo)
+// CARICAMENTO DAL MAGAZZINO
 // ============================================================
 async function caricaOggettiDaMagazzino() {
   showLoading();
-  await new Promise(resolve => setTimeout(resolve, 50)); // garantisce che lo spinner venga renderizzato
+  await new Promise(resolve => setTimeout(resolve, 50));
 
   oggetti = [];
   oggettiOriginali = [];
@@ -917,15 +894,12 @@ async function caricaOggettiDaMagazzino() {
   var magSelezionato = magazzini.find(function(m) { return m.id == magId; });
   var magNome = magSelezionato ? magSelezionato.nome : 'Magazzino ' + magId;
 
-  // Leggi i filtri
-  var tipo = tipoOggettoMagazzino.value;   // "TUTTI", "ARTICOLO", "KIT"
+  var tipo = tipoOggettoMagazzino.value;
   var fSig = filtroSigla.value;
   var fLung = filtroLunghezza.value;
   var fCat = filtroCategoria.value;
   var fSettore = filtroSettoreMagazzino.value;
   var fMarca = filtroMarcaMagazzino.value;
-
-  console.log('🔍 [caricaOggettiDaMagazzino] Filtri:', { magId, tipo, fSettore, fCat, fMarca, fSig, fLung });
 
   var lista = [];
   var sigleUniche = {};
@@ -936,7 +910,6 @@ async function caricaOggettiDaMagazzino() {
     var includeKit = (tipo === 'TUTTI' || tipo === 'KIT');
     var promesse = [];
 
-    // --- CARICA ARTICOLI (se richiesti) ---
     if (includeArticoli) {
       var paramsArt = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
       if (fLung) paramsArt.append('lunghezza', fLung);
@@ -950,12 +923,10 @@ async function caricaOggettiDaMagazzino() {
       );
     }
 
-    // --- CARICA KIT (se richiesti) ---
     if (includeKit) {
       var paramsKit = new URLSearchParams();
       if (magId) paramsKit.append('magazzino', magId);
       if (fSettore) paramsKit.append('settore', fSettore);
-      // Nota: i kit non hanno categoria e marca, quindi non li filtro per quelli
       promesse.push(
         apiFetch('/kit?' + paramsKit.toString())
           .then(function(r2) {
@@ -966,10 +937,8 @@ async function caricaOggettiDaMagazzino() {
       );
     }
 
-    // Attendi tutte le richieste
     var results = await Promise.all(promesse);
 
-    // --- Processa articoli ---
     var articoliResult = results.find(function(res) { return res.type === 'articoli'; });
     if (articoliResult) {
       var articoli = articoliResult.data;
@@ -1002,11 +971,9 @@ async function caricaOggettiDaMagazzino() {
       }
     }
 
-    // --- Processa kit ---
     var kitResult = results.find(function(res) { return res.type === 'kit'; });
     if (kitResult) {
       var kits = kitResult.data;
-      // Filtra per magazzino (già fatto dalla query, ma per sicurezza)
       kits = kits.filter(function(k) { return k.magazzino == magId && k.quantita > 0; });
       for (var k2 = 0; k2 < kits.length; k2++) {
         var kit = kits[k2];
@@ -1048,10 +1015,7 @@ async function caricaOggettiDaMagazzino() {
       }
     }
 
-    // --- Aggiorna dropdown filtri (sigle e lunghezze) ---
     aggiornaDropdownFiltri(sigleUniche, lunghezzeUniche);
-
-    // --- Imposta i dati e aggiorna la tabella ---
     oggetti = lista;
     oggettiOriginali = lista;
     var thQuantita = document.getElementById('thQuantita');
@@ -1059,47 +1023,13 @@ async function caricaOggettiDaMagazzino() {
     paginaCorrente = 1;
     sortOggetti();
     popolaTabella();
-
-    // Nasconde lo spinner DOPO il rendering (requestAnimationFrame)
-    requestAnimationFrame(function() {
-      hideLoading();
-    });
+    hideLoading();
   } catch (e) {
     showMessage('Errore magazzino: ' + e.message, 'error');
     oggetti = [];
     popolaTabella();
-    requestAnimationFrame(function() {
-      hideLoading();
-    });
+    hideLoading();
   }
-}
-
-function initFiltriMagazzino() {
-  // Crea una versione con debounce della funzione
-  var caricaConDebounce = debounce(function() {
-    if (radioMagazzino.checked) caricaOggettiDaMagazzino();
-  }, 400);
-
-  // Listener per il magazzino (cambia il select e ricarica)
-  magazzinoSelect.addEventListener('change', function() {
-    if (radioMagazzino.checked) caricaOggettiDaMagazzino();
-  });
-
-  // Listener per i filtri (con debounce)
-  var filtri = [
-    filtroSettoreMagazzino,
-    filtroCategoria,
-    filtroMarcaMagazzino,
-    tipoOggettoMagazzino,
-    filtroSigla,
-    filtroLunghezza
-  ];
-
-  filtri.forEach(function(el) {
-    if (el) {
-      el.addEventListener('change', caricaConDebounce);
-    }
-  });
 }
 
 function aggiornaDropdownFiltri(sigleUniche, lunghezzeUniche) {
@@ -1268,6 +1198,7 @@ function popolaTabella() {
   }
   aggiornaIntestazioni();
 }
+
 function updatePagination(totali, start, end) {
   var stats = document.getElementById('paginationStats');
   if (totali > 0) stats.innerText = 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali;
@@ -1278,6 +1209,7 @@ function updatePagination(totali, start, end) {
   document.getElementById('btnNextPage').disabled = (paginaCorrente >= totPag);
   document.getElementById('gotoPageInput').max = totPag || 1;
 }
+
 function cambiaRighePerPagina() {
   righePerPagina = parseInt(document.getElementById('rowsPerPage').value);
   paginaCorrente = 1;
@@ -1383,7 +1315,6 @@ async function apriModificaSingola(obj) {
     var selId = document.getElementById('editDestId');
     if (obj.destinazioneId) selId.value = obj.destinazioneId;
     
-    // Inizializza i campi "Dividi e trasferisci"
     var maxTrasferibile = obj.totale - 1;
     document.getElementById('dividiQuantita').value = 1;
     document.getElementById('dividiQuantita').max = maxTrasferibile;
@@ -1418,9 +1349,6 @@ function chiudiEditModal() {
   currentEditObj = null;
 }
 
-// ============================================================
-// 🔥 FUNZIONE MODIFICATA: gestisce trasferimento parziale
-// ============================================================
 async function confermaModificaSingola() {
   var obj = currentEditObj;
   if (!obj) return;
@@ -1441,17 +1369,14 @@ async function confermaModificaSingola() {
   
   var qtaAttuale = obj.totale;
   
-  // 🔥 Se la nuova quantità è diversa, usa la logica di divisione
   if (nuovaQta !== qtaAttuale) {
-    // Se stai trasferendo al magazzino (rientro parziale)
     if (dT === 'MAGAZZINO') {
-      var quantitaDaTrasferire = qtaAttuale - nuovaQta; // Quanti togli dal soggetto
+      var quantitaDaTrasferire = qtaAttuale - nuovaQta;
       if (quantitaDaTrasferire <= 0) {
         showMessage('La quantità da trasferire deve essere maggiore di 0', 'error');
         return;
       }
       
-      // Usa la route /dividi per trasferire solo una parte
       var payload = {
         daTipo: obj.destinazioneTipo || 'PROMOTER',
         daId: obj.destinazioneId || null,
@@ -1484,7 +1409,6 @@ async function confermaModificaSingola() {
     }
   }
   
-  // Se la quantità è la stessa, fai il trasferimento completo
   var daTipo = obj.destinazioneTipo || 'PROMOTER';
   var daId = obj.destinazioneId || null;
   if (!daId) { 
@@ -1517,7 +1441,7 @@ async function confermaModificaSingola() {
 }
 
 // ============================================================
-// DIVIDI E TRASFERISCI (funzioni)
+// DIVIDI E TRASFERISCI
 // ============================================================
 async function caricaDestinazioniDividi() {
   var tipo = document.getElementById('dividiDestTipo').value;
@@ -1586,7 +1510,7 @@ async function confermaDividi() {
 }
 
 // ============================================================
-// TRASFERIMENTO MASSIVO (MODIFICATO per rientro corretto)
+// TRASFERIMENTO MASSIVO
 // ============================================================
 var selectedMassive = [];
 
@@ -1660,16 +1584,13 @@ async function confermaMassive() {
       return { tipoOggetto: o.tipoOggetto, oggettoId: o.oggettoId, siglaId: o.siglaId || null, quantita: o.totale };
     });
   } else {
-    // Modalità "In carico": trasferimento o rientro
     if (dT === 'MAGAZZINO') {
-      // RIENTRO A MAGAZZINO
       endpoint = '/assegnazioni/rientro/batch';
       payload.magazzinoId = parseInt(dId);
       payload.oggetti = selectedMassive.map(function(o) {
         var daTipo = o.destinazioneTipo || 'PROMOTER';
         var daId = o.destinazioneId || null;
         if (!daId) {
-          console.warn('⚠️ Oggetto senza destinazioneId:', o);
           daTipo = sourceTipo.value;
           daId = parseInt(sourceId.value);
         }
@@ -1683,7 +1604,6 @@ async function confermaMassive() {
         };
       });
     } else {
-      // TRASFERIMENTO AD ALTRO SOGGETTO
       endpoint = '/assegnazioni/trasferimento';
       var magTrans = null;
       for (var i = 0; i < magazzini.length; i++) {
@@ -1714,7 +1634,7 @@ async function confermaMassive() {
 }
 
 // ============================================================
-// CREA KIT DA CARICO (con quantità) – FUNZIONA ANCHE PER ASSEGNATI
+// CREA KIT DA CARICO
 // ============================================================
 function apriModalCreaKitDaCarico() {
   var idx = [];
@@ -1746,7 +1666,7 @@ function apriModalCreaKitDaCarico() {
   var hasAttacco = selezionati.some(isAttacco);
   
   if (!hasSci || !hasAttacco) {
-    showMessage('Devi selezionare almeno uno sci e un attacco (riconosciuti da categoria, descrizione o codice)', 'error');
+    showMessage('Devi selezionare almeno uno sci e un attacco', 'error');
     return;
   }
 
@@ -2004,13 +1924,12 @@ function toggleSource() {
   if (isMag) caricaOggettiDaMagazzino();
   else caricaOggettiInCarico();
 }
+
 async function caricaOggetti() {
   if (radioMagazzino.checked) await caricaOggettiDaMagazzino();
   else await caricaOggettiInCarico();
 }
-function applicaFiltriMagazzino() {
-  if (radioMagazzino.checked) caricaOggettiDaMagazzino();
-}
+
 function resetFiltriMagazzino() {
   filtroSigla.value = '';
   filtroLunghezza.value = '';
@@ -2029,9 +1948,17 @@ function setup() {
     caricaSorgentiAdmin();
     sourceTipo.addEventListener('change', function() { caricaSorgentiAdmin(); });
     sourceId.addEventListener('change', function() {
-      if (radioCarico.checked && sourceId.value) caricaOggettiInCarico();
-      else if (radioCarico.checked && currentUser.riferimento_id) caricaOggettiInCarico();
-      else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
+      if (radioCarico.checked && sourceId.value) {
+        showLoading();
+        caricaOggettiInCarico();
+      } else if (radioCarico.checked && currentUser.riferimento_id) {
+        showLoading();
+        caricaOggettiInCarico();
+      } else {
+        oggetti = []; oggettiOriginali = [];
+        popolaTabella();
+        hideLoading();
+      }
     });
     radioMagazzino.disabled = false;
   } else {
@@ -2042,10 +1969,22 @@ function setup() {
     sourceTipo.addEventListener('change', function() { caricaSoggettiPerTipo(); });
     sourceId.addEventListener('change', function() {
       if (radioCarico.checked) {
-        if (sourceId.value) caricaOggettiInCarico();
-        else if (currentUser.riferimento_id) caricaOggettiInCarico();
-        else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
-      } else { oggetti = []; oggettiOriginali = []; popolaTabella(); }
+        if (sourceId.value) {
+          showLoading();
+          caricaOggettiInCarico();
+        } else if (currentUser.riferimento_id) {
+          showLoading();
+          caricaOggettiInCarico();
+        } else {
+          oggetti = []; oggettiOriginali = [];
+          popolaTabella();
+          hideLoading();
+        }
+      } else {
+        oggetti = []; oggettiOriginali = [];
+        popolaTabella();
+        hideLoading();
+      }
     });
     if (currentUser.ruolo === 'promoter' && userLevel === 1) {
       radioMagazzino.disabled = false;
@@ -2055,21 +1994,21 @@ function setup() {
     }
     caricoSection.style.display = 'flex';
   }
+  
   // Listener per il filtro tipo oggetto
   tipoArticoli.addEventListener('change', function() { if (radioCarico.checked) applicaFiltroTipo(); });
   tipoKit.addEventListener('change', function() { if (radioCarico.checked) applicaFiltroTipo(); });
   tipoEntrambi.addEventListener('change', function() { if (radioCarico.checked) applicaFiltroTipo(); });
 
-  modeInCarico.addEventListener('change', function() { if (radioCarico.checked) caricaOggettiInCarico(); });
-  modeAssegnati.addEventListener('change', function() { if (radioCarico.checked) caricaOggettiInCarico(); });
-  modeEntrambi.addEventListener('change', function() { if (radioCarico.checked) caricaOggettiInCarico(); });
+  modeInCarico.addEventListener('change', function() { if (radioCarico.checked) { showLoading(); caricaOggettiInCarico(); } });
+  modeAssegnati.addEventListener('change', function() { if (radioCarico.checked) { showLoading(); caricaOggettiInCarico(); } });
+  modeEntrambi.addEventListener('change', function() { if (radioCarico.checked) { showLoading(); caricaOggettiInCarico(); } });
+  
   radioCarico.addEventListener('change', toggleSource);
   radioMagazzino.addEventListener('change', toggleSource);
   attachSortListeners();
   var btnMassivo = document.getElementById('btnTrasferisciMassivo');
   if (btnMassivo) btnMassivo.addEventListener('click', apriModalTrasferimentoMassivo);
-    // Inizializza i listener con debounce per i filtri del magazzino
-  initFiltriMagazzino();
   toggleSource();
 }
 
@@ -2098,7 +2037,6 @@ window.onload = async function() {
   var loginInfo = document.getElementById('loginInfo');
   loginInfo.innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
   
-  // Carica anagrafiche
   await Promise.all([caricaMagazzini(), caricaCategorie(), caricaMarche()]);
   setup();
 };
