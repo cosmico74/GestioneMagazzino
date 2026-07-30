@@ -169,11 +169,28 @@
     </div>
   </div>
 
-  <!-- Filtri "Dal magazzino" -->
+  <!-- Filtri "Dal magazzino" - ORDINE: Magazzino, Settore, Categoria, Marca, poi gli altri -->
   <div id="magazzinoSection" class="filter-bar" style="display:none;">
     <div class="filter-group">
       <label>Magazzino</label>
       <select id="magazzinoSelect" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"></select>
+    </div>
+    <div class="filter-group">
+      <label>Settore</label>
+      <select id="filtroSettoreMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();">
+        <option value="">Tutti</option>
+        <option value="1">Alpino</option>
+        <option value="2">Nordico</option>
+        <option value="3">Freeride</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Categoria</label>
+      <select id="filtroCategoria" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Marca</label>
+      <select id="filtroMarcaMagazzino" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
     </div>
     <div class="filter-group">
       <label>Tipo oggetto</label>
@@ -190,10 +207,6 @@
     <div class="filter-group">
       <label>Lunghezza sci</label>
       <select id="filtroLunghezza" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
-    </div>
-    <div class="filter-group">
-      <label>Categoria</label>
-      <select id="filtroCategoria" onchange="if(radioMagazzino.checked) caricaOggettiDaMagazzino();"><option value="">Tutte</option></select>
     </div>
     <div style="display:flex; gap:6px; align-items:flex-end;">
       <button class="btn" onclick="applicaFiltriMagazzino()">🔍 Filtra</button>
@@ -415,7 +428,7 @@ function logout() {
 // ============================================================
 var currentUser = null;
 var userLevel = 0;
-var magazzini = [], categorie = [];
+var magazzini = [], categorie = [], marche = [];
 var oggetti = [], oggettiOriginali = [];
 var currentEditObj = null, currentAssignObj = null;
 var sortColumn = 'descrizione';
@@ -444,6 +457,8 @@ var tipoOggettoMagazzino = document.getElementById('tipoOggettoMagazzino');
 var filtroSigla = document.getElementById('filtroSigla');
 var filtroLunghezza = document.getElementById('filtroLunghezza');
 var filtroCategoria = document.getElementById('filtroCategoria');
+var filtroSettoreMagazzino = document.getElementById('filtroSettoreMagazzino');
+var filtroMarcaMagazzino = document.getElementById('filtroMarcaMagazzino');
 var filtroDestinatario = document.getElementById('filtroDestinatario');
 var filtroDestContainer = document.getElementById('filtroDestinatarioContainer');
 
@@ -468,6 +483,7 @@ async function caricaMagazzini() {
     } else if (sel.options.length > 1) sel.selectedIndex = 1;
   } catch(e) { showMessage('Errore magazzini', 'error'); }
 }
+
 async function caricaCategorie() {
   try {
     var r = await apiFetch('/anagrafiche/categorie');
@@ -475,6 +491,18 @@ async function caricaCategorie() {
     var sel = filtroCategoria;
     sel.innerHTML = '<option value="">Tutte</option>';
     categorie.forEach(function(c) { sel.appendChild(new Option(c.nome, c.id)); });
+  } catch(e) { console.error(e); }
+}
+
+async function caricaMarche() {
+  try {
+    var r = await apiFetch('/anagrafiche/marche');
+    marche = r || [];
+    var sel = filtroMarcaMagazzino;
+    if (sel) {
+      sel.innerHTML = '<option value="">Tutte</option>';
+      marche.forEach(function(m) { sel.appendChild(new Option(m.nome, m.id)); });
+    }
   } catch(e) { console.error(e); }
 }
 
@@ -825,7 +853,7 @@ async function caricaOggettiInCarico() {
 }
 
 // ============================================================
-// CARICAMENTO DAL MAGAZZINO
+// CARICAMENTO DAL MAGAZZINO (con filtri settore, categoria, marca)
 // ============================================================
 async function caricaOggettiDaMagazzino() {
   showLoading();
@@ -844,6 +872,9 @@ async function caricaOggettiDaMagazzino() {
   var fSig = filtroSigla.value;
   var fLung = filtroLunghezza.value;
   var fCat = filtroCategoria.value;
+  var fSettore = filtroSettoreMagazzino.value;
+  var fMarca = filtroMarcaMagazzino.value;
+
   var lista = [];
   var sigleUniche = {};
   var lunghezzeUniche = {};
@@ -857,6 +888,8 @@ async function caricaOggettiDaMagazzino() {
       var paramsArt = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
       if (fLung) paramsArt.append('lunghezza', fLung);
       if (fCat) paramsArt.append('categoria', fCat);
+      if (fSettore) paramsArt.append('settore', fSettore);
+      if (fMarca) paramsArt.append('marca', fMarca);
       promesse.push(
         apiFetch('/articoli?' + paramsArt.toString())
           .then(function(r) { return { type: 'articoli', data: r.success ? r.data : [] }; })
@@ -864,8 +897,11 @@ async function caricaOggettiDaMagazzino() {
       );
     }
     if (includeKit) {
+      var paramsKit = new URLSearchParams();
+      if (magId) paramsKit.append('magazzino', magId);
+      if (fSettore) paramsKit.append('settore', fSettore);
       promesse.push(
-        apiFetch('/kit')
+        apiFetch('/kit?' + paramsKit.toString())
           .then(function(r2) { 
             var kits = r2.success ? r2.data : (Array.isArray(r2) ? r2 : []);
             return { type: 'kit', data: kits };
@@ -1531,12 +1567,10 @@ async function confermaMassive() {
       endpoint = '/assegnazioni/rientro/batch';
       payload.magazzinoId = parseInt(dId);
       payload.oggetti = selectedMassive.map(function(o) {
-        // Assicuriamoci che daTipo e daId siano sempre presenti
         var daTipo = o.destinazioneTipo || 'PROMOTER';
         var daId = o.destinazioneId || null;
         if (!daId) {
           console.warn('⚠️ Oggetto senza destinazioneId:', o);
-          // Fallback: usa il soggetto selezionato
           daTipo = sourceTipo.value;
           daId = parseInt(sourceId.value);
         }
@@ -1596,7 +1630,6 @@ function apriModalCreaKitDaCarico() {
   }
   var selezionati = idx.map(function(i) { return oggetti[i]; });
   
-  // Helper per riconoscere sci/attacco anche senza categoria
   function isSci(o) {
     if (o.categoriaNome) return o.categoriaNome.toLowerCase() === 'sci';
     var desc = (o.descrizione || '').toLowerCase();
@@ -1883,6 +1916,8 @@ function resetFiltriMagazzino() {
   filtroSigla.value = '';
   filtroLunghezza.value = '';
   filtroCategoria.value = '';
+  filtroSettoreMagazzino.value = '';
+  filtroMarcaMagazzino.value = '';
   if (radioMagazzino.checked) caricaOggettiDaMagazzino();
 }
 
@@ -1961,7 +1996,9 @@ window.onload = async function() {
   } catch(e) { logout(); return; }
   var loginInfo = document.getElementById('loginInfo');
   loginInfo.innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
-  await Promise.all([caricaMagazzini(), caricaCategorie()]);
+  
+  // Carica anagrafiche
+  await Promise.all([caricaMagazzini(), caricaCategorie(), caricaMarche()]);
   setup();
 };
 </script>
