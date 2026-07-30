@@ -301,7 +301,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
     }
 
-    // Costruisci le condizioni di filtro per articoli e kit (usando apici singoli)
+    // Costruisci le condizioni di filtro per articoli e kit (USANDO APICI SINGOLI)
     let filterConditions = '';
     let filterParams = [];
     if (settore || categoria || marca) {
@@ -315,23 +315,25 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       if (categoria) {
         conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.categoria = ?)');
         filterParams.push(categoria);
+        // I kit non hanno categoria, quindi non li filtro per categoria
       }
       if (marca) {
         conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.marca = ?)');
         filterParams.push(marca);
+        // I kit non hanno marca
       }
       if (conditions.length) {
         filterConditions = ' AND (' + conditions.join(' OR ') + ')';
       }
     }
 
+    // Determina i soggetti da considerare
     let tipo, soggettoIds = [];
     if (soggetto_id === 'tutti') {
-      // Ottieni tutti i soggetti visibili all'utente
       let query = 'SELECT s.id, s.tipo FROM soggetti s WHERE s.attivo = 1';
       const params = [];
       if (req.userRole === 'admin') {
-        // Admin vede tutti
+        // admin vede tutti
       } else if (req.userRole === 'promoter') {
         const [userRows] = await pool.query('SELECT riferimento_id FROM utenti WHERE id = ?', [req.userId]);
         if (userRows.length === 0 || !userRows[0].riferimento_id) {
@@ -370,7 +372,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
     let risultati = [];
     const modalitaVal = modalita || 'incarico';
 
-    // Funzione per ottenere dati per un singolo soggetto
+    // Funzione per ottenere i dati per un singolo soggetto
     async function getDataForSoggetto(sId, sTipo) {
       let result = [];
 
