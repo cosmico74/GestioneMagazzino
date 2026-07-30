@@ -380,6 +380,16 @@
 </div>
 
 <script>
+  // ============================================================
+// DEBOUNCE - Evita chiamate API multiple durante la digitazione
+// ============================================================
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
 // ============================================================
 // UTILITY
 // ============================================================
@@ -426,6 +436,9 @@ function logout() {
 // ============================================================
 // VARIABILI GLOBALI
 // ============================================================
+// Cache per evitare ricariche duplicate
+var ultimiFiltriMagazzino = '';
+var ultimiFiltriCarico = '';
 var currentUser = null;
 var userLevel = 0;
 var magazzini = [], categorie = [], marche = [];
@@ -857,7 +870,8 @@ async function caricaOggettiInCarico() {
 // ============================================================
 async function caricaOggettiDaMagazzino() {
   showLoading();
-  oggetti = []; oggettiOriginali = [];
+  
+  // 1. Leggi i filtri
   var magId = magazzinoSelect.value;
   if (!magId) {
     showMessage('Seleziona un magazzino', 'info');
@@ -865,9 +879,7 @@ async function caricaOggettiDaMagazzino() {
     hideLoading();
     return;
   }
-  var magSelezionato = magazzini.find(function(m) { return m.id == magId; });
-  var magNome = magSelezionato ? magSelezionato.nome : 'Magazzino ' + magId;
-
+  
   var tipo = tipoOggettoMagazzino.value;
   var fSig = filtroSigla.value;
   var fLung = filtroLunghezza.value;
@@ -875,6 +887,20 @@ async function caricaOggettiDaMagazzino() {
   var fSettore = filtroSettoreMagazzino.value;
   var fMarca = filtroMarcaMagazzino.value;
 
+  // 2. Controllo cache: se i filtri non sono cambiati, evita la ricarica
+  var chiave = magId + '|' + tipo + '|' + fSig + '|' + fLung + '|' + fCat + '|' + fSettore + '|' + fMarca;
+  if (chiave === ultimiFiltriMagazzino) {
+    console.log('🔄 Filtri identici, nessuna ricarica');
+    hideLoading();
+    return;
+  }
+  ultimiFiltriMagazzino = chiave;
+
+  var magSelezionato = magazzini.find(function(m) { return m.id == magId; });
+  var magNome = magSelezionato ? magSelezionato.nome : 'Magazzino ' + magId;
+
+  oggetti = [];
+  oggettiOriginali = [];
   var lista = [];
   var sigleUniche = {};
   var lunghezzeUniche = {};
@@ -890,16 +916,21 @@ async function caricaOggettiDaMagazzino() {
       if (fCat) paramsArt.append('categoria', fCat);
       if (fSettore) paramsArt.append('settore', fSettore);
       if (fMarca) paramsArt.append('marca', fMarca);
+      // Limita il numero di risultati per migliorare le prestazioni (opzionale)
+      // paramsArt.append('limit', '200');
       promesse.push(
         apiFetch('/articoli?' + paramsArt.toString())
           .then(function(r) { return { type: 'articoli', data: r.success ? r.data : [] }; })
           .catch(function() { return { type: 'articoli', data: [] }; })
       );
     }
+
     if (includeKit) {
       var paramsKit = new URLSearchParams();
       if (magId) paramsKit.append('magazzino', magId);
       if (fSettore) paramsKit.append('settore', fSettore);
+      // Se hai molti kit, limita anche qui
+      // paramsKit.append('limit', '100');
       promesse.push(
         apiFetch('/kit?' + paramsKit.toString())
           .then(function(r2) { 
@@ -910,12 +941,22 @@ async function caricaOggettiDaMagazzino() {
       );
     }
 
+    // Se non ci sono promesse, esci
+    if (promesse.length === 0) {
+      oggetti = [];
+      oggettiOriginali = [];
+      popolaTabella();
+      hideLoading();
+      return;
+    }
+
     var results = await Promise.all(promesse);
 
+    // Articoli
     var articoliResult = results.find(function(res) { return res.type === 'articoli'; });
     if (articoliResult) {
       var articoli = articoliResult.data;
-      for (var i=0; i<articoli.length; i++) {
+      for (var i = 0; i < articoli.length; i++) {
         var a = articoli[i];
         var disp = a.GIACENZA_REALE || 0;
         if (disp <= 0) continue;
@@ -944,11 +985,12 @@ async function caricaOggettiDaMagazzino() {
       }
     }
 
+    // Kit
     var kitResult = results.find(function(res) { return res.type === 'kit'; });
     if (kitResult) {
       var kits = kitResult.data;
       kits = kits.filter(function(k) { return k.magazzino == magId && k.quantita > 0; });
-      for (var k2=0; k2<kits.length; k2++) {
+      for (var k2 = 0; k2 < kits.length; k2++) {
         var kit = kits[k2];
         var dispKit = kit.quantita;
         try {
@@ -988,6 +1030,7 @@ async function caricaOggettiDaMagazzino() {
       }
     }
 
+    // Aggiorna dropdown e tabella
     aggiornaDropdownFiltri(sigleUniche, lunghezzeUniche);
     oggetti = lista;
     oggettiOriginali = lista;
@@ -1000,7 +1043,37 @@ async function caricaOggettiDaMagazzino() {
     showMessage('Errore magazzino: ' + e.message, 'error');
     oggetti = [];
     popolaTabella();
-  } finally { hideLoading(); }
+  } finally { 
+    hideLoading(); 
+  }
+}
+
+function initFiltriMagazzino() {
+  // Crea una versione con debounce della funzione
+  var caricaConDebounce = debounce(function() {
+    if (radioMagazzino.checked) caricaOggettiDaMagazzino();
+  }, 400);
+
+  // Listener per il magazzino (cambia il select e ricarica)
+  magazzinoSelect.addEventListener('change', function() {
+    if (radioMagazzino.checked) caricaOggettiDaMagazzino();
+  });
+
+  // Listener per i filtri (con debounce)
+  var filtri = [
+    filtroSettoreMagazzino,
+    filtroCategoria,
+    filtroMarcaMagazzino,
+    tipoOggettoMagazzino,
+    filtroSigla,
+    filtroLunghezza
+  ];
+
+  filtri.forEach(function(el) {
+    if (el) {
+      el.addEventListener('change', caricaConDebounce);
+    }
+  });
 }
 
 function aggiornaDropdownFiltri(sigleUniche, lunghezzeUniche) {
@@ -1969,6 +2042,8 @@ function setup() {
   attachSortListeners();
   var btnMassivo = document.getElementById('btnTrasferisciMassivo');
   if (btnMassivo) btnMassivo.addEventListener('click', apriModalTrasferimentoMassivo);
+    // Inizializza i listener con debounce per i filtri del magazzino
+  initFiltriMagazzino();
   toggleSource();
 }
 
