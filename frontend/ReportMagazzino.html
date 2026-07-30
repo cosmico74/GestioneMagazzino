@@ -9,29 +9,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f2f5;
-      padding: 20px;
-    }
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      padding: 20px;
-    }
-    .compact-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: white;
-      border-radius: 0 0 12px 12px;
-      padding: 4px 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-      margin-bottom: 15px;
-    }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 20px; }
+    .compact-bar { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 0 0 12px 12px; padding: 4px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 15px; }
     .logo { display: flex; justify-content: center; flex: 1; }
     .logo img { height: 120px; width: auto; display: block; }
     .login-info { background: #e8f0fe; padding: 2px 12px; border-radius: 16px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px; }
@@ -41,62 +21,14 @@
     .btn-secondary { background: #6c757d; }
     .btn-success { background: #27ae60; }
     .btn-warning { background: #f39c12; color: white; }
-    .filter-bar {
-      background: #f8f9fa;
-      border-radius: 10px;
-      padding: 10px 15px;
-      margin-bottom: 15px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: flex-end;
-      border: 1px solid #e2e8f0;
-    }
+    .filter-bar { background: #f8f9fa; border-radius: 10px; padding: 10px 15px; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; border: 1px solid #e2e8f0; }
     .filter-group { flex: 1; min-width: 130px; }
-    .filter-group label {
-      display: block;
-      font-weight: 600;
-      font-size: 0.65rem;
-      text-transform: uppercase;
-      color: #2c3e50;
-      margin-bottom: 2px;
-    }
-    .filter-group select, .filter-group input {
-      width: 100%;
-      padding: 5px 8px;
-      border: 1px solid #cbd5e0;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      background: white;
-    }
-    .filter-group.checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 160px;
-      flex: 0 1 auto;
-    }
-    .filter-group.checkbox-group label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-weight: normal;
-      font-size: 0.75rem;
-      text-transform: none;
-      cursor: pointer;
-      margin: 0;
-    }
-    .filter-group.checkbox-group input[type="checkbox"] {
-      width: auto;
-      margin: 0;
-      cursor: pointer;
-    }
-    .radio-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      align-items: center;
-    }
+    .filter-group label { display: block; font-weight: 600; font-size: 0.65rem; text-transform: uppercase; color: #2c3e50; margin-bottom: 2px; }
+    .filter-group select, .filter-group input { width: 100%; padding: 5px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: white; }
+    .filter-group.checkbox-group { display: flex; align-items: center; gap: 10px; min-width: 160px; flex: 0 1 auto; }
+    .filter-group.checkbox-group label { display: flex; align-items: center; gap: 6px; font-weight: normal; font-size: 0.75rem; text-transform: none; cursor: pointer; margin: 0; }
+    .filter-group.checkbox-group input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
+    .radio-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
     .radio-group label { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: normal; cursor: pointer; }
     .radio-group input[type="radio"] { cursor: pointer; }
     .tabs { display: flex; gap: 4px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; flex-wrap: wrap; }
@@ -105,23 +37,12 @@
     .tab:hover:not(.active) { background: #e8f0fe; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .table-wrapper {
-      overflow-x: auto;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      max-height: 65vh;
-      overflow-y: auto;
-    }
+    .table-wrapper { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; max-height: 65vh; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; }
     th, td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
     th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; user-select: none; }
     th:hover { background: #e2e8f0; }
-    .sort-arrow {
-      font-size: 0.7rem;
-      margin-left: 4px;
-      color: #aaa;
-      display: inline-block;
-    }
+    .sort-arrow { font-size: 0.7rem; margin-left: 4px; color: #aaa; display: inline-block; }
     .sort-arrow.active { color: #1a73e8; font-weight: bold; }
     tr:hover td { background: #f8fafc; }
     .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
@@ -136,21 +57,15 @@
     .badge-stato-magazzino { background: #d4edda; color: #155724; }
     .badge-stato-assegnato { background: #fff3cd; color: #856404; }
     .btn-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-    @media (max-width: 768px) {
-      .filter-bar { flex-direction: column; align-items: stretch; }
-      .radio-group { flex-direction: column; gap: 5px; }
-    }
+    @media (max-width: 768px) { .filter-bar { flex-direction: column; align-items: stretch; } .radio-group { flex-direction: column; gap: 5px; } }
   </style>
 </head>
 <body>
 <div class="container">
 
-  <!-- COMPACT BAR -->
   <div class="compact-bar">
     <div style="flex: 1;"></div>
-    <div class="logo">
-      <img src="/images/kastle-logo.png" alt="Kastle">
-    </div>
+    <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
     <div style="display: flex; gap: 6px; align-items: center; flex: 1; justify-content: flex-end;">
       <span id="loginInfo" class="login-info"></span>
       <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
@@ -161,37 +76,19 @@
   <h2>📊 Report di Magazzino</h2>
   <div id="messageArea"></div>
 
-  <!-- TABS -->
   <div class="tabs">
     <button class="tab active" data-tab="austria" onclick="switchTab('austria')">🇦🇹 Austria</button>
     <button class="tab" data-tab="italia" onclick="switchTab('italia')">🇮🇹 Italia</button>
     <button class="tab" data-tab="soggetti" onclick="switchTab('soggetti')">👤 Per Soggetto</button>
   </div>
 
-  <!-- ==================== TAB AUSTRIA ==================== -->
+  <!-- TAB AUSTRIA -->
   <div id="tab-austria" class="tab-content active">
     <div class="filter-bar">
-      <div class="filter-group">
-        <label>Magazzino</label>
-        <select id="austriaMagazzino"><option value="">Tutti</option></select>
-      </div>
-      <div class="filter-group">
-        <label>Settore</label>
-        <select id="austriaSettore">
-          <option value="">Tutti</option>
-          <option value="1">Alpino</option>
-          <option value="2">Nordico</option>
-          <option value="3">Freeride</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Categoria</label>
-        <select id="austriaCategoria"><option value="">Tutte</option></select>
-      </div>
-      <div class="filter-group">
-        <label>Marca</label>
-        <select id="austriaMarca"><option value="">Tutte</option></select>
-      </div>
+      <div class="filter-group"><label>Magazzino</label><select id="austriaMagazzino"><option value="">Tutti</option></select></div>
+      <div class="filter-group"><label>Settore</label><select id="austriaSettore"><option value="">Tutti</option><option value="1">Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+      <div class="filter-group"><label>Categoria</label><select id="austriaCategoria"><option value="">Tutte</option></select></div>
+      <div class="filter-group"><label>Marca</label><select id="austriaMarca"><option value="">Tutte</option></select></div>
       <div class="btn-group">
         <button class="btn" onclick="caricaAustria()">🔍 Carica</button>
         <button class="btn btn-warning" onclick="anteprimaPDF('austria')">👁️ PDF</button>
@@ -215,53 +112,18 @@
     </div>
   </div>
 
-  <!-- ==================== TAB ITALIA ==================== -->
+  <!-- TAB ITALIA -->
   <div id="tab-italia" class="tab-content">
     <div class="filter-bar">
-      <div class="filter-group">
-        <label>Magazzino</label>
-        <select id="italiaMagazzino"><option value="">Tutti</option></select>
-      </div>
-      <div class="filter-group">
-        <label>Settore</label>
-        <select id="italiaSettore">
-          <option value="">Tutti</option>
-          <option value="1">Alpino</option>
-          <option value="2">Nordico</option>
-          <option value="3">Freeride</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Categoria</label>
-        <select id="italiaCategoria"><option value="">Tutte</option></select>
-      </div>
-      <div class="filter-group">
-        <label>Marca</label>
-        <select id="italiaMarca"><option value="">Tutte</option></select>
-      </div>
-      <div class="filter-group">
-        <label>Tipo</label>
-        <select id="italiaTipo">
-          <option value="ENTRAMBI">Articoli e Kit</option>
-          <option value="ARTICOLO">Solo Articoli</option>
-          <option value="KIT">Solo Kit</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Codice</label>
-        <input type="text" id="filtroCodice" placeholder="Codice...">
-      </div>
-      <div class="filter-group">
-        <label>Descrizione</label>
-        <input type="text" id="filtroDescrizione" placeholder="Descrizione...">
-      </div>
-      <div class="filter-group">
-        <label>Lunghezza</label>
-        <input type="text" id="filtroLunghezza" placeholder="Lunghezza...">
-      </div>
-      <div class="filter-group checkbox-group">
-        <label><input type="checkbox" id="raggruppaCheck"> Raggruppa per modello</label>
-      </div>
+      <div class="filter-group"><label>Magazzino</label><select id="italiaMagazzino"><option value="">Tutti</option></select></div>
+      <div class="filter-group"><label>Settore</label><select id="italiaSettore"><option value="">Tutti</option><option value="1">Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+      <div class="filter-group"><label>Categoria</label><select id="italiaCategoria"><option value="">Tutte</option></select></div>
+      <div class="filter-group"><label>Marca</label><select id="italiaMarca"><option value="">Tutte</option></select></div>
+      <div class="filter-group"><label>Tipo</label><select id="italiaTipo"><option value="ENTRAMBI">Articoli e Kit</option><option value="ARTICOLO">Solo Articoli</option><option value="KIT">Solo Kit</option></select></div>
+      <div class="filter-group"><label>Codice</label><input type="text" id="filtroCodice" placeholder="Codice..."></div>
+      <div class="filter-group"><label>Descrizione</label><input type="text" id="filtroDescrizione" placeholder="Descrizione..."></div>
+      <div class="filter-group"><label>Lunghezza</label><input type="text" id="filtroLunghezza" placeholder="Lunghezza..."></div>
+      <div class="filter-group checkbox-group"><label><input type="checkbox" id="raggruppaCheck"> Raggruppa per modello</label></div>
       <div class="btn-group">
         <button class="btn" onclick="caricaItalia()">🔍 Carica</button>
         <button class="btn btn-warning" onclick="anteprimaPDF('italia')">👁️ PDF</button>
@@ -290,30 +152,13 @@
     </div>
   </div>
 
-  <!-- ==================== TAB SOGGETTI ==================== -->
+  <!-- TAB SOGGETTI -->
   <div id="tab-soggetti" class="tab-content">
     <div class="filter-bar">
-      <div class="filter-group">
-        <label>Soggetto</label>
-        <select id="soggettoSelect"><option value="">Seleziona...</option></select>
-      </div>
-      <div class="filter-group">
-        <label>Settore</label>
-        <select id="soggettiSettore">
-          <option value="">Tutti</option>
-          <option value="1">Alpino</option>
-          <option value="2">Nordico</option>
-          <option value="3">Freeride</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Categoria</label>
-        <select id="soggettiCategoria"><option value="">Tutte</option></select>
-      </div>
-      <div class="filter-group">
-        <label>Marca</label>
-        <select id="soggettiMarca"><option value="">Tutte</option></select>
-      </div>
+      <div class="filter-group"><label>Soggetto</label><select id="soggettoSelect"><option value="">Seleziona...</option></select></div>
+      <div class="filter-group"><label>Settore</label><select id="soggettiSettore"><option value="">Tutti</option><option value="1">Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+      <div class="filter-group"><label>Categoria</label><select id="soggettiCategoria"><option value="">Tutte</option></select></div>
+      <div class="filter-group"><label>Marca</label><select id="soggettiMarca"><option value="">Tutte</option></select></div>
       <div class="radio-group">
         <label><input type="radio" name="soggettoMode" value="incarico" checked> In carico</label>
         <label><input type="radio" name="soggettoMode" value="inviati"> Inviato ad altri</label>
@@ -545,11 +390,10 @@ async function caricaCategorie() {
   } catch(e) { console.error('Errore categorie:', e); }
 }
 
-// 🔥 Funzione per caricare marche in base alla categoria
+// Funzione per caricare marche in base alla categoria (con fallback)
 async function caricaMarchePerCategoria(categoriaId, selectMarca) {
   if (!selectMarca) return;
   if (!categoriaId) {
-    // Se categoria è vuota (Tutte), carica tutte le marche
     const data = await apiFetch('/anagrafiche/marche');
     selectMarca.innerHTML = '<option value="">Tutte</option>';
     data.forEach(m => selectMarca.appendChild(new Option(m.nome, m.id)));
@@ -561,7 +405,6 @@ async function caricaMarchePerCategoria(categoriaId, selectMarca) {
     if (data && data.length) {
       data.forEach(m => selectMarca.appendChild(new Option(m.nome, m.id)));
     } else {
-      // Se non ci sono marche associate, aggiungi un'opzione vuota
       const opt = document.createElement('option');
       opt.value = '';
       opt.textContent = 'Nessuna marca associata';
@@ -570,16 +413,15 @@ async function caricaMarchePerCategoria(categoriaId, selectMarca) {
     }
   } catch(e) {
     console.error('Errore caricamento marche per categoria:', e);
-    // Fallback: carica tutte le marche
     const data = await apiFetch('/anagrafiche/marche');
     selectMarca.innerHTML = '<option value="">Tutte</option>';
     data.forEach(m => selectMarca.appendChild(new Option(m.nome, m.id)));
   }
 }
 
-// Inizializza i listener per filtrare marche in base alla categoria
+// Inizializza i listener per filtrare marche in base alla categoria in tutti i tab
 function initMarcheFiltri() {
-  // Tab Austria
+  // Austria
   const catAustria = document.getElementById('austriaCategoria');
   const marcaAustria = document.getElementById('austriaMarca');
   if (catAustria && marcaAustria) {
@@ -587,8 +429,7 @@ function initMarcheFiltri() {
       caricaMarchePerCategoria(this.value, marcaAustria);
     });
   }
-
-  // Tab Italia
+  // Italia
   const catItalia = document.getElementById('italiaCategoria');
   const marcaItalia = document.getElementById('italiaMarca');
   if (catItalia && marcaItalia) {
@@ -596,8 +437,7 @@ function initMarcheFiltri() {
       caricaMarchePerCategoria(this.value, marcaItalia);
     });
   }
-
-  // Tab Soggetti
+  // Soggetti
   const catSoggetti = document.getElementById('soggettiCategoria');
   const marcaSoggetti = document.getElementById('soggettiMarca');
   if (catSoggetti && marcaSoggetti) {
@@ -611,7 +451,6 @@ async function caricaMarche() {
   try {
     const data = await apiFetch('/anagrafiche/marche');
     marche = data || [];
-    // Popola i select marche con tutte le marche di default
     ['austriaMarca', 'italiaMarca', 'soggettiMarca'].forEach(id => {
       const sel = document.getElementById(id);
       if (sel) {
@@ -668,10 +507,14 @@ function switchTab(tab) {
 // ============================================================
 async function caricaAustria() {
   const params = new URLSearchParams();
-  if (document.getElementById('austriaMagazzino').value) params.append('magazzino', document.getElementById('austriaMagazzino').value);
-  if (document.getElementById('austriaSettore').value) params.append('settore', document.getElementById('austriaSettore').value);
-  if (document.getElementById('austriaCategoria').value) params.append('categoria', document.getElementById('austriaCategoria').value);
-  if (document.getElementById('austriaMarca').value) params.append('marca', document.getElementById('austriaMarca').value);
+  const mag = document.getElementById('austriaMagazzino').value;
+  const settore = document.getElementById('austriaSettore').value;
+  const cat = document.getElementById('austriaCategoria').value;
+  const marca = document.getElementById('austriaMarca').value;
+  if (mag) params.append('magazzino', mag);
+  if (settore) params.append('settore', settore);
+  if (cat) params.append('categoria', cat);
+  if (marca) params.append('marca', marca);
   const tbody = document.getElementById('austriaBody');
   tbody.innerHTML = '<tr><td colspan="7" class="text-center">⏳ Caricamento...</td></tr>';
   try {
@@ -711,15 +554,24 @@ function renderAustria(data) {
 // ============================================================
 async function caricaItalia() {
   const params = new URLSearchParams();
-  if (document.getElementById('italiaMagazzino').value) params.append('magazzino', document.getElementById('italiaMagazzino').value);
-  if (document.getElementById('italiaSettore').value) params.append('settore', document.getElementById('italiaSettore').value);
-  if (document.getElementById('italiaCategoria').value) params.append('categoria', document.getElementById('italiaCategoria').value);
-  if (document.getElementById('italiaMarca').value) params.append('marca', document.getElementById('italiaMarca').value);
-  if (document.getElementById('italiaTipo').value) params.append('tipo', document.getElementById('italiaTipo').value);
-  if (document.getElementById('raggruppaCheck').checked) params.append('raggruppa', 'true');
-  if (document.getElementById('filtroCodice').value) params.append('filtro_codice', document.getElementById('filtroCodice').value);
-  if (document.getElementById('filtroDescrizione').value) params.append('filtro_descrizione', document.getElementById('filtroDescrizione').value);
-  if (document.getElementById('filtroLunghezza').value) params.append('filtro_lunghezza', document.getElementById('filtroLunghezza').value);
+  const mag = document.getElementById('italiaMagazzino').value;
+  const settore = document.getElementById('italiaSettore').value;
+  const cat = document.getElementById('italiaCategoria').value;
+  const marca = document.getElementById('italiaMarca').value;
+  const tipo = document.getElementById('italiaTipo').value;
+  const raggruppa = document.getElementById('raggruppaCheck').checked;
+  const cod = document.getElementById('filtroCodice').value;
+  const desc = document.getElementById('filtroDescrizione').value;
+  const lun = document.getElementById('filtroLunghezza').value;
+  if (mag) params.append('magazzino', mag);
+  if (settore) params.append('settore', settore);
+  if (cat) params.append('categoria', cat);
+  if (marca) params.append('marca', marca);
+  if (tipo) params.append('tipo', tipo);
+  if (raggruppa) params.append('raggruppa', 'true');
+  if (cod) params.append('filtro_codice', cod);
+  if (desc) params.append('filtro_descrizione', desc);
+  if (lun) params.append('filtro_lunghezza', lun);
   const tbody = document.getElementById('italiaBody');
   tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>';
   try {
@@ -767,17 +619,26 @@ function renderItalia(data) {
 }
 
 // ============================================================
-// REPORT SOGGETTI
+// REPORT SOGGETTI – con filtri funzionanti
 // ============================================================
 async function caricaSoggetti() {
   const soggettoId = document.getElementById('soggettoSelect').value;
-  if (!soggettoId) { showMessage('Seleziona un soggetto', 'info'); return; }
+  if (!soggettoId) {
+    showMessage('Seleziona un soggetto', 'info');
+    return;
+  }
   const mode = document.querySelector('input[name="soggettoMode"]:checked');
   const modeVal = mode ? mode.value : 'incarico';
   const params = new URLSearchParams({ soggetto_id: soggettoId, modalita: modeVal });
-  if (document.getElementById('soggettiSettore').value) params.append('settore', document.getElementById('soggettiSettore').value);
-  if (document.getElementById('soggettiCategoria').value) params.append('categoria', document.getElementById('soggettiCategoria').value);
-  if (document.getElementById('soggettiMarca').value) params.append('marca', document.getElementById('soggettiMarca').value);
+  
+  // Leggi i filtri
+  const settore = document.getElementById('soggettiSettore').value;
+  const categoria = document.getElementById('soggettiCategoria').value;
+  const marca = document.getElementById('soggettiMarca').value;
+  if (settore) params.append('settore', settore);
+  if (categoria) params.append('categoria', categoria);
+  if (marca) params.append('marca', marca);
+  
   const tbody = document.getElementById('soggettiBody');
   tbody.innerHTML = '<tr><td colspan="11" class="text-center">⏳ Caricamento...</td></tr>';
   try {
@@ -912,7 +773,6 @@ async function generaPDF(tab, anteprima = false) {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } else { doc.save(filename); }
 }
-
 function esportaPDF(tab) { generaPDF(tab, false); }
 function anteprimaPDF(tab) { generaPDF(tab, true); }
 
@@ -987,8 +847,6 @@ window.onload = async function() {
   await caricaCategorie();
   await caricaMarche();
   await caricaSoggettiVisibili();
-
-  // Inizializza i listener per filtrare marche in base alla categoria
   initMarcheFiltri();
 
   if (currentUser.ruolo === 'admin') {
@@ -999,6 +857,7 @@ window.onload = async function() {
   }
   attachSortListeners();
 
+  // Listener per selezione soggetto
   document.getElementById('soggettoSelect').addEventListener('change', function() {
     if (this.value) caricaSoggetti();
     else {
@@ -1006,13 +865,15 @@ window.onload = async function() {
       soggettiData = [];
     }
   });
+
+  // Listener per i radio del tab Soggetti
   document.querySelectorAll('input[name="soggettoMode"]').forEach(el => {
     el.addEventListener('change', function() {
       if (document.getElementById('soggettoSelect').value) caricaSoggetti();
     });
   });
 
-  // Event listeners per tutti i filtri
+  // Listener per i filtri del tab Italia
   ['italiaTipo', 'italiaMagazzino', 'italiaSettore', 'italiaCategoria', 'italiaMarca'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', caricaItalia);
@@ -1023,16 +884,20 @@ window.onload = async function() {
   });
   document.getElementById('raggruppaCheck').addEventListener('change', caricaItalia);
 
+  // Listener per i filtri del tab Austria
   ['austriaMagazzino', 'austriaSettore', 'austriaCategoria', 'austriaMarca'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', caricaAustria);
   });
 
+  // Listener per i filtri del tab Soggetti
   ['soggettiSettore', 'soggettiCategoria', 'soggettiMarca'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('change', function() {
-      if (document.getElementById('soggettoSelect').value) caricaSoggetti();
-    });
+    if (el) {
+      el.addEventListener('change', function() {
+        if (document.getElementById('soggettoSelect').value) caricaSoggetti();
+      });
+    }
   });
 };
 </script>

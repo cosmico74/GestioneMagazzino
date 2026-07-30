@@ -39,7 +39,7 @@ router.get('/austria', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT ITALIA
+// REPORT ITALIA – con filtri settore, categoria, marca
 // ============================================================
 router.get('/italia', verifyToken, async (req, res) => {
   try {
@@ -208,7 +208,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 
     // --- KIT ---
     if (includeKit) {
-      // 1. Kit in magazzino
+      // Kit in magazzino
       let sqlKitMagazzino = `
         SELECT 
           k.id AS articolo_id,
@@ -245,7 +245,7 @@ router.get('/italia', verifyToken, async (req, res) => {
       rowsKitMag = rowsKitMag.filter(row => row.giacenza > 0);
       risultati = risultati.concat(rowsKitMag.map(r => ({ ...r, tipo_oggetto: 'KIT' })));
 
-      // 2. Kit assegnati
+      // Kit assegnati
       let sqlKitAssegnati = `
         SELECT 
           k.id AS articolo_id,
@@ -330,7 +330,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
 
     let tipo, soggettoIds = [];
     if (soggetto_id === 'tutti') {
-      // Gestione visibilità per "tutti"
+      // Ottieni tutti i soggetti visibili all'utente
       let query = 'SELECT s.id, s.tipo FROM soggetti s WHERE s.attivo = 1';
       const params = [];
       if (req.userRole === 'admin') {
@@ -373,6 +373,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
     let risultati = [];
     const modalitaVal = modalita || 'incarico';
 
+    // Funzione per ottenere dati per un singolo soggetto
     async function getDataForSoggetto(sId, sTipo) {
       let result = [];
 
@@ -464,6 +465,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       return result;
     }
 
+    // Esegui per tutti i soggetti
     if (soggetto_id === 'tutti') {
       for (const id of soggettoIds) {
         const [sog] = await pool.query('SELECT tipo FROM soggetti WHERE id = ?', [id]);
