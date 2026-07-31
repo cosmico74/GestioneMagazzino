@@ -292,7 +292,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT SOGGETTI – con filtri settore, categoria, marca
+// REPORT SOGGETTI – con filtri settore, categoria, marca (anche per kit)
 // ============================================================
 router.get('/soggetti', verifyToken, async (req, res) => {
   try {
@@ -301,25 +301,44 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
     }
 
-    // Costruisci le condizioni di filtro (USANDO APICI SINGOLI)
+    // 🔥 Costruisci condizioni di filtro (supporto per kit tramite EXISTS)
     let filterConditions = '';
     let filterParams = [];
     if (settore || categoria || marca) {
       const conditions = [];
+
+      // Filtro per SETTORE (articoli e kit)
       if (settore) {
         conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.settore = ?)');
         filterParams.push(settore);
         conditions.push('(cs.tipo_oggetto = \'KIT\' AND k.settore = ?)');
         filterParams.push(settore);
       }
+
+      // Filtro per CATEGORIA (articoli + kit che contengono un componente di quella categoria)
       if (categoria) {
         conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.categoria = ?)');
         filterParams.push(categoria);
+        conditions.push(`(cs.tipo_oggetto = 'KIT' AND EXISTS (
+          SELECT 1 FROM kit_dettaglio kd 
+          LEFT JOIN articoli a2 ON kd.articolo_id = a2.articolo_id
+          WHERE kd.kit_id = cs.oggetto_id AND a2.categoria = ?
+        ))`);
+        filterParams.push(categoria);
       }
+
+      // Filtro per MARCA (articoli + kit che contengono un componente di quella marca)
       if (marca) {
         conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.marca = ?)');
         filterParams.push(marca);
+        conditions.push(`(cs.tipo_oggetto = 'KIT' AND EXISTS (
+          SELECT 1 FROM kit_dettaglio kd 
+          LEFT JOIN articoli a2 ON kd.articolo_id = a2.articolo_id
+          WHERE kd.kit_id = cs.oggetto_id AND a2.marca = ?
+        ))`);
+        filterParams.push(marca);
       }
+
       if (conditions.length) {
         filterConditions = ' AND (' + conditions.join(' OR ') + ')';
       }
