@@ -292,7 +292,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT SOGGETTI – con filtri settore, categoria, marca (anche per kit)
+// REPORT SOGGETTI – con filtri IN AND (corretto per kit)
 // ============================================================
 router.get('/soggetti', verifyToken, async (req, res) => {
   try {
@@ -301,47 +301,58 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
     }
 
-    // 🔥 Costruisci condizioni di filtro (supporto per kit tramite EXISTS)
+    // 🔥 Costruisci condizioni di filtro con logica AND per kit
     let filterConditions = '';
     let filterParams = [];
-    if (settore || categoria || marca) {
-      const conditions = [];
+    
+    // Condizioni per ARTICOLI (filtri in AND)
+    let articoloConditions = [];
+    // Condizioni per KIT (filtri in AND su componenti)
+    let kitConditions = [];
 
-      // Filtro per SETTORE (articoli e kit)
-      if (settore) {
-        conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.settore = ?)');
-        filterParams.push(settore);
-        conditions.push('(cs.tipo_oggetto = \'KIT\' AND k.settore = ?)');
-        filterParams.push(settore);
-      }
+    if (settore) {
+      articoloConditions.push('a.settore = ?');
+      filterParams.push(settore);
+      kitConditions.push(`EXISTS (
+        SELECT 1 FROM kit_dettaglio kd 
+        LEFT JOIN articoli a2 ON kd.articolo_id = a2.articolo_id
+        WHERE kd.kit_id = cs.oggetto_id AND a2.settore = ?
+      )`);
+      filterParams.push(settore);
+    }
 
-      // Filtro per CATEGORIA (articoli + kit che contengono un componente di quella categoria)
-      if (categoria) {
-        conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.categoria = ?)');
-        filterParams.push(categoria);
-        conditions.push(`(cs.tipo_oggetto = 'KIT' AND EXISTS (
-          SELECT 1 FROM kit_dettaglio kd 
-          LEFT JOIN articoli a2 ON kd.articolo_id = a2.articolo_id
-          WHERE kd.kit_id = cs.oggetto_id AND a2.categoria = ?
-        ))`);
-        filterParams.push(categoria);
-      }
+    if (categoria) {
+      articoloConditions.push('a.categoria = ?');
+      filterParams.push(categoria);
+      kitConditions.push(`EXISTS (
+        SELECT 1 FROM kit_dettaglio kd 
+        LEFT JOIN articoli a2 ON kd.articolo_id = a2.articolo_id
+        WHERE kd.kit_id = cs.oggetto_id AND a2.categoria = ?
+      )`);
+      filterParams.push(categoria);
+    }
 
-      // Filtro per MARCA (articoli + kit che contengono un componente di quella marca)
-      if (marca) {
-        conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.marca = ?)');
-        filterParams.push(marca);
-        conditions.push(`(cs.tipo_oggetto = 'KIT' AND EXISTS (
-          SELECT 1 FROM kit_dettaglio kd 
-          LEFT JOIN articoli a2 ON kd.articolo_id = a2.articolo_id
-          WHERE kd.kit_id = cs.oggetto_id AND a2.marca = ?
-        ))`);
-        filterParams.push(marca);
-      }
+    if (marca) {
+      articoloConditions.push('a.marca = ?');
+      filterParams.push(marca);
+      kitConditions.push(`EXISTS (
+        SELECT 1 FROM kit_dettaglio kd 
+        LEFT JOIN articoli a2 ON kd.articolo_id = a2.articolo_id
+        WHERE kd.kit_id = cs.oggetto_id AND a2.marca = ?
+      )`);
+      filterParams.push(marca);
+    }
 
-      if (conditions.length) {
-        filterConditions = ' AND (' + conditions.join(' OR ') + ')';
-      }
+    // Costruisci la condizione finale
+    let conditions = [];
+    if (articoloConditions.length) {
+      conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND ' + articoloConditions.join(' AND ') + ')');
+    }
+    if (kitConditions.length) {
+      conditions.push('(cs.tipo_oggetto = \'KIT\' AND ' + kitConditions.join(' AND ') + ')');
+    }
+    if (conditions.length) {
+      filterConditions = ' AND (' + conditions.join(' OR ') + ')';
     }
 
     // Determina i soggetti da considerare
@@ -389,7 +400,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
     const modalitaVal = modalita || 'incarico';
     let risultati = [];
 
-    // Funzione per ottenere i dati per un singolo soggetto
     async function getDataForSoggetto(sId, sTipo) {
       let result = [];
 
@@ -481,7 +491,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       return result;
     }
 
-    // Esegui per tutti i soggetti
     if (soggetto_id === 'tutti') {
       for (const id of soggettoIds) {
         const [sog] = await pool.query('SELECT tipo FROM soggetti WHERE id = ?', [id]);
