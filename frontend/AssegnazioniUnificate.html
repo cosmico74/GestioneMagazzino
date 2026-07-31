@@ -298,7 +298,7 @@
   </div>
 </div>
 
-<!-- ===== MODALI ===== -->
+<!-- ===== MODALI (invariate) ===== -->
 <div id="assignModal" class="modal"><div class="modal-content"><h3>📤 Assegna oggetto</h3>
   <div class="form-group"><label>Oggetto</label><input type="text" id="assignOggetto" class="form-control" readonly></div>
   <div class="form-group"><label>Sigla</label><input type="text" id="assignSiglaDisplay" class="form-control" readonly></div>
@@ -441,6 +441,7 @@ var kitDetailsCache = new Map();
 var soggettoNomeCache = new Map();
 var allSoggetti = [];
 var selectedPerKit = [];
+var lastMagFilterKey = ''; // Per evitare ricariche duplicate
 
 var radioCarico = document.getElementById('sourceCarico');
 var radioMagazzino = document.getElementById('sourceMagazzino');
@@ -741,7 +742,7 @@ async function getOggettiAssegnati(tipo, id) {
 }
 
 // ============================================================
-// CARICAMENTO OGGETTI IN CARICO
+// CARICAMENTO OGGETTI IN CARICO (OTTIMIZZATO)
 // ============================================================
 async function caricaOggettiInCarico() {
   showLoading();
@@ -874,16 +875,30 @@ async function caricaOggettiInCarico() {
 }
 
 // ============================================================
-// CARICAMENTO DAL MAGAZZINO
+// CARICAMENTO DAL MAGAZZINO (OTTIMIZZATO - VELOCE)
 // ============================================================
 async function caricaOggettiDaMagazzino() {
+  // Verifica se i filtri sono cambiati per evitare ricariche duplicate
+  var magId = magazzinoSelect.value;
+  var fSettore = filtroSettoreMagazzino.value;
+  var fCat = filtroCategoria.value;
+  var fMarca = filtroMarcaMagazzino.value;
+  var fTipo = tipoOggettoMagazzino.value;
+  var fSig = filtroSigla.value;
+  var fLung = filtroLunghezza.value;
+  var key = magId + '|' + fSettore + '|' + fCat + '|' + fMarca + '|' + fTipo + '|' + fSig + '|' + fLung;
+  if (key === lastMagFilterKey && oggetti.length > 0) {
+    // Stessi filtri, non ricaricare
+    return;
+  }
+  lastMagFilterKey = key;
+
   showLoading();
-  await new Promise(resolve => setTimeout(resolve, 50));
+  await new Promise(resolve => setTimeout(resolve, 30));
 
   oggetti = [];
   oggettiOriginali = [];
 
-  var magId = magazzinoSelect.value;
   if (!magId) {
     showMessage('Seleziona un magazzino', 'info');
     popolaTabella();
@@ -910,6 +925,7 @@ async function caricaOggettiDaMagazzino() {
     var includeKit = (tipo === 'TUTTI' || tipo === 'KIT');
     var promesse = [];
 
+    // Carica articoli (solo se richiesti)
     if (includeArticoli) {
       var paramsArt = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
       if (fLung) paramsArt.append('lunghezza', fLung);
@@ -923,6 +939,7 @@ async function caricaOggettiDaMagazzino() {
       );
     }
 
+    // Carica kit (solo se richiesti)
     if (includeKit) {
       var paramsKit = new URLSearchParams();
       if (magId) paramsKit.append('magazzino', magId);
@@ -937,8 +954,16 @@ async function caricaOggettiDaMagazzino() {
       );
     }
 
+    // Se non ci sono promesse, esci
+    if (promesse.length === 0) {
+      popolaTabella();
+      hideLoading();
+      return;
+    }
+
     var results = await Promise.all(promesse);
 
+    // Processa articoli
     var articoliResult = results.find(function(res) { return res.type === 'articoli'; });
     if (articoliResult) {
       var articoli = articoliResult.data;
@@ -971,19 +996,36 @@ async function caricaOggettiDaMagazzino() {
       }
     }
 
+    // Processa kit (con filtro lato client per sigla e lunghezza)
     var kitResult = results.find(function(res) { return res.type === 'kit'; });
     if (kitResult) {
       var kits = kitResult.data;
+      // Filtra per magazzino e quantità
       kits = kits.filter(function(k) { return k.magazzino == magId && k.quantita > 0; });
+      
+      // Pre-calcola le quantità assegnate per tutti i kit in una sola chiamata
+      var kitIds = kits.map(function(k) { return k.id; });
+      var assegnatiMap = {};
+      if (kitIds.length > 0) {
+        try {
+          // Ottieni quantità assegnate per tutti i kit in una sola chiamata
+          var promisesAssegnati = kitIds.map(function(id) {
+            return apiFetch('/assegnazioni/quantita-assegnata-kit?kit_id=' + id)
+              .then(function(r) { return { id: id, quantita: r.quantita || 0 }; })
+              .catch(function() { return { id: id, quantita: 0 }; });
+          });
+          var resultsAssegnati = await Promise.all(promisesAssegnati);
+          resultsAssegnati.forEach(function(r) {
+            assegnatiMap[r.id] = r.quantita;
+          });
+        } catch(e) {
+          console.warn('Errore nel recupero quantità assegnate per kit:', e);
+        }
+      }
+
       for (var k2 = 0; k2 < kits.length; k2++) {
         var kit = kits[k2];
-        var dispKit = kit.quantita;
-        try {
-          var assegnato = await apiFetch('/assegnazioni/quantita-assegnata-kit?kit_id=' + kit.id);
-          dispKit = kit.quantita - (assegnato.quantita || 0);
-        } catch (e) {
-          console.warn('⚠️ Errore nel recupero quantità assegnata per kit', kit.id, e);
-        }
+        var dispKit = kit.quantita - (assegnatiMap[kit.id] || 0);
         if (dispKit <= 0) continue;
         var lung = kit.lunghezza_sci || '';
         var sigla = kit.sigla_sci || '';
@@ -1025,6 +1067,7 @@ async function caricaOggettiDaMagazzino() {
     popolaTabella();
     hideLoading();
   } catch (e) {
+    console.error('Errore caricaOggettiDaMagazzino:', e);
     showMessage('Errore magazzino: ' + e.message, 'error');
     oggetti = [];
     popolaTabella();
@@ -1066,7 +1109,7 @@ function aggiornaDropdownFiltri(sigleUniche, lunghezzeUniche) {
 }
 
 // ============================================================
-// ORDINAMENTO
+// ORDINAMENTO (invariato)
 // ============================================================
 function sortOggetti() {
   oggetti.sort(function(a, b) {
@@ -1136,7 +1179,7 @@ function attachSortListeners() {
 }
 
 // ============================================================
-// PAGINAZIONE E RENDER
+// PAGINAZIONE E RENDER (invariati)
 // ============================================================
 function popolaTabella() {
   var tbody = document.getElementById('tabellaBody');
@@ -1236,7 +1279,7 @@ function toggleSelectAll() {
 }
 
 // ============================================================
-// MODALI – ASSEGNAZIONE (dal magazzino)
+// MODALI - INVARIATE
 // ============================================================
 async function apriModalAssegnazione(obj) {
   try {
@@ -1298,9 +1341,6 @@ async function confermaAssegnazione() {
   } catch(e) { showMessage(e.message, 'error'); }
 }
 
-// ============================================================
-// MODALI – MODIFICA SINGOLA (in carico) + DIVIDI E TRASFERISCI
-// ============================================================
 async function apriModificaSingola(obj) {
   try {
     currentEditObj = obj;
@@ -1440,9 +1480,6 @@ async function confermaModificaSingola() {
   }
 }
 
-// ============================================================
-// DIVIDI E TRASFERISCI
-// ============================================================
 async function caricaDestinazioniDividi() {
   var tipo = document.getElementById('dividiDestTipo').value;
   var sel = document.getElementById('dividiDestId');
@@ -1936,6 +1973,7 @@ function resetFiltriMagazzino() {
   filtroCategoria.value = '';
   filtroSettoreMagazzino.value = '';
   filtroMarcaMagazzino.value = '';
+  lastMagFilterKey = '';
   if (radioMagazzino.checked) caricaOggettiDaMagazzino();
 }
 
