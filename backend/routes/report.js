@@ -297,39 +297,37 @@ router.get('/italia', verifyToken, async (req, res) => {
 router.get('/soggetti', verifyToken, async (req, res) => {
   try {
     const { soggetto_id, modalita, settore, categoria, marca } = req.query;
-    console.log('📥 [soggetti] Parametri ricevuti:', { soggetto_id, modalita, settore, categoria, marca });
-
     if (!soggetto_id) {
       return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
     }
 
-    // Costruisci le condizioni di filtro (usando apici singoli)
+    // Costruisci le condizioni di filtro (USANDO APICI SINGOLI)
     let filterConditions = '';
-    const filterParams = [];
-
-    if (settore) {
-      filterConditions += ` AND ((cs.tipo_oggetto = 'ARTICOLO' AND a.settore = ?) OR (cs.tipo_oggetto = 'KIT' AND k.settore = ?))`;
-      filterParams.push(settore, settore);
+    let filterParams = [];
+    if (settore || categoria || marca) {
+      const conditions = [];
+      if (settore) {
+        conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.settore = ?)');
+        filterParams.push(settore);
+        conditions.push('(cs.tipo_oggetto = \'KIT\' AND k.settore = ?)');
+        filterParams.push(settore);
+      }
+      if (categoria) {
+        conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.categoria = ?)');
+        filterParams.push(categoria);
+      }
+      if (marca) {
+        conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND a.marca = ?)');
+        filterParams.push(marca);
+      }
+      if (conditions.length) {
+        filterConditions = ' AND (' + conditions.join(' OR ') + ')';
+      }
     }
-    if (categoria) {
-      // La categoria esiste solo per gli articoli, non per i kit
-      filterConditions += ` AND (cs.tipo_oggetto = 'ARTICOLO' AND a.categoria = ?)`;
-      filterParams.push(categoria);
-    }
-    if (marca) {
-      // La marca esiste solo per gli articoli, non per i kit
-      filterConditions += ` AND (cs.tipo_oggetto = 'ARTICOLO' AND a.marca = ?)`;
-      filterParams.push(marca);
-    }
 
-    console.log('🔍 [soggetti] filterConditions:', filterConditions);
-    console.log('🔍 [soggetti] filterParams:', filterParams);
-
-    // Determina i soggetti da considerare (come prima)
+    // Determina i soggetti da considerare
     let tipo, soggettoIds = [];
     if (soggetto_id === 'tutti') {
-      // ... (codice per ottenere tutti i soggetti visibili, invariato)
-      // Per brevità lo lascio come nel codice precedente
       let query = 'SELECT s.id, s.tipo FROM soggetti s WHERE s.attivo = 1';
       const params = [];
       if (req.userRole === 'admin') {
@@ -376,7 +374,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
     async function getDataForSoggetto(sId, sTipo) {
       let result = [];
 
-      // Query per "in carico"
       if (modalitaVal === 'incarico' || modalitaVal === 'entrambi') {
         let sql = `
           SELECT cs.*,
@@ -401,8 +398,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
           ${filterConditions}
         `;
         const params = [sTipo, sId, ...filterParams];
-        console.log('📝 [soggetti] SQL incarico:', sql);
-        console.log('📝 [soggetti] Parametri incarico:', params);
         const [rows] = await pool.query(sql, params);
         rows.forEach(row => {
           result.push({
@@ -422,7 +417,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
         });
       }
 
-      // Query per "inviati"
       if (modalitaVal === 'inviati' || modalitaVal === 'entrambi') {
         let sql = `
           SELECT cs.*,
@@ -447,8 +441,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
           ${filterConditions}
         `;
         const params = [sTipo, sId, ...filterParams];
-        console.log('📝 [soggetti] SQL inviati:', sql);
-        console.log('📝 [soggetti] Parametri inviati:', params);
         const [rows] = await pool.query(sql, params);
         rows.forEach(row => {
           result.push({
@@ -483,11 +475,10 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       risultati = await getDataForSoggetto(parseInt(soggetto_id), tipo);
     }
 
-    console.log('✅ [soggetti] Risultati:', risultati.length);
     res.json({ success: true, data: risultati });
   } catch (err) {
-    console.error('❌ Errore report soggetti:', err);
-    res.status(500).json({ success: false, message: err.message, stack: err.stack });
+    console.error('Errore report soggetti:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
