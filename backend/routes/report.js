@@ -292,7 +292,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT SOGGETTI – con filtri IN AND (corretto per kit)
+// REPORT SOGGETTI – con filtri settore, categoria, marca (AND per kit)
 // ============================================================
 router.get('/soggetti', verifyToken, async (req, res) => {
   try {
@@ -301,13 +301,11 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
     }
 
-    // 🔥 Costruisci condizioni di filtro con logica AND per kit
+    // Costruisci condizioni di filtro con logica AND per kit
     let filterConditions = '';
     let filterParams = [];
     
-    // Condizioni per ARTICOLI (filtri in AND)
     let articoloConditions = [];
-    // Condizioni per KIT (filtri in AND su componenti)
     let kitConditions = [];
 
     if (settore) {
@@ -343,7 +341,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       filterParams.push(marca);
     }
 
-    // Costruisci la condizione finale
     let conditions = [];
     if (articoloConditions.length) {
       conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND ' + articoloConditions.join(' AND ') + ')');
