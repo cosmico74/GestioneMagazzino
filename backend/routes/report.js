@@ -292,22 +292,27 @@ router.get('/italia', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT SOGGETTI – con filtri settore, categoria, marca (AND per kit)
+// REPORT SOGGETTI – FILTRI CORRETTI (AND per i kit)
 // ============================================================
 router.get('/soggetti', verifyToken, async (req, res) => {
   try {
     const { soggetto_id, modalita, settore, categoria, marca } = req.query;
+    console.log('📥 [soggetti] Parametri ricevuti:', { soggetto_id, modalita, settore, categoria, marca });
+
     if (!soggetto_id) {
       return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
     }
 
-    // Costruisci condizioni di filtro con logica AND per kit
+    // 🔥 COSTRUISCI LE CONDIZIONI DI FILTRO (AND per i kit)
     let filterConditions = '';
     let filterParams = [];
     
+    // Condizioni per ARTICOLI (tutti i filtri in AND)
     let articoloConditions = [];
+    // Condizioni per KIT (tutti i filtri in AND su UN singolo componente del kit)
     let kitConditions = [];
 
+    // SETTORE
     if (settore) {
       articoloConditions.push('a.settore = ?');
       filterParams.push(settore);
@@ -319,6 +324,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       filterParams.push(settore);
     }
 
+    // CATEGORIA
     if (categoria) {
       articoloConditions.push('a.categoria = ?');
       filterParams.push(categoria);
@@ -330,6 +336,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       filterParams.push(categoria);
     }
 
+    // MARCA
     if (marca) {
       articoloConditions.push('a.marca = ?');
       filterParams.push(marca);
@@ -341,6 +348,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       filterParams.push(marca);
     }
 
+    // Costruisci la condizione finale: articoli soddisfano le loro condizioni, kit soddisfano le loro
     let conditions = [];
     if (articoloConditions.length) {
       conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND ' + articoloConditions.join(' AND ') + ')');
@@ -351,6 +359,9 @@ router.get('/soggetti', verifyToken, async (req, res) => {
     if (conditions.length) {
       filterConditions = ' AND (' + conditions.join(' OR ') + ')';
     }
+
+    console.log('🔍 [soggetti] filterConditions:', filterConditions);
+    console.log('🔍 [soggetti] filterParams:', filterParams);
 
     // Determina i soggetti da considerare
     let tipo, soggettoIds = [];
@@ -500,10 +511,11 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       risultati = await getDataForSoggetto(parseInt(soggetto_id), tipo);
     }
 
+    console.log(`✅ [soggetti] Risultati: ${risultati.length} oggetti`);
     res.json({ success: true, data: risultati });
   } catch (err) {
-    console.error('Errore report soggetti:', err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('❌ Errore report soggetti:', err);
+    res.status(500).json({ success: false, message: err.message, stack: err.stack });
   }
 });
 
