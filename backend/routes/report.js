@@ -292,7 +292,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT SOGGETTI – con filtro "inviati" corretto e AND per i kit
+// REPORT SOGGETTI – CON LOG PER DEBUG
 // ============================================================
 router.get('/soggetti', verifyToken, async (req, res) => {
   try {
@@ -430,6 +430,8 @@ router.get('/soggetti', verifyToken, async (req, res) => {
           ${filterConditions}
         `;
         const params = [sTipo, sId, ...filterParams];
+        console.log('🔍 SQL incarico:', sql);
+        console.log('🔍 Parametri incarico:', params);
         const [rows] = await pool.query(sql, params);
         rows.forEach(row => {
           result.push({
@@ -451,7 +453,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
 
       // --- INVIATO AD ALTRI (provenienza = soggetto, destinazione != provenienza) ---
       if (modalitaVal === 'inviati' || modalitaVal === 'entrambi') {
-        // 🔥 Aggiungiamo la condizione per escludere gli oggetti ancora in carico
         let sql = `
           SELECT cs.*,
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.descrizione ELSE k.descrizione END AS descrizione,
@@ -476,6 +477,8 @@ router.get('/soggetti', verifyToken, async (req, res) => {
           ${filterConditions}
         `;
         const params = [sTipo, sId, sTipo, sId, ...filterParams];
+        console.log('🔍 SQL inviati:', sql);
+        console.log('🔍 Parametri inviati:', params);
         const [rows] = await pool.query(sql, params);
         rows.forEach(row => {
           result.push({
