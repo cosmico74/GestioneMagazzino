@@ -292,7 +292,7 @@ router.get('/italia', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// REPORT SOGGETTI – FILTRI CORRETTI (AND per i kit)
+// REPORT SOGGETTI – con filtro "inviati" corretto e AND per i kit
 // ============================================================
 router.get('/soggetti', verifyToken, async (req, res) => {
   try {
@@ -303,16 +303,13 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'soggetto_id richiesto' });
     }
 
-    // 🔥 COSTRUISCI LE CONDIZIONI DI FILTRO (AND per i kit)
+    // 🔥 Costruisci le condizioni di filtro (AND per i kit)
     let filterConditions = '';
     let filterParams = [];
     
-    // Condizioni per ARTICOLI (tutti i filtri in AND)
     let articoloConditions = [];
-    // Condizioni per KIT (tutti i filtri in AND su UN singolo componente del kit)
     let kitConditions = [];
 
-    // SETTORE
     if (settore) {
       articoloConditions.push('a.settore = ?');
       filterParams.push(settore);
@@ -324,7 +321,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       filterParams.push(settore);
     }
 
-    // CATEGORIA
     if (categoria) {
       articoloConditions.push('a.categoria = ?');
       filterParams.push(categoria);
@@ -336,7 +332,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       filterParams.push(categoria);
     }
 
-    // MARCA
     if (marca) {
       articoloConditions.push('a.marca = ?');
       filterParams.push(marca);
@@ -348,7 +343,6 @@ router.get('/soggetti', verifyToken, async (req, res) => {
       filterParams.push(marca);
     }
 
-    // Costruisci la condizione finale: articoli soddisfano le loro condizioni, kit soddisfano le loro
     let conditions = [];
     if (articoloConditions.length) {
       conditions.push('(cs.tipo_oggetto = \'ARTICOLO\' AND ' + articoloConditions.join(' AND ') + ')');
@@ -411,6 +405,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
     async function getDataForSoggetto(sId, sTipo) {
       let result = [];
 
+      // --- IN CARICO (destinazione = soggetto) ---
       if (modalitaVal === 'incarico' || modalitaVal === 'entrambi') {
         let sql = `
           SELECT cs.*,
@@ -454,7 +449,9 @@ router.get('/soggetti', verifyToken, async (req, res) => {
         });
       }
 
+      // --- INVIATO AD ALTRI (provenienza = soggetto, destinazione != provenienza) ---
       if (modalitaVal === 'inviati' || modalitaVal === 'entrambi') {
+        // 🔥 Aggiungiamo la condizione per escludere gli oggetti ancora in carico
         let sql = `
           SELECT cs.*,
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.descrizione ELSE k.descrizione END AS descrizione,
@@ -475,9 +472,10 @@ router.get('/soggetti', verifyToken, async (req, res) => {
           LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
           LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
           WHERE cs.provenienza_tipo = ? AND cs.provenienza_id = ? AND cs.quantita > 0
+            AND NOT (cs.destinazione_tipo = ? AND cs.destinazione_id = ?)
           ${filterConditions}
         `;
-        const params = [sTipo, sId, ...filterParams];
+        const params = [sTipo, sId, sTipo, sId, ...filterParams];
         const [rows] = await pool.query(sql, params);
         rows.forEach(row => {
           result.push({
@@ -487,7 +485,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
             lunghezza: row.lunghezza || '',
             sigla: row.sigla_corrente || 'NA',
             quantita: row.quantita,
-            stato: 'Assegnato',
+            stato: 'Inviato',
             destinatario: row.destinazione_tipo === 'PROMOTER'
               ? ((row.destinatario_nome || '') + ' ' + (row.destinatario_cognome || '')).trim()
               : (row.destinatario_nome || 'Magazzino'),
