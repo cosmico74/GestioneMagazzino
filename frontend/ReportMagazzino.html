@@ -278,12 +278,10 @@ function sortData(data, col, asc) {
   return data.slice().sort((a, b) => {
     let r = compareValues(a, b, col, asc);
     if (r !== 0) return r;
-    // Fallback: ordina per descrizione
     if (col !== 'descrizione') {
       r = compareValues(a, b, 'descrizione', true);
       if (r !== 0) return r;
     }
-    // Secondo fallback: per lunghezza
     if (col !== 'lunghezza') {
       r = compareValues(a, b, 'lunghezza', true);
       if (r !== 0) return r;
@@ -299,6 +297,13 @@ function handleSort(table, col) {
   else if (table === 'soggetti') { state = sortSoggetti; dataKey = 'soggettiData'; renderFn = renderSoggetti; }
   else return;
 
+  // 🔥 Controlla se i dati esistono
+  const data = window[dataKey];
+  if (!data || !data.length) {
+    console.warn('⚠️ Nessun dato da ordinare per', table);
+    return;
+  }
+
   // Cambia direzione o colonna
   if (state.col === col) {
     state.asc = !state.asc;
@@ -307,17 +312,10 @@ function handleSort(table, col) {
     state.asc = true;
   }
 
-  // 🔥 Ottieni i dati correnti
-  const data = window[dataKey] || [];
-  if (!data || !data.length) {
-    // Se non ci sono dati, esci senza fare nulla
-    return;
-  }
-
   // Ordina i dati
   const sorted = sortData(data, state.col, state.asc);
   
-  // 🔥 Aggiorna i dati globali
+  // 🔥 Aggiorna i dati globali con i dati ordinati
   window[dataKey] = sorted;
 
   // Reset pagina per i tab che usano paginazione
@@ -339,7 +337,6 @@ function handleSort(table, col) {
     }
   }
 }
-
 function attachSortListeners() {
   document.querySelectorAll('#austriaTable thead th[data-sort]').forEach(th => {
     th.addEventListener('click', function(e) {
