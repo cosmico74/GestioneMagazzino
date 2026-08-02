@@ -598,13 +598,239 @@ function renderSoggetti(data) {
 // ============================================================
 // PDF E CSV (invariati – non li riscrivo per brevità)
 // ============================================================
+// ============================================================
+// ESPORTAZIONE PDF
+// ============================================================
 async function generaPDF(tab, anteprima = false) {
-  // ... (mantieni il tuo codice esistente)
+  let data, columns, title, filename;
+
+  // Seleziona i dati in base al tab
+  if (tab === 'austria') {
+    data = austriaData;
+    columns = [
+      { header: 'Codice', dataKey: 'codice' },
+      { header: 'Codice Modello', dataKey: 'codice_modello' },
+      { header: 'Descrizione', dataKey: 'descrizione' },
+      { header: 'Lunghezza', dataKey: 'lunghezza' },
+      { header: 'Nota', dataKey: 'nota' },
+      { header: 'Quantità Totale', dataKey: 'quantita_totale' },
+      { header: 'Magazzino', dataKey: 'magazzino_nome' }
+    ];
+    title = 'Report Austria - Inventario';
+    filename = 'report_austria.pdf';
+  } else if (tab === 'italia') {
+    data = italiaData;
+    const raggruppa = document.getElementById('raggruppaCheck').checked;
+    columns = [
+      { header: '#', dataKey: 'progressivo' },
+      { header: 'Tipo', dataKey: 'tipo_oggetto' },
+      { header: 'Codice', dataKey: 'codice' },
+      { header: 'Descrizione', dataKey: 'descrizione' },
+      { header: 'Lunghezza', dataKey: 'lunghezza' },
+      { header: raggruppa ? 'Sigle' : 'Sigla (Kit)', dataKey: 'sigla_sci' },
+      { header: 'Nota', dataKey: 'nota' },
+      { header: 'Stato', dataKey: 'stato' },
+      { header: 'Destinatario', dataKey: 'destinatario' },
+      { header: 'Quantità', dataKey: 'quantita' },
+      { header: 'Giacenza', dataKey: 'giacenza' },
+      { header: 'Magazzino', dataKey: 'magazzino_nome' }
+    ];
+    title = 'Report Italia - Giacenze e Assegnazioni';
+    filename = 'report_italia.pdf';
+  } else if (tab === 'soggetti') {
+    data = soggettiData;
+    columns = [
+      { header: '#', dataKey: 'progressivo' },
+      { header: 'Tipo', dataKey: 'tipo' },
+      { header: 'Codice/Sigla', dataKey: 'codice_sigla' },
+      { header: 'Descrizione', dataKey: 'descrizione' },
+      { header: 'Lunghezza', dataKey: 'lunghezza' },
+      { header: 'Sigla', dataKey: 'sigla' },
+      { header: 'Nota', dataKey: 'nota' },
+      { header: 'Quantità', dataKey: 'quantita' },
+      { header: 'Stato', dataKey: 'stato' },
+      { header: 'Destinatario', dataKey: 'destinatario' },
+      { header: 'Data', dataKey: 'data' }
+    ];
+    title = 'Report Soggetti - Assegnazioni';
+    filename = 'report_soggetti.pdf';
+  } else {
+    showMessage('Report non valido', 'error');
+    return;
+  }
+
+  if (!data || !data.length) {
+    showMessage('Nessun dato da esportare', 'error');
+    return;
+  }
+
+  // Aggiungi indice progressivo e pulisci i dati
+  const dataWithIndex = data.map((r, i) => {
+    const row = { ...r, progressivo: i + 1 };
+    // Rimuovi icone dai campi
+    if (row.stato) row.stato = row.stato.replace(/[📦📤]/g, '').trim();
+    if (row.tipo_oggetto) row.tipo_oggetto = row.tipo_oggetto.replace(/[📦📤]/g, '').trim();
+    if (row.tipo) row.tipo = row.tipo.replace(/[📦📤]/g, '').trim();
+    if (row.tipo_oggetto === 'ARTICOLO' && row.sigle) {
+      row.sigla_sci = row.sigle;
+    } else if (row.tipo_oggetto === 'KIT' && row.sigla_sci) {
+      // ok
+    } else {
+      row.sigla_sci = row.sigla_sci || '';
+    }
+    return row;
+  });
+
+  const doc = new jspdf.jsPDF('landscape', 'pt', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Logo
+  if (logoBase64) {
+    try {
+      const img = new Image();
+      img.src = logoBase64;
+      let logoWidth = 80;
+      let logoHeight = (img.height / img.width) * logoWidth;
+      if (logoHeight > 50) {
+        logoHeight = 50;
+        logoWidth = (img.width / img.height) * logoHeight;
+      }
+      const xLogo = (pageWidth - logoWidth) / 2;
+      const yLogo = 15;
+      doc.addImage(logoBase64, 'PNG', xLogo, yLogo, logoWidth, logoHeight);
+      doc.setFontSize(14);
+      doc.text(title, pageWidth / 2, yLogo + logoHeight + 12, { align: 'center' });
+    } catch (e) {
+      doc.setFontSize(14);
+      doc.text(title, pageWidth / 2, 30, { align: 'center' });
+    }
+  } else {
+    doc.setFontSize(14);
+    doc.text(title, pageWidth / 2, 30, { align: 'center' });
+  }
+
+  // Info data e utente
+  doc.setFontSize(10);
+  const infoY = logoBase64 ? 90 : 50;
+  doc.text('Generato il ' + new Date().toLocaleString('it-IT'), pageWidth / 2, infoY, { align: 'center' });
+  doc.text('Utente: ' + (currentUser.nome_visualizzato || currentUser.username), pageWidth / 2, infoY + 14, { align: 'center' });
+
+  let startY = infoY + 30;
+  if (logoBase64) startY = Math.max(startY, 110);
+
+  // Tabella
+  doc.autoTable({
+    columns: columns,
+    body: dataWithIndex,
+    startY: startY,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [26, 115, 232] },
+    margin: { left: 20, right: 20 },
+    didParseCell: function(data) {
+      if (data.section === 'body' && data.column.dataKey === 'tipo_oggetto' && data.cell.raw) {
+        if (data.cell.raw === 'KIT') {
+          data.cell.styles.fillColor = [255, 243, 224];
+          data.cell.styles.textColor = [230, 81, 0];
+        } else if (data.cell.raw === 'ARTICOLO') {
+          data.cell.styles.fillColor = [227, 242, 253];
+          data.cell.styles.textColor = [13, 71, 161];
+        }
+      }
+    }
+  });
+
+  if (anteprima) {
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } else {
+    doc.save(filename);
+  }
 }
+
 function esportaPDF(tab) { generaPDF(tab, false); }
 function anteprimaPDF(tab) { generaPDF(tab, true); }
+
+// ============================================================
+// ESPORTAZIONE CSV
+// ============================================================
 function esportaCSV(tab) {
-  // ... (mantieni il tuo codice esistente)
+  let data, columns, filename;
+
+  if (tab === 'austria') {
+    data = austriaData;
+    columns = ['codice', 'codice_modello', 'descrizione', 'lunghezza', 'nota', 'quantita_totale', 'magazzino_nome'];
+    filename = 'report_austria.csv';
+  } else if (tab === 'italia') {
+    data = italiaData;
+    const raggruppa = document.getElementById('raggruppaCheck').checked;
+    columns = ['tipo_oggetto', 'codice', 'descrizione', 'lunghezza', raggruppa ? 'sigle' : 'sigla_sci', 'nota', 'stato', 'destinatario', 'quantita', 'giacenza', 'magazzino_nome'];
+    filename = 'report_italia.csv';
+  } else if (tab === 'soggetti') {
+    data = soggettiData;
+    columns = ['tipo', 'codice_sigla', 'descrizione', 'lunghezza', 'sigla', 'nota', 'quantita', 'stato', 'destinatario', 'data'];
+    filename = 'report_soggetti.csv';
+  } else {
+    showMessage('Report non valido', 'error');
+    return;
+  }
+
+  if (!data || !data.length) {
+    showMessage('Nessun dato da esportare', 'error');
+    return;
+  }
+
+  // Mappa header per le colonne
+  const headers = {
+    codice: 'Codice',
+    codice_modello: 'Codice Modello',
+    descrizione: 'Descrizione',
+    lunghezza: 'Lunghezza',
+    nota: 'Nota',
+    quantita_totale: 'Quantità Totale',
+    magazzino_nome: 'Magazzino',
+    tipo_oggetto: 'Tipo',
+    quantita: 'Quantità',
+    giacenza: 'Giacenza',
+    stato: 'Stato',
+    destinatario: 'Destinatario',
+    sigla_sci: 'Sigla (Kit)',
+    sigle: 'Sigle',
+    tipo: 'Tipo',
+    codice_sigla: 'Codice/Sigla',
+    sigla: 'Sigla',
+    data: 'Data'
+  };
+
+  // Pulizia dei dati (rimuovi icone)
+  const cleanData = data.map(row => {
+    const newRow = { ...row };
+    if (newRow.stato) newRow.stato = newRow.stato.replace(/[📦📤]/g, '').trim();
+    if (newRow.tipo_oggetto) newRow.tipo_oggetto = newRow.tipo_oggetto.replace(/[📦📤]/g, '').trim();
+    if (newRow.tipo) newRow.tipo = newRow.tipo.replace(/[📦📤]/g, '').trim();
+    return newRow;
+  });
+
+  const headerRow = columns.map(c => headers[c] || c).join(',');
+  const rows = cleanData.map(row => {
+    return columns.map(c => {
+      let val = row[c];
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+        return '"' + val.replace(/"/g, '""') + '"';
+      }
+      return val;
+    }).join(',');
+  });
+
+  const csv = [headerRow, ...rows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 // ============================================================
@@ -676,6 +902,342 @@ window.onload = async function() {
     if (el) el.addEventListener('change', caricaAustria);
   });
 };
+
+// ============================================================
+// ESPORTAZIONE PDF (SEMPLIFICATA)
+// ============================================================
+function esportaPDF(tab) {
+    // Verifica che i dati esistano
+    let data = [];
+    let title = 'Report';
+    let columns = [];
+    let filename = 'report.pdf';
+
+    if (tab === 'austria') {
+        data = austriaData || [];
+        title = 'Report Austria';
+        columns = [
+            { header: 'Codice', dataKey: 'codice' },
+            { header: 'Modello', dataKey: 'codice_modello' },
+            { header: 'Descrizione', dataKey: 'descrizione' },
+            { header: 'Lunghezza', dataKey: 'lunghezza' },
+            { header: 'Nota', dataKey: 'nota' },
+            { header: 'Qtà Totale', dataKey: 'quantita_totale' },
+            { header: 'Magazzino', dataKey: 'magazzino_nome' }
+        ];
+        filename = 'report_austria.pdf';
+    } else if (tab === 'italia') {
+        data = italiaData || [];
+        title = 'Report Italia';
+        const raggruppa = document.getElementById('raggruppaCheck').checked;
+        columns = [
+            { header: '#', dataKey: 'progressivo' },
+            { header: 'Tipo', dataKey: 'tipo_oggetto' },
+            { header: 'Codice', dataKey: 'codice' },
+            { header: 'Descrizione', dataKey: 'descrizione' },
+            { header: 'Lunghezza', dataKey: 'lunghezza' },
+            { header: raggruppa ? 'Sigle' : 'Sigla (Kit)', dataKey: 'sigla_sci' },
+            { header: 'Nota', dataKey: 'nota' },
+            { header: 'Stato', dataKey: 'stato' },
+            { header: 'Destinatario', dataKey: 'destinatario' },
+            { header: 'Quantità', dataKey: 'quantita' },
+            { header: 'Giacenza', dataKey: 'giacenza' },
+            { header: 'Magazzino', dataKey: 'magazzino_nome' }
+        ];
+        filename = 'report_italia.pdf';
+    } else if (tab === 'soggetti') {
+        data = soggettiData || [];
+        title = 'Report Soggetti';
+        columns = [
+            { header: '#', dataKey: 'progressivo' },
+            { header: 'Tipo', dataKey: 'tipo' },
+            { header: 'Codice/Sigla', dataKey: 'codice_sigla' },
+            { header: 'Descrizione', dataKey: 'descrizione' },
+            { header: 'Lunghezza', dataKey: 'lunghezza' },
+            { header: 'Sigla', dataKey: 'sigla' },
+            { header: 'Nota', dataKey: 'nota' },
+            { header: 'Quantità', dataKey: 'quantita' },
+            { header: 'Stato', dataKey: 'stato' },
+            { header: 'Destinatario', dataKey: 'destinatario' },
+            { header: 'Data', dataKey: 'data' }
+        ];
+        filename = 'report_soggetti.pdf';
+    }
+
+    if (!data || data.length === 0) {
+        alert('Nessun dato da esportare!');
+        return;
+    }
+
+    // Aggiungi indice progressivo
+    const body = data.map((row, i) => {
+        const r = { ...row, progressivo: i + 1 };
+        // Pulisci icone
+        if (r.stato) r.stato = r.stato.replace(/[📦📤]/g, '').trim();
+        if (r.tipo_oggetto) r.tipo_oggetto = r.tipo_oggetto.replace(/[📦📤]/g, '').trim();
+        if (r.tipo) r.tipo = r.tipo.replace(/[📦📤]/g, '').trim();
+        return r;
+    });
+
+    // Crea il PDF
+    const doc = new jspdf.jsPDF('landscape', 'pt', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Logo
+    if (logoBase64) {
+        try {
+            const img = new Image();
+            img.src = logoBase64;
+            let logoWidth = 80;
+            let logoHeight = (img.height / img.width) * logoWidth;
+            if (logoHeight > 50) {
+                logoHeight = 50;
+                logoWidth = (img.width / img.height) * logoHeight;
+            }
+            const xLogo = (pageWidth - logoWidth) / 2;
+            const yLogo = 15;
+            doc.addImage(logoBase64, 'PNG', xLogo, yLogo, logoWidth, logoHeight);
+            doc.setFontSize(14);
+            doc.text(title, pageWidth / 2, yLogo + logoHeight + 12, { align: 'center' });
+        } catch (e) {
+            doc.setFontSize(14);
+            doc.text(title, pageWidth / 2, 30, { align: 'center' });
+        }
+    } else {
+        doc.setFontSize(14);
+        doc.text(title, pageWidth / 2, 30, { align: 'center' });
+    }
+
+    doc.setFontSize(10);
+    const infoY = logoBase64 ? 90 : 50;
+    doc.text('Generato il ' + new Date().toLocaleString('it-IT'), pageWidth / 2, infoY, { align: 'center' });
+    if (currentUser) {
+        doc.text('Utente: ' + (currentUser.nome_visualizzato || currentUser.username), pageWidth / 2, infoY + 14, { align: 'center' });
+    }
+
+    let startY = infoY + 30;
+    if (logoBase64) startY = Math.max(startY, 110);
+
+    doc.autoTable({
+        columns: columns,
+        body: body,
+        startY: startY,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [26, 115, 232] },
+        margin: { left: 20, right: 20 }
+    });
+
+    doc.save(filename);
+}
+
+// ============================================================
+// ANTEPRIMA PDF
+// ============================================================
+function anteprimaPDF(tab) {
+    // Simile a esportaPDF ma apre in una nuova finestra
+    let data = [];
+    let title = 'Report';
+    let columns = [];
+    let filename = 'report.pdf';
+
+    if (tab === 'austria') {
+        data = austriaData || [];
+        title = 'Report Austria';
+        columns = [
+            { header: 'Codice', dataKey: 'codice' },
+            { header: 'Modello', dataKey: 'codice_modello' },
+            { header: 'Descrizione', dataKey: 'descrizione' },
+            { header: 'Lunghezza', dataKey: 'lunghezza' },
+            { header: 'Nota', dataKey: 'nota' },
+            { header: 'Qtà Totale', dataKey: 'quantita_totale' },
+            { header: 'Magazzino', dataKey: 'magazzino_nome' }
+        ];
+        filename = 'report_austria.pdf';
+    } else if (tab === 'italia') {
+        data = italiaData || [];
+        title = 'Report Italia';
+        const raggruppa = document.getElementById('raggruppaCheck').checked;
+        columns = [
+            { header: '#', dataKey: 'progressivo' },
+            { header: 'Tipo', dataKey: 'tipo_oggetto' },
+            { header: 'Codice', dataKey: 'codice' },
+            { header: 'Descrizione', dataKey: 'descrizione' },
+            { header: 'Lunghezza', dataKey: 'lunghezza' },
+            { header: raggruppa ? 'Sigle' : 'Sigla (Kit)', dataKey: 'sigla_sci' },
+            { header: 'Nota', dataKey: 'nota' },
+            { header: 'Stato', dataKey: 'stato' },
+            { header: 'Destinatario', dataKey: 'destinatario' },
+            { header: 'Quantità', dataKey: 'quantita' },
+            { header: 'Giacenza', dataKey: 'giacenza' },
+            { header: 'Magazzino', dataKey: 'magazzino_nome' }
+        ];
+        filename = 'report_italia.pdf';
+    } else if (tab === 'soggetti') {
+        data = soggettiData || [];
+        title = 'Report Soggetti';
+        columns = [
+            { header: '#', dataKey: 'progressivo' },
+            { header: 'Tipo', dataKey: 'tipo' },
+            { header: 'Codice/Sigla', dataKey: 'codice_sigla' },
+            { header: 'Descrizione', dataKey: 'descrizione' },
+            { header: 'Lunghezza', dataKey: 'lunghezza' },
+            { header: 'Sigla', dataKey: 'sigla' },
+            { header: 'Nota', dataKey: 'nota' },
+            { header: 'Quantità', dataKey: 'quantita' },
+            { header: 'Stato', dataKey: 'stato' },
+            { header: 'Destinatario', dataKey: 'destinatario' },
+            { header: 'Data', dataKey: 'data' }
+        ];
+        filename = 'report_soggetti.pdf';
+    }
+
+    if (!data || data.length === 0) {
+        alert('Nessun dato da esportare!');
+        return;
+    }
+
+    const body = data.map((row, i) => {
+        const r = { ...row, progressivo: i + 1 };
+        if (r.stato) r.stato = r.stato.replace(/[📦📤]/g, '').trim();
+        if (r.tipo_oggetto) r.tipo_oggetto = r.tipo_oggetto.replace(/[📦📤]/g, '').trim();
+        if (r.tipo) r.tipo = r.tipo.replace(/[📦📤]/g, '').trim();
+        return r;
+    });
+
+    const doc = new jspdf.jsPDF('landscape', 'pt', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    if (logoBase64) {
+        try {
+            const img = new Image();
+            img.src = logoBase64;
+            let logoWidth = 80;
+            let logoHeight = (img.height / img.width) * logoWidth;
+            if (logoHeight > 50) {
+                logoHeight = 50;
+                logoWidth = (img.width / img.height) * logoHeight;
+            }
+            const xLogo = (pageWidth - logoWidth) / 2;
+            const yLogo = 15;
+            doc.addImage(logoBase64, 'PNG', xLogo, yLogo, logoWidth, logoHeight);
+            doc.setFontSize(14);
+            doc.text(title, pageWidth / 2, yLogo + logoHeight + 12, { align: 'center' });
+        } catch (e) {
+            doc.setFontSize(14);
+            doc.text(title, pageWidth / 2, 30, { align: 'center' });
+        }
+    } else {
+        doc.setFontSize(14);
+        doc.text(title, pageWidth / 2, 30, { align: 'center' });
+    }
+
+    doc.setFontSize(10);
+    const infoY = logoBase64 ? 90 : 50;
+    doc.text('Generato il ' + new Date().toLocaleString('it-IT'), pageWidth / 2, infoY, { align: 'center' });
+    if (currentUser) {
+        doc.text('Utente: ' + (currentUser.nome_visualizzato || currentUser.username), pageWidth / 2, infoY + 14, { align: 'center' });
+    }
+
+    let startY = infoY + 30;
+    if (logoBase64) startY = Math.max(startY, 110);
+
+    doc.autoTable({
+        columns: columns,
+        body: body,
+        startY: startY,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [26, 115, 232] },
+        margin: { left: 20, right: 20 }
+    });
+
+    // Anteprima: apre in una nuova finestra
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+// ============================================================
+// ESPORTAZIONE CSV
+// ============================================================
+function esportaCSV(tab) {
+    let data = [];
+    let columns = [];
+    let filename = 'report.csv';
+
+    if (tab === 'austria') {
+        data = austriaData || [];
+        columns = ['codice', 'codice_modello', 'descrizione', 'lunghezza', 'nota', 'quantita_totale', 'magazzino_nome'];
+        filename = 'report_austria.csv';
+    } else if (tab === 'italia') {
+        data = italiaData || [];
+        const raggruppa = document.getElementById('raggruppaCheck').checked;
+        columns = ['tipo_oggetto', 'codice', 'descrizione', 'lunghezza', raggruppa ? 'sigle' : 'sigla_sci', 'nota', 'stato', 'destinatario', 'quantita', 'giacenza', 'magazzino_nome'];
+        filename = 'report_italia.csv';
+    } else if (tab === 'soggetti') {
+        data = soggettiData || [];
+        columns = ['tipo', 'codice_sigla', 'descrizione', 'lunghezza', 'sigla', 'nota', 'quantita', 'stato', 'destinatario', 'data'];
+        filename = 'report_soggetti.csv';
+    }
+
+    if (!data || data.length === 0) {
+        alert('Nessun dato da esportare!');
+        return;
+    }
+
+    const headers = {
+        codice: 'Codice',
+        codice_modello: 'Codice Modello',
+        descrizione: 'Descrizione',
+        lunghezza: 'Lunghezza',
+        nota: 'Nota',
+        quantita_totale: 'Quantità Totale',
+        magazzino_nome: 'Magazzino',
+        tipo_oggetto: 'Tipo',
+        quantita: 'Quantità',
+        giacenza: 'Giacenza',
+        stato: 'Stato',
+        destinatario: 'Destinatario',
+        sigla_sci: 'Sigla (Kit)',
+        sigle: 'Sigle',
+        tipo: 'Tipo',
+        codice_sigla: 'Codice/Sigla',
+        sigla: 'Sigla',
+        data: 'Data'
+    };
+
+    // Pulisci icone
+    const cleanData = data.map(row => {
+        const newRow = { ...row };
+        if (newRow.stato) newRow.stato = newRow.stato.replace(/[📦📤]/g, '').trim();
+        if (newRow.tipo_oggetto) newRow.tipo_oggetto = newRow.tipo_oggetto.replace(/[📦📤]/g, '').trim();
+        if (newRow.tipo) newRow.tipo = newRow.tipo.replace(/[📦📤]/g, '').trim();
+        return newRow;
+    });
+
+    const headerRow = columns.map(c => headers[c] || c).join(',');
+    const rows = cleanData.map(row => {
+        return columns.map(c => {
+            let val = row[c];
+            if (val === null || val === undefined) return '';
+            if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+                return '"' + val.replace(/"/g, '""') + '"';
+            }
+            return val;
+        }).join(',');
+    });
+
+    const csv = [headerRow, ...rows].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+}
+
 </script>
 </body>
 </html>
