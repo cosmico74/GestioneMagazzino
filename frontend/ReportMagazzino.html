@@ -264,18 +264,41 @@ function handleSort(table, col) {
   else if (table === 'italia') { state = sortItalia; dataKey = 'italiaData'; renderFn = renderItalia; }
   else if (table === 'soggetti') { state = sortSoggetti; dataKey = 'soggettiData'; renderFn = renderSoggetti; }
   else return;
+  
   if (state.col === col) state.asc = !state.asc;
   else { state.col = col; state.asc = true; }
+  
   const tableEl = document.getElementById(table + 'Table');
   if (tableEl) {
     tableEl.querySelectorAll('thead th .sort-arrow').forEach(el => el.classList.remove('active'));
     const arrow = tableEl.querySelector(`thead th[data-sort="${col}"] .sort-arrow`);
     if (arrow) { arrow.classList.add('active'); arrow.textContent = state.asc ? '▲' : '▼'; }
   }
+  
   const data = window[dataKey] || [];
   const sorted = sortData(data, state.col, state.asc);
   window[dataKey] = sorted;
+  
+  // 🔥 Resetta la pagina a 1 per i tab con paginazione
+  if (table === 'italia' || table === 'soggetti') {
+    paginaCorrente = 1;
+  }
+  
   renderFn(sorted);
+}
+
+function updatePagination(totali, start, end) {
+  const stats = document.getElementById('paginationStats');
+  if (totali > 0) {
+    stats.innerText = 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali;
+  } else {
+    stats.innerText = 'Mostrando 0-0 di 0';
+  }
+  document.getElementById('paginationCurrentPage').innerText = paginaCorrente;
+  const totPag = Math.ceil(totali / righePerPagina);
+  document.getElementById('btnPrevPage').disabled = (paginaCorrente <= 1);
+  document.getElementById('btnNextPage').disabled = (paginaCorrente >= totPag);
+  document.getElementById('gotoPageInput').max = totPag || 1;
 }
 
 function attachSortListeners() {
@@ -505,27 +528,76 @@ async function caricaItalia() {
 function renderItalia(data) {
   const tbody = document.getElementById('italiaBody');
   tbody.innerHTML = '';
+  
+  // Se non ci sono dati, mostra messaggio
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center">📭 Nessun dato</td></tr>';
+    updatePagination(0, 0, 0);
+    return;
+  }
+
   const raggruppa = document.getElementById('raggruppaCheck').checked;
-  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="12" class="text-center">📭 Nessun dato</td></tr>'; return; }
+  const totali = data.length;
+  const totPag = Math.ceil(totali / righePerPagina);
+  
+  // Assicura che paginaCorrente sia valida
+  if (paginaCorrente > totPag) paginaCorrente = totPag;
+  if (paginaCorrente < 1) paginaCorrente = 1;
+  
   const start = (paginaCorrente - 1) * righePerPagina;
-  data.forEach((r, idx) => {
+  const end = Math.min(start + righePerPagina, totali);
+  const pagina = data.slice(start, end);
+
+  // Aggiorna i controlli di paginazione
+  updatePagination(totali, start, end);
+
+  // Popola la tabella
+  pagina.forEach((r, idx) => {
     const row = tbody.insertRow();
     const progressivo = start + idx + 1;
+    
+    // Colonna # (progressivo)
     row.insertCell(0).innerText = progressivo;
+    
+    // Tipo (ARTICOLO o KIT) con badge
     const tipo = r.tipo_oggetto || 'ARTICOLO';
     const badge = tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
+    
+    // Codice
+    row.insertCell(2).innerText = r.codice || '-';
+    
+    // Descrizione
+    row.insertCell(3).innerText = r.descrizione || '-';
+    
+    // Lunghezza
+    row.insertCell(4).innerText = r.lunghezza || '-';
+    
+    // Sigla (per i kit) o Sigle (se raggruppato)
+    if (tipo === 'KIT') {
+      row.insertCell(5).innerText = r.sigla_sci || 'NA';
+    } else {
+      row.insertCell(5).innerText = raggruppa ? (r.sigle || '') : '';
+    }
+    
+    // Nota
+    row.insertCell(6).innerText = r.nota || '';
+    
+    // Stato con badge
     const stato = r.stato || 'In magazzino';
     const statoBadge = stato === 'In magazzino' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-    row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
-    row.insertCell(2).innerText = r.codice || '-';
-    row.insertCell(3).innerText = r.descrizione || '-';
-    row.insertCell(4).innerText = r.lunghezza || '-';
-    row.insertCell(5).innerText = tipo === 'KIT' ? (r.sigla_sci || 'NA') : (raggruppa ? (r.sigle || '') : '');
-    row.insertCell(6).innerText = r.nota || '';
     row.insertCell(7).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    
+    // Destinatario
     row.insertCell(8).innerText = r.destinatario || '-';
+    
+    // Quantità
     row.insertCell(9).innerText = r.quantita || 0;
+    
+    // Giacenza
     row.insertCell(10).innerText = r.giacenza || 0;
+    
+    // Magazzino
     row.insertCell(11).innerText = r.magazzino_nome || '-';
   });
 }
@@ -573,31 +645,72 @@ async function caricaSoggetti() {
 function renderSoggetti(data) {
   const tbody = document.getElementById('soggettiBody');
   tbody.innerHTML = '';
-  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun oggetto</td></tr>'; return; }
+  
+  // Se non ci sono dati, mostra messaggio
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center">📭 Nessun oggetto</td></tr>';
+    updatePagination(0, 0, 0);
+    return;
+  }
+
+  const totali = data.length;
+  const totPag = Math.ceil(totali / righePerPagina);
+  
+  // Assicura che paginaCorrente sia valida
+  if (paginaCorrente > totPag) paginaCorrente = totPag;
+  if (paginaCorrente < 1) paginaCorrente = 1;
+  
   const start = (paginaCorrente - 1) * righePerPagina;
-  data.forEach((r, idx) => {
+  const end = Math.min(start + righePerPagina, totali);
+  const pagina = data.slice(start, end);
+
+  // Aggiorna i controlli di paginazione
+  updatePagination(totali, start, end);
+
+  // Popola la tabella
+  pagina.forEach((r, idx) => {
     const row = tbody.insertRow();
     const progressivo = start + idx + 1;
+    
+    // # (progressivo)
     row.insertCell(0).innerText = progressivo;
-    const badge = r.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    
+    // Tipo con badge
+    const tipo = r.tipo || 'ARTICOLO';
+    const badge = tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + tipo + '</span>';
+    
+    // Codice / Sigla
+    row.insertCell(2).innerText = r.codice_sigla || '-';
+    
+    // Descrizione
+    row.insertCell(3).innerText = r.descrizione || '-';
+    
+    // Lunghezza
+    row.insertCell(4).innerText = r.lunghezza || '-';
+    
+    // Sigla
+    row.insertCell(5).innerText = r.sigla || 'NA';
+    
+    // Nota
+    row.insertCell(6).innerText = r.nota || '';
+    
+    // Quantità
+    row.insertCell(7).innerText = r.quantita || 0;
+    
+    // Stato con badge
     const stato = r.stato || 'In carico';
     const statoBadge = stato === 'In carico' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-    row.insertCell(1).innerHTML = '<span class="badge ' + badge + '">' + r.tipo + '</span>';
-    row.insertCell(2).innerText = r.codice_sigla || '-';
-    row.insertCell(3).innerText = r.descrizione || '-';
-    row.insertCell(4).innerText = r.lunghezza || '-';
-    row.insertCell(5).innerText = r.sigla || 'NA';
-    row.insertCell(6).innerText = r.nota || '';
-    row.insertCell(7).innerText = r.quantita || 0;
     row.insertCell(8).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    
+    // Destinatario
     row.insertCell(9).innerText = r.destinatario || '-';
+    
+    // Data
     row.insertCell(10).innerText = r.data ? formatDate(r.data) : '-';
   });
 }
 
-// ============================================================
-// PDF E CSV (invariati – non li riscrivo per brevità)
-// ============================================================
 // ============================================================
 // ESPORTAZIONE PDF
 // ============================================================
