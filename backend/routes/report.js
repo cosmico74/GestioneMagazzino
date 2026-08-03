@@ -18,10 +18,13 @@ router.get('/austria', verifyToken, async (req, res) => {
         a.lunghezza,
         a.durezza,
         a.note AS nota,
+        a.variante,
+        ss.nome AS season_status_nome,
         COALESCE((SELECT SUM(s.quantita_austria) FROM sigle_articoli s WHERE s.articolo_id = a.articolo_id AND s.attivo = 1), 0) AS quantita_totale,
         m.nome AS magazzino_nome
       FROM articoli a
       LEFT JOIN magazzini m ON a.magazzino = m.magazzino_id
+      LEFT JOIN season_status ss ON a.season_status_id = ss.id
       WHERE COALESCE((SELECT SUM(s.quantita_austria) FROM sigle_articoli s WHERE s.articolo_id = a.articolo_id AND s.attivo = 1), 0) > 0
     `;
     const params = [];
@@ -66,6 +69,8 @@ router.get('/italia', verifyToken, async (req, res) => {
           a.lunghezza,
           a.durezza,
           a.note AS nota,
+          a.variante,
+          ss.nome AS season_status_nome,
           a.quantita_totale AS quantita,
           (a.quantita_totale - a.quantita_in_kit - a.quantita_obsoleta - 
            COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS giacenza,
@@ -75,6 +80,7 @@ router.get('/italia', verifyToken, async (req, res) => {
           '' AS sigle
         FROM articoli a
         LEFT JOIN magazzini m ON a.magazzino = m.magazzino_id
+        LEFT JOIN season_status ss ON a.season_status_id = ss.id
         WHERE a.quantita_totale > 0
       `;
       const paramsMag = [];
@@ -93,7 +99,7 @@ router.get('/italia', verifyToken, async (req, res) => {
       if (raggruppaAttivo) {
         const grouped = {};
         rowsMag.forEach(row => {
-          const key = `${row.codice_modello}|${row.descrizione}|${row.lunghezza}|${row.magazzino_nome}`;
+          const key = `${row.codice_modello}|${row.descrizione}|${row.lunghezza}|${row.magazzino_nome}|${row.variante}|${row.season_status_nome}`;
           if (!grouped[key]) {
             grouped[key] = {
               codice: row.codice_modello || row.codice || '',
@@ -108,7 +114,9 @@ router.get('/italia', verifyToken, async (req, res) => {
               sigle: [],
               tipo_oggetto: 'ARTICOLO',
               articolo_id: row.articolo_id,
-              durezza: row.durezza || ''
+              durezza: row.durezza || '',
+              variante: row.variante || '',
+              season_status_nome: row.season_status_nome || ''
             };
           }
           grouped[key].quantita += row.quantita || 0;
@@ -141,6 +149,8 @@ router.get('/italia', verifyToken, async (req, res) => {
           a.lunghezza,
           a.durezza,
           a.note AS nota,
+          a.variante,
+          ss.nome AS season_status_nome,
           cs.quantita AS quantita,
           0 AS giacenza,
           m.nome AS magazzino_nome,
@@ -150,6 +160,7 @@ router.get('/italia', verifyToken, async (req, res) => {
         FROM carico_sintesi cs
         INNER JOIN articoli a ON cs.oggetto_id = a.articolo_id AND cs.tipo_oggetto = 'ARTICOLO'
         LEFT JOIN magazzini m ON a.magazzino = m.magazzino_id
+        LEFT JOIN season_status ss ON a.season_status_id = ss.id
         LEFT JOIN soggetti sog ON sog.id = cs.destinazione_id AND sog.tipo = cs.destinazione_tipo
         WHERE cs.tipo_oggetto = 'ARTICOLO' AND cs.quantita > 0
       `;
@@ -168,7 +179,7 @@ router.get('/italia', verifyToken, async (req, res) => {
       if (raggruppaAttivo) {
         const grouped = {};
         rowsAssegnati.forEach(row => {
-          const key = `${row.codice_modello}|${row.descrizione}|${row.lunghezza}|${row.magazzino_nome}|${row.destinatario}`;
+          const key = `${row.codice_modello}|${row.descrizione}|${row.lunghezza}|${row.magazzino_nome}|${row.destinatario}|${row.variante}|${row.season_status_nome}`;
           if (!grouped[key]) {
             grouped[key] = {
               codice: row.codice_modello || row.codice || '',
@@ -183,7 +194,9 @@ router.get('/italia', verifyToken, async (req, res) => {
               sigle: [],
               tipo_oggetto: 'ARTICOLO',
               articolo_id: row.articolo_id,
-              durezza: row.durezza || ''
+              durezza: row.durezza || '',
+              variante: row.variante || '',
+              season_status_nome: row.season_status_nome || ''
             };
           }
           grouped[key].quantita += row.quantita || 0;
@@ -226,6 +239,13 @@ router.get('/italia', verifyToken, async (req, res) => {
           (SELECT s.sigla FROM kit_dettaglio kd 
            LEFT JOIN sigle_articoli s ON kd.sigla_id = s.id 
            WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI' LIMIT 1) AS sigla_sci,
+          (SELECT a.variante FROM kit_dettaglio kd 
+           LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id 
+           WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI' LIMIT 1) AS variante_sci,
+          (SELECT ss.nome FROM kit_dettaglio kd 
+           LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id 
+           LEFT JOIN season_status ss ON a.season_status_id = ss.id
+           WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI' LIMIT 1) AS season_status_sci,
           '' AS sigle
         FROM kit k
         LEFT JOIN magazzini m ON k.magazzino = m.magazzino_id
@@ -263,6 +283,13 @@ router.get('/italia', verifyToken, async (req, res) => {
           (SELECT s.sigla FROM kit_dettaglio kd 
            LEFT JOIN sigle_articoli s ON kd.sigla_id = s.id 
            WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI' LIMIT 1) AS sigla_sci,
+          (SELECT a.variante FROM kit_dettaglio kd 
+           LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id 
+           WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI' LIMIT 1) AS variante_sci,
+          (SELECT ss.nome FROM kit_dettaglio kd 
+           LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id 
+           LEFT JOIN season_status ss ON a.season_status_id = ss.id
+           WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI' LIMIT 1) AS season_status_sci,
           '' AS sigle
         FROM carico_sintesi cs
         INNER JOIN kit k ON cs.oggetto_id = k.id AND cs.tipo_oggetto = 'KIT'
@@ -412,6 +439,8 @@ router.get('/soggetti', verifyToken, async (req, res) => {
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.descrizione ELSE k.descrizione END AS descrizione,
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.codice ELSE k.codice_kit END AS codice,
             a.lunghezza,
+            a.variante,
+            ss.nome AS season_status_nome,
             COALESCE(s.sigla, 
               (SELECT s2.sigla FROM kit_dettaglio kd 
                LEFT JOIN sigle_articoli s2 ON kd.sigla_id = s2.id 
@@ -425,6 +454,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
           LEFT JOIN articoli a ON cs.tipo_oggetto = 'ARTICOLO' AND cs.oggetto_id = a.articolo_id
           LEFT JOIN kit k ON cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id
           LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
+          LEFT JOIN season_status ss ON a.season_status_id = ss.id
           LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
           WHERE cs.destinazione_tipo = ? AND cs.destinazione_id = ? AND cs.quantita > 0
           ${filterConditions}
@@ -446,7 +476,9 @@ router.get('/soggetti', verifyToken, async (req, res) => {
               ? ((row.destinatario_nome || '') + ' ' + (row.destinatario_cognome || '')).trim()
               : (row.destinatario_nome || 'Magazzino'),
             data: row.data_assegnazione,
-            nota: row.tipo_oggetto === 'ARTICOLO' ? row.nota_articolo : row.nota_kit
+            nota: row.tipo_oggetto === 'ARTICOLO' ? row.nota_articolo : row.nota_kit,
+            variante: row.variante || '',
+            season_status: row.season_status_nome || ''
           });
         });
       }
@@ -458,6 +490,8 @@ router.get('/soggetti', verifyToken, async (req, res) => {
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.descrizione ELSE k.descrizione END AS descrizione,
             CASE WHEN cs.tipo_oggetto = 'ARTICOLO' THEN a.codice ELSE k.codice_kit END AS codice,
             a.lunghezza,
+            a.variante,
+            ss.nome AS season_status_nome,
             COALESCE(s.sigla, 
               (SELECT s2.sigla FROM kit_dettaglio kd 
                LEFT JOIN sigle_articoli s2 ON kd.sigla_id = s2.id 
@@ -471,6 +505,7 @@ router.get('/soggetti', verifyToken, async (req, res) => {
           LEFT JOIN articoli a ON cs.tipo_oggetto = 'ARTICOLO' AND cs.oggetto_id = a.articolo_id
           LEFT JOIN kit k ON cs.tipo_oggetto = 'KIT' AND cs.oggetto_id = k.id
           LEFT JOIN sigle_articoli s ON cs.sigla_id = s.id
+          LEFT JOIN season_status ss ON a.season_status_id = ss.id
           LEFT JOIN soggetti sog ON sog.tipo = cs.destinazione_tipo AND sog.id = cs.destinazione_id
           WHERE cs.provenienza_tipo = ? AND cs.provenienza_id = ? AND cs.quantita > 0
             AND NOT (cs.destinazione_tipo = ? AND cs.destinazione_id = ?)
@@ -493,7 +528,9 @@ router.get('/soggetti', verifyToken, async (req, res) => {
               ? ((row.destinatario_nome || '') + ' ' + (row.destinatario_cognome || '')).trim()
               : (row.destinatario_nome || 'Magazzino'),
             data: row.data_assegnazione,
-            nota: row.tipo_oggetto === 'ARTICOLO' ? row.nota_articolo : row.nota_kit
+            nota: row.tipo_oggetto === 'ARTICOLO' ? row.nota_articolo : row.nota_kit,
+            variante: row.variante || '',
+            season_status: row.season_status_nome || ''
           });
         });
       }

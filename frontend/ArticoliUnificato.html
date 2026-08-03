@@ -45,7 +45,7 @@
     .filter-group select, .filter-group input { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: #f9fafb; }
     .form-row-3col, .form-row-4col-slim, .form-row-2col { display: grid; gap: 8px; margin-bottom: 6px; }
     .form-row-3col { grid-template-columns: 2fr 1fr 1fr; }
-    .form-row-4col-slim { grid-template-columns: 1fr 1fr auto auto; }
+    .form-row-4col-slim { grid-template-columns: 1fr 1fr 1fr 1fr; }
     .form-row-2col { grid-template-columns: 2fr 1fr 1fr; }
     .form-group { margin-bottom: 0; }
     label { font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; display: block; color: #2c3e50; }
@@ -58,7 +58,7 @@
     .btn-success { background: #27ae60; }
     .btn-secondary { background: linear-gradient(135deg, #6c757d, #565e64); }
     .table-wrapper { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; margin-top: 10px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; }
-    table { width: 100%; min-width: 1500px; border-collapse: collapse; font-size: 0.7rem; }
+    table { width: 100%; min-width: 1700px; border-collapse: collapse; font-size: 0.7rem; }
     th, td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
     th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; }
     tr:hover td { background: #f8fafc; }
@@ -132,6 +132,8 @@
     <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
     <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
     <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
+    <div class="filter-group"><label>Variante</label><input type="text" id="filtroVariante" placeholder="Variante..." oninput="caricaArticoli()"></div>
+    <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
     <div class="filter-group"><label>Descrizione</label><input type="text" id="filtroDescrizione" placeholder="Cerca..." oninput="caricaArticoli()"></div>
     <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
   </div>
@@ -145,7 +147,11 @@
     </div>
     <div class="form-row-4col-slim">
       <div class="form-group"><label>Durezza</label><input type="text" id="durezza" list="durezzaList" autocomplete="off"><datalist id="durezzaList"></datalist></div>
+      <div class="form-group"><label>Variante</label><input type="text" id="variante" list="varianteList" autocomplete="off"><datalist id="varianteList"></datalist></div>
+      <div class="form-group"><label>Season Status</label><select id="seasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
       <div class="form-group"><label>Quantità *</label><input type="number" id="quantita" value="1" min="1" step="1" required></div>
+    </div>
+    <div class="form-row-2col">
       <div class="form-group"><label>Versione</label><input type="text" id="versione" value="1.0"></div>
       <div class="form-group"><label>Note</label><textarea id="note" rows="1"></textarea></div>
     </div>
@@ -177,6 +183,8 @@
           <th data-sort="marca_nome">Marca <span class="sort-arrow sort-asc" data-col="marca_nome">▲</span><span class="sort-arrow sort-desc" data-col="marca_nome">▼</span></th>
           <th data-sort="lunghezza">Lunghezza <span class="sort-arrow sort-asc" data-col="lunghezza">▲</span><span class="sort-arrow sort-desc" data-col="lunghezza">▼</span></th>
           <th data-sort="durezza">Durezza <span class="sort-arrow sort-asc" data-col="durezza">▲</span><span class="sort-arrow sort-desc" data-col="durezza">▼</span></th>
+          <th data-sort="variante">Variante <span class="sort-arrow sort-asc" data-col="variante">▲</span><span class="sort-arrow sort-desc" data-col="variante">▼</span></th>
+          <th data-sort="season_status_nome">Season <span class="sort-arrow sort-asc" data-col="season_status_nome">▲</span><span class="sort-arrow sort-desc" data-col="season_status_nome">▼</span></th>
           <th data-sort="quantita_totale">Qtà Tot <span class="sort-arrow sort-asc" data-col="quantita_totale">▲</span><span class="sort-arrow sort-desc" data-col="quantita_totale">▼</span></th>
           <th data-sort="giacenza">Giacenza <span class="sort-arrow sort-asc" data-col="giacenza">▲</span><span class="sort-arrow sort-desc" data-col="giacenza">▼</span></th>
           <th data-sort="quantita_obsoleta">Qtà Obs <span class="sort-arrow sort-asc" data-col="quantita_obsoleta">▲</span><span class="sort-arrow sort-desc" data-col="quantita_obsoleta">▼</span></th>
@@ -228,11 +236,13 @@
       </div>
       <div class="form-row">
         <div class="form-group"><label>Durezza</label><input type="text" id="editDurezza" list="editDurezzaList"><datalist id="editDurezzaList"></datalist></div>
-        <div class="form-group">
-          <label>Quantità Totale</label>
-          <input type="number" id="editQuantita" min="0" readonly>
-          <small class="field-note"><i>⚠️ La quantità totale si gestisce tramite il modale delle sigle (pulsante 🔖)</i></small>
-        </div>
+        <div class="form-group"><label>Variante</label><input type="text" id="editVariante" list="editVarianteList"><datalist id="editVarianteList"></datalist></div>
+      </div>
+      <div class="form-group"><label>Season Status</label><select id="editSeasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
+      <div class="form-group">
+        <label>Quantità Totale</label>
+        <input type="number" id="editQuantita" min="0" readonly>
+        <small class="field-note"><i>⚠️ La quantità totale si gestisce tramite il modale delle sigle (pulsante 🔖)</i></small>
       </div>
       <div class="form-group"><label>Note</label><textarea id="editNote" rows="2"></textarea></div>
       <div class="form-group">
@@ -352,7 +362,7 @@ function logout() {
 // ============================================================
 // VARIABILI GLOBALI
 // ============================================================
-let magazzini = [], settori = [], categorie = [], marche = [];
+let magazzini = [], settori = [], categorie = [], marche = [], seasonStatusList = [];
 let articoliCorrente = [];
 let articoliFiltrati = [];
 let sortColumn = 'descrizione';
@@ -368,12 +378,16 @@ const filtroSettore = document.getElementById('filtroSettore');
 const filtroCat = document.getElementById('filtroCategoria');
 const filtroMar = document.getElementById('filtroMarca');
 const filtroDesc = document.getElementById('filtroDescrizione');
+const filtroVariante = document.getElementById('filtroVariante');
+const filtroSeason = document.getElementById('filtroSeasonStatus');
 
 // Elementi del form di inserimento
 const descrizioneInput = document.getElementById('descrizione');
 const codiceModelloInput = document.getElementById('codice_modello');
 const lunghezzaInput = document.getElementById('lunghezza');
 const durezzaInput = document.getElementById('durezza');
+const varianteInput = document.getElementById('variante');
+const seasonStatusSelect = document.getElementById('seasonStatus');
 const quantitaInput = document.getElementById('quantita');
 const noteInput = document.getElementById('note');
 const versioneInput = document.getElementById('versione');
@@ -383,11 +397,8 @@ const saveBtn = document.getElementById('saveBtn');
 // ============================================================
 // FUNZIONI PER CARICARE MARCHE IN BASE ALLA CATEGORIA
 // ============================================================
-
-// 🔥 Carica marche in base alla categoria selezionata
 async function caricaMarchePerCategoria(categoriaId, selectElement, defaultValue = null) {
   if (!categoriaId) {
-    // Se non c'è categoria, carica tutte le marche
     const data = await apiFetch('/anagrafiche/marche');
     popolaSelect(selectElement, data, 'id', 'nome');
     if (defaultValue !== null) selectElement.value = defaultValue;
@@ -399,7 +410,6 @@ async function caricaMarchePerCategoria(categoriaId, selectElement, defaultValue
     if (defaultValue !== null) selectElement.value = defaultValue;
   } catch(e) {
     console.error('Errore caricamento marche per categoria:', e);
-    // Fallback: carica tutte le marche
     const data = await apiFetch('/anagrafiche/marche');
     popolaSelect(selectElement, data, 'id', 'nome');
     if (defaultValue !== null) selectElement.value = defaultValue;
@@ -417,15 +427,18 @@ function popolaSelect(sel, items, valKey, textKey) {
 
 async function caricaAnagrafiche() {
   try {
-    [magazzini, settori, categorie, marche] = await Promise.all([
+    [magazzini, settori, categorie, marche, seasonStatusList] = await Promise.all([
       apiFetch('/anagrafiche/magazzini'),
       apiFetch('/anagrafiche/settori'),
       apiFetch('/anagrafiche/categorie'),
-      apiFetch('/anagrafiche/marche')
+      apiFetch('/anagrafiche/marche'),
+      apiFetch('/anagrafiche/season-status')
     ]);
 
     popolaSelect(filtroMag, magazzini, 'id', 'nome');
     popolaSelect(filtroCat, categorie, 'id', 'nome');
+    popolaSelect(filtroSeason, seasonStatusList, 'id', 'nome');
+    popolaSelect(seasonStatusSelect, seasonStatusList, 'id', 'nome');
 
     const categoriaDefault = filtroCat.value || '';
     await caricaMarchePerCategoria(categoriaDefault, filtroMar);
@@ -452,10 +465,6 @@ async function caricaAnagrafiche() {
       }
     });
 
-    document.getElementById('editSettore').addEventListener('change', function() {
-      // Il settore non filtra le marche, ma possiamo lasciarlo per future estensioni
-    });
-
     await refreshAllDatalists();
     await caricaArticoli();
   } catch(err) { showMessage('Errore caricamento anagrafiche', 'error'); }
@@ -480,7 +489,8 @@ const endpointMap = {
   descrizione: '/articoli/valori/descrizioni',
   lunghezza: '/articoli/valori/lunghezze',
   durezza: '/articoli/valori/durezze',
-  codice_modello: '/articoli/valori/modelli'
+  codice_modello: '/articoli/valori/modelli',
+  variante: '/articoli/valori/varianti'
 };
 
 function getCurrentFilters() {
@@ -490,6 +500,8 @@ function getCurrentFilters() {
     categoria: filtroCat.value,
     marca: filtroMar.value,
     descrizione: filtroDesc.value,
+    variante: filtroVariante.value,
+    season_status_id: filtroSeason.value
   };
 }
 
@@ -524,7 +536,6 @@ async function refreshAllDatalists() {
 // ============================================================
 async function caricaArticoli() {
   try {
-    // 🔥 AGGIUNTO: aggiorna i datalist PRIMA di caricare gli articoli
     await refreshAllDatalists();
 
     const params = new URLSearchParams();
@@ -534,6 +545,8 @@ async function caricaArticoli() {
     if (f.categoria) params.append('categoria', f.categoria);
     if (f.marca) params.append('marca', f.marca);
     if (f.descrizione) params.append('descrizione', f.descrizione);
+    if (f.variante) params.append('variante', f.variante);
+    if (f.season_status_id) params.append('season_status_id', f.season_status_id);
     const res = await apiFetch('/articoli?' + params.toString());
     if (res.success) {
       articoliCorrente = res.data;
@@ -570,6 +583,8 @@ async function salvaArticolo() {
     marca: parseInt(marca),
     lunghezza: lunghezzaInput.value.trim(),
     durezza: durezzaInput.value.trim(),
+    variante: varianteInput.value.trim(),
+    season_status_id: seasonStatusSelect.value || null,
     quantita: quantita,
     versione: versioneInput.value.trim(),
     note: noteInput.value.trim(),
@@ -595,6 +610,8 @@ function resetForm() {
   codiceModelloInput.value = '';
   lunghezzaInput.value = '';
   durezzaInput.value = '';
+  varianteInput.value = '';
+  seasonStatusSelect.value = '';
   quantitaInput.value = 1;
   noteInput.value = '';
   inventarioAustriaCheck.checked = true;
@@ -606,6 +623,8 @@ function resetFiltri() {
   filtroCat.value = '';
   filtroMar.value = '';
   filtroDesc.value = '';
+  filtroVariante.value = '';
+  filtroSeason.value = '';
   caricaMarchePerCategoria(null, filtroMar);
   caricaArticoli();
 }
@@ -634,6 +653,7 @@ function compare(a,b,col) {
   if (col === 'quantita_totale' || col === 'giacenza' || col === 'quantita_obsoleta') { va = Number(va)||0; vb = Number(vb)||0; }
   else if (col === 'lunghezza') { va = parseFloat(va)||0; vb = parseFloat(vb)||0; }
   else if (col === 'inventario_austria') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+  else if (col === 'season_status_nome') { va = va || ''; vb = vb || ''; }
   else { va = (va||'').toString().toLowerCase(); vb = (vb||'').toString().toLowerCase(); }
   if (va < vb) return -1;
   if (va > vb) return 1;
@@ -679,7 +699,7 @@ function renderTabellaPaginata() {
   tbody.innerHTML = '';
   const totali = articoliFiltrati.length;
   if (totali === 0) {
-    tbody.innerHTML = '<tr><td colspan="16" class="text-center">Nessun articolo trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="19" class="text-center">Nessun articolo trovato</td></tr>';
     document.getElementById('paginationStats').innerText = 'Mostrando 0-0 di 0';
     document.getElementById('paginationCurrentPage').innerText = '1';
     document.getElementById('btnPrevPage').disabled = true;
@@ -712,13 +732,15 @@ function renderTabellaPaginata() {
     row.insertCell(7).innerText = mar;
     row.insertCell(8).innerText = a.lunghezza || '';
     row.insertCell(9).innerText = a.durezza || '';
-    row.insertCell(10).innerText = a.quantita_totale;
-    row.insertCell(11).innerText = giac;
-    row.insertCell(12).innerText = a.quantita_obsoleta || 0;
-    row.insertCell(13).innerText = a.stato || '';
-    row.insertCell(14).innerText = a.inventario_austria ? '✅' : '❌';
+    row.insertCell(10).innerText = a.variante || '';
+    row.insertCell(11).innerText = a.season_status_nome || '';
+    row.insertCell(12).innerText = a.quantita_totale;
+    row.insertCell(13).innerText = giac;
+    row.insertCell(14).innerText = a.quantita_obsoleta || 0;
+    row.insertCell(15).innerText = a.stato || '';
+    row.insertCell(16).innerText = a.inventario_austria ? '✅' : '❌';
 
-    const tdSigle = row.insertCell(15);
+    const tdSigle = row.insertCell(17);
     const btnSigle = document.createElement('button');
     btnSigle.textContent = '🔖';
     btnSigle.className = 'btn';
@@ -727,7 +749,7 @@ function renderTabellaPaginata() {
     btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione, a.lunghezza);
     tdSigle.appendChild(btnSigle);
 
-    const actions = row.insertCell(16);
+    const actions = row.insertCell(18);
     actions.className = 'action-buttons';
     const btnMod = document.createElement('button');
     btnMod.textContent = '✏️';
@@ -803,19 +825,21 @@ function attachSortListeners() {
 // MODIFICA / ELIMINA
 // ============================================================
 async function caricaSelectsModale() {
-  const [mag,set,cat,mar] = await Promise.all([
+  const [mag,set,cat,mar,ss] = await Promise.all([
     apiFetch('/anagrafiche/magazzini'),
     apiFetch('/anagrafiche/settori'),
     apiFetch('/anagrafiche/categorie'),
-    apiFetch('/anagrafiche/marche')
+    apiFetch('/anagrafiche/marche'),
+    apiFetch('/anagrafiche/season-status')
   ]);
   popolaSelect(document.getElementById('editMagazzino'), mag, 'id', 'nome');
   popolaSelect(document.getElementById('editSettore'), set, 'id', 'nome');
   popolaSelect(document.getElementById('editCategoria'), cat, 'id', 'nome');
+  popolaSelect(document.getElementById('editSeasonStatus'), ss, 'id', 'nome');
 }
 
 async function refreshEditDatalists() {
-  const editFields = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
+  const editFields = ['descrizione', 'lunghezza', 'durezza', 'codice_modello', 'variante'];
   for (let f of editFields) {
     const el = document.getElementById('edit' + f.charAt(0).toUpperCase() + f.slice(1) + 'List');
     if (!el) continue;
@@ -845,6 +869,8 @@ async function modificaArticolo(id) {
   document.getElementById('editDescrizione').value = art.descrizione;
   document.getElementById('editLunghezza').value = art.lunghezza || '';
   document.getElementById('editDurezza').value = art.durezza || '';
+  document.getElementById('editVariante').value = art.variante || '';
+  document.getElementById('editSeasonStatus').value = art.season_status_id || '';
   document.getElementById('editCodiceModello').value = art.codice_modello || '';
   document.getElementById('editQuantita').value = art.quantita_totale;
   document.getElementById('editNote').value = art.note || '';
@@ -860,6 +886,8 @@ async function salvaModifica() {
     descrizione: document.getElementById('editDescrizione').value.trim(),
     lunghezza: document.getElementById('editLunghezza').value.trim(),
     durezza: document.getElementById('editDurezza').value.trim(),
+    variante: document.getElementById('editVariante').value.trim(),
+    season_status_id: document.getElementById('editSeasonStatus').value || null,
     note: document.getElementById('editNote').value.trim(),
     codiceModello: document.getElementById('editCodiceModello').value.trim(),
     magazzino: parseInt(document.getElementById('editMagazzino').value),
@@ -892,7 +920,7 @@ async function eliminaArticolo(id) {
 }
 
 // ============================================================
-// GESTIONE SIGLE
+// GESTIONE SIGLE (invariata, già presente)
 // ============================================================
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
@@ -1112,7 +1140,7 @@ async function confermaObsolescenza() {
 // INIT
 // ============================================================
 function attachFormEvents() {
-  const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello'];
+  const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello', 'variante'];
   inputs.forEach(id => {
     const el = document.getElementById(id);
     if (el) {

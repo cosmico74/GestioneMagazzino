@@ -64,6 +64,21 @@ router.get('/marche', verifyToken, async (req, res) => {
 });
 
 // ============================================================
+// GET /api/anagrafiche/season-status
+// ============================================================
+router.get('/season-status', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, nome, descrizione FROM season_status WHERE attivo = true ORDER BY nome'
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /season-status:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/anagrafiche/menu
 // ============================================================
 router.get('/menu', verifyToken, async (req, res) => {
@@ -470,5 +485,21 @@ router.delete('/categorie-marche', verifyToken, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+// ============================================================
+// GET /api/anagrafiche/season-status
+// ============================================================
+router.get('/season-status', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, nome, descrizione FROM season_status WHERE attivo = true ORDER BY nome'
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /season-status:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 module.exports = router;

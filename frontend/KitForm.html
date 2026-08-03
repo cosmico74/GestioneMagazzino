@@ -125,7 +125,7 @@
     </div>
     <div class="form-group" style="flex:1;">
       <label>Ricerca</label>
-      <input type="text" id="filtroRicerca" placeholder="Codice, descrizione..." oninput="caricaKit()">
+      <input type="text" id="filtroRicerca" placeholder="Codice, descrizione, sigla, variante..." oninput="caricaKit()">
     </div>
     <div class="form-group" style="flex:0.3; display:flex; align-items:flex-end;">
       <button class="btn btn-success" onclick="resetForm()" style="width:100%;">➕ Nuovo Kit</button>
@@ -194,6 +194,7 @@
           <th>Codice</th>
           <th>Descrizione</th>
           <th>Sigla Sci</th>
+          <th>Variante Sci</th>
           <th>Attacco</th>
           <th>Lunghezza</th>
           <th>Skistopper</th>
@@ -225,6 +226,7 @@
     </div>
     <div class="form-row">
       <div class="form-group"><label>Sigla Sci</label><div id="editGroupSigla" class="readonly-info"></div></div>
+      <div class="form-group"><label>Variante Sci</label><div id="editGroupVariante" class="readonly-info"></div></div>
       <div class="form-group"><label>Lunghezza</label><div id="editGroupLunghezza" class="readonly-info"></div></div>
     </div>
     <div class="form-row">
@@ -321,6 +323,7 @@ const editGroupMagazzino = document.getElementById('editGroupMagazzino');
 const editGroupSettore = document.getElementById('editGroupSettore');
 const editGroupSci = document.getElementById('editGroupSci');
 const editGroupSigla = document.getElementById('editGroupSigla');
+const editGroupVariante = document.getElementById('editGroupVariante');
 const editGroupLunghezza = document.getElementById('editGroupLunghezza');
 const editGroupAttacco = document.getElementById('editGroupAttacco');
 const editGroupSkistopper = document.getElementById('editGroupSkistopper');
@@ -431,7 +434,7 @@ async function caricaAnagrafiche() {
 }
 
 // ============================================================
-// CARICA SCI (con filtro settore)
+// CARICA SCI (con filtro settore e variante)
 // ============================================================
 async function caricaSci(settore = null) {
   let params = new URLSearchParams({ min_giacenza: '1' });
@@ -444,12 +447,13 @@ async function caricaSci(settore = null) {
 
   const sciGroupMap = {};
   articoliSciRaw.forEach(a => {
-    const key = `${a.descrizione}|${a.lunghezza || ''}`;
+    const key = `${a.descrizione}|${a.lunghezza || ''}|${a.variante || ''}`;
     if (!sciGroupMap[key]) {
       sciGroupMap[key] = {
         articolo_id: a.articolo_id,
         descrizione: a.descrizione,
         lunghezza: a.lunghezza || '',
+        variante: a.variante || '',
         quantita_totale: 0,
         articoli_ids: []
       };
@@ -466,7 +470,8 @@ async function caricaSci(settore = null) {
 
   kitSciSelect.innerHTML = '<option value="">Seleziona sci...</option>';
   articoliSci.forEach(a => {
-    const label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
+    let label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
+    if (a.variante) label += ' (' + a.variante + ')';
     kitSciSelect.appendChild(new Option(label, a.articolo_id));
   });
 }
@@ -806,7 +811,8 @@ async function caricaKit() {
       allKits = allKits.filter(k =>
         (k.codice_kit || '').toLowerCase().includes(search) ||
         (k.descrizione || '').toLowerCase().includes(search) ||
-        (k.sigla_sci || '').toLowerCase().includes(search)
+        (k.sigla_sci || '').toLowerCase().includes(search) ||
+        (k.variante_sci || '').toLowerCase().includes(search)
       );
     }
 
@@ -826,7 +832,7 @@ function popolaTabellaKit() {
   let filtered = allKits;
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="13" class="text-center">Nessun kit trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
 
@@ -835,12 +841,13 @@ function popolaTabellaKit() {
   filtered.forEach(k => {
     const attacco = k.attacco_descrizione || 'N/A';
     const skistopper = k.skistopper_descrizione || 'Nessuno';
-    const key = `${k.descrizione}|${k.lunghezza_sci || ''}|${k.sigla_sci || ''}|${attacco}|${skistopper}|${k.ultimo_destinatario || 'In magazzino'}`;
+    const key = `${k.descrizione}|${k.lunghezza_sci || ''}|${k.sigla_sci || ''}|${k.variante_sci || ''}|${attacco}|${skistopper}|${k.ultimo_destinatario || 'In magazzino'}`;
     if (!groups[key]) {
       groups[key] = {
         descrizione: k.descrizione || '',
         lunghezza_sci: k.lunghezza_sci || '',
         sigla_sci: k.sigla_sci || '',
+        variante_sci: k.variante_sci || '',
         attacco: attacco,
         skistopper: skistopper,
         magazzino: k.magazzino,
@@ -876,14 +883,15 @@ function popolaTabellaKit() {
     row.insertCell(1).innerText = group.kits.length > 1 ? '—' : (firstKit.codice_kit || '-');
     row.insertCell(2).innerText = group.descrizione || '-';
     row.insertCell(3).innerText = group.sigla_sci || 'NA';
-    row.insertCell(4).innerText = group.attacco || 'N/A';
-    row.insertCell(5).innerText = group.lunghezza_sci || '-';
-    row.insertCell(6).innerText = group.skistopper || 'Nessuno';
-    row.insertCell(7).innerText = ['Alpino','Nordico','Freeride'][(group.settore || 1) - 1] || '';
-    row.insertCell(8).innerText = mag;
-    row.insertCell(9).innerText = group.quantita_totale || 0;
+    row.insertCell(4).innerText = group.variante_sci || '';
+    row.insertCell(5).innerText = group.attacco || 'N/A';
+    row.insertCell(6).innerText = group.lunghezza_sci || '-';
+    row.insertCell(7).innerText = group.skistopper || 'Nessuno';
+    row.insertCell(8).innerText = ['Alpino','Nordico','Freeride'][(group.settore || 1) - 1] || '';
+    row.insertCell(9).innerText = mag;
+    row.insertCell(10).innerText = group.quantita_totale || 0;
 
-    const tdAssegnato = row.insertCell(10);
+    const tdAssegnato = row.insertCell(11);
     const assegnato = group.ultimo_destinatario || 'In magazzino';
     const span = document.createElement('span');
     span.textContent = assegnato;
@@ -893,9 +901,9 @@ function popolaTabellaKit() {
     }
     tdAssegnato.appendChild(span);
 
-    row.insertCell(11).innerText = group.note || '';
+    row.insertCell(12).innerText = group.note || '';
 
-    const actions = row.insertCell(12);
+    const actions = row.insertCell(13);
     actions.className = 'action-buttons';
     if (group.kits.length > 1) {
       const btnGroup = document.createElement('button');
@@ -937,6 +945,7 @@ function apriEditGroupModal(kits) {
   const desc = firstKit.descrizione || 'Kit';
   const lung = firstKit.lunghezza_sci || '';
   const sigla = firstKit.sigla_sci || 'NA';
+  const variante = firstKit.variante_sci || '';
   const attacco = firstKit.attacco_descrizione || 'N/A';
   const skistopper = firstKit.skistopper_descrizione || 'Nessuno';
   const mag = magazzini.find(m => m.id == firstKit.magazzino)?.nome || 'Magazzino ' + firstKit.magazzino;
@@ -946,13 +955,14 @@ function apriEditGroupModal(kits) {
   editGroupRiepilogo.innerHTML = `
     <strong>Gruppo (${kits.length} kit)</strong> — ${desc}<br>
     <span style="font-size:0.8rem;color:#555;">
-      Sigla: ${sigla} | Lunghezza: ${lung} cm | Attacco: ${attacco} | Skistopper: ${skistopper}
+      Sigla: ${sigla} | Variante: ${variante || '-'} | Lunghezza: ${lung} cm | Attacco: ${attacco} | Skistopper: ${skistopper}
     </span>
   `;
   editGroupMagazzino.textContent = mag;
   editGroupSettore.textContent = ['Alpino','Nordico','Freeride'][settore-1] || '';
   editGroupSci.textContent = desc;
   editGroupSigla.textContent = sigla;
+  editGroupVariante.textContent = variante || '-';
   editGroupLunghezza.textContent = lung ? lung + ' cm' : '-';
   editGroupAttacco.textContent = attacco;
   editGroupSkistopper.textContent = skistopper;
@@ -1067,6 +1077,7 @@ async function apriEditKitModal(kitId) {
     const sciDesc = sciDet ? sciDet.articolo_descrizione || 'Sci ID ' + sciDet.articolo_id : 'N/A';
     const sciLung = kit.lunghezza_sci || '';
     const sciSigla = kit.sigla_sci || 'NA';
+    const sciVariante = kit.variante_sci || '';
     const attDesc = attDet ? attDet.articolo_descrizione || 'Attacco ID ' + attDet.articolo_id : 'N/A';
     const skDesc = skDet ? skDet.articolo_descrizione || 'Skistopper ID ' + skDet.articolo_id : 'Nessuno';
     modal.innerHTML = `
@@ -1084,6 +1095,7 @@ async function apriEditKitModal(kitId) {
         </div>
         <div class="form-row">
           <div class="form-group"><label>Sigla Sci</label><div class="readonly-info">${sciSigla}</div></div>
+          <div class="form-group"><label>Variante Sci</label><div class="readonly-info">${sciVariante || '-'}</div></div>
           <div class="form-group"><label>Lunghezza</label><div class="readonly-info">${sciLung ? sciLung + ' cm' : '-'}</div></div>
         </div>
         <div class="form-row">

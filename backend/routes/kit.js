@@ -39,7 +39,7 @@ async function rimuoviDaKit(connection, articoloId, quantita) {
 // HELPER: genera descrizione kit (sci + attacco)
 // ============================================================
 async function generaDescrizioneKit(connection, sci, righe) {
-  const { descrizione, lunghezza } = sci;
+  const { descrizione, lunghezza, variante } = sci;
   const parti = [];
   for (const riga of righe) {
     const { attacco_id } = riga;
@@ -49,6 +49,7 @@ async function generaDescrizioneKit(connection, sci, righe) {
     );
     const attaccoDesc = attaccoRow.length ? attaccoRow[0].descrizione : 'Attacco sconosciuto';
     let parte = `${descrizione || 'Sci'} ${lunghezza || ''}`.trim();
+    if (variante) parte += ` (${variante})`;
     parte += ` + ${attaccoDesc || 'Attacco'}`;
     parti.push(parte);
   }
@@ -98,6 +99,10 @@ router.get('/', verifyToken, async (req, res) => {
          LEFT JOIN sigle_articoli s ON kd.sigla_id = s.id
          WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI'
          LIMIT 1) AS sigla_sci,
+        (SELECT a.variante FROM kit_dettaglio kd
+         LEFT JOIN articoli a ON kd.articolo_id = a.articolo_id
+         WHERE kd.kit_id = k.id AND kd.tipo_articolo = 'SCI'
+         LIMIT 1) AS variante_sci,
         u1.username AS creato_da_username,
         u2.username AS modificato_da_username,
         (SELECT GROUP_CONCAT(
@@ -142,7 +147,7 @@ router.get('/', verifyToken, async (req, res) => {
       params.push(req.query.magazzino);
     }
 
-    // 🔥 Filtro settore
+    // Filtro settore
     if (req.query.settore) {
       sql += ' AND k.settore = ?';
       params.push(req.query.settore);
@@ -150,9 +155,9 @@ router.get('/', verifyToken, async (req, res) => {
 
     // Filtro ricerca testuale (facoltativo)
     if (req.query.search) {
-      sql += ' AND (k.codice_kit LIKE ? OR k.descrizione LIKE ? OR k.sigla_sci LIKE ?)';
+      sql += ' AND (k.codice_kit LIKE ? OR k.descrizione LIKE ? OR k.sigla_sci LIKE ? OR k.variante_sci LIKE ?)';
       const search = '%' + req.query.search + '%';
-      params.push(search, search, search);
+      params.push(search, search, search, search);
     }
 
     sql += ' ORDER BY k.id DESC';
@@ -168,6 +173,7 @@ router.get('/', verifyToken, async (req, res) => {
         ...k,
         lunghezza_sci: k.lunghezza_sci || '',
         sigla_sci: k.sigla_sci || '',
+        variante_sci: k.variante_sci || '',
         catena_assegnazioni: k.catena_assegnazioni || null,
         ultimo_destinatario: ultimoDestinatario,
         ultimo_destinatario_tipo: k.ultimo_destinatario_tipo,
@@ -216,6 +222,8 @@ router.get('/:id', verifyToken, async (req, res) => {
         a.descrizione AS articolo_descrizione, 
         a.codice AS articolo_codice,
         a.lunghezza AS articolo_lunghezza,
+        a.variante AS articolo_variante,
+        a.season_status_id AS articolo_season_status_id,
         s.sigla
       FROM kit_dettaglio d
       LEFT JOIN articoli a ON d.articolo_id = a.articolo_id
@@ -226,12 +234,14 @@ router.get('/:id', verifyToken, async (req, res) => {
     const sciDet = dettagli.find(d => d.tipo_articolo === 'SCI');
     const lunghezza_sci = sciDet ? sciDet.articolo_lunghezza || '' : '';
     const sigla_sci = sciDet ? sciDet.sigla || '' : '';
+    const variante_sci = sciDet ? sciDet.articolo_variante || '' : '';
 
     res.json({ 
       ...kit[0], 
       dettagli,
       lunghezza_sci,
       sigla_sci,
+      variante_sci,
       settore: kit[0].settore || 1
     });
   } catch (err) {
@@ -397,7 +407,7 @@ router.post('/da-carico', verifyToken, async (req, res) => {
 
     for (const item of oggetti) {
       const [art] = await connection.query(
-        'SELECT a.articolo_id, a.descrizione, a.lunghezza, c.nome AS categoria_nome FROM articoli a LEFT JOIN categorie c ON a.categoria = c.categoria_id WHERE a.articolo_id = ?',
+        'SELECT a.articolo_id, a.descrizione, a.lunghezza, a.variante, c.nome AS categoria_nome FROM articoli a LEFT JOIN categorie c ON a.categoria = c.categoria_id WHERE a.articolo_id = ?',
         [item.oggettoId]
       );
       if (!art.length) throw new Error(`Articolo ${item.oggettoId} non trovato`);
@@ -466,7 +476,7 @@ router.post('/da-carico', verifyToken, async (req, res) => {
     const nextSeq = (maxIdRow[0].maxId || 0) + 1;
     const codiceKit = `KIT-${magazzinoId}-${String(nextSeq).padStart(4, '0')}`;
 
-    const [sci] = await connection.query('SELECT descrizione, lunghezza FROM articoli WHERE articolo_id = ?', [sciId]);
+    const [sci] = await connection.query('SELECT descrizione, lunghezza, variante FROM articoli WHERE articolo_id = ?', [sciId]);
     const righe = [{ attacco_id: attaccoId }];
     const descKit = await generaDescrizioneKit(connection, sci[0], righe);
 

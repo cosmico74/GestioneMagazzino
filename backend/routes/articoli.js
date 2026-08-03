@@ -72,6 +72,7 @@ router.get('/', verifyToken, async (req, res) => {
   try {
     let sql = `
       SELECT a.*,
+        ss.nome AS season_status_nome,
         (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE,
         CASE 
           WHEN (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) <= 0 THEN 'Esaurito'
@@ -88,6 +89,7 @@ router.get('/', verifyToken, async (req, res) => {
       LEFT JOIN settori s ON a.settore = s.settore_id
       LEFT JOIN categorie c ON a.categoria = c.categoria_id
       LEFT JOIN marche mar ON a.marca = mar.marca_id
+      LEFT JOIN season_status ss ON a.season_status_id = ss.id
       LEFT JOIN utenti u1 ON a.creato_da = u1.id
       LEFT JOIN utenti u2 ON a.modificato_da = u2.id
       WHERE 1=1
@@ -101,7 +103,8 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.query.lunghezza) { sql += ' AND a.lunghezza = ?'; params.push(req.query.lunghezza); }
     if (req.query.durezza) { sql += ' AND a.durezza = ?'; params.push(req.query.durezza); }
     if (req.query.codice_modello) { sql += ' AND a.codice_modello = ?'; params.push(req.query.codice_modello); }
-    // ⚠️ Se non vuoi filtrare per giacenza, commenta o rimuovi il blocco seguente
+    if (req.query.variante) { sql += ' AND a.variante LIKE ?'; params.push(`%${req.query.variante}%`); }
+    if (req.query.season_status_id) { sql += ' AND a.season_status_id = ?'; params.push(req.query.season_status_id); }
     if (req.query.min_giacenza) {
       sql += ' AND (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = \'ARTICOLO\' AND oggetto_id = a.articolo_id), 0)) >= ?';
       params.push(req.query.min_giacenza);
@@ -121,12 +124,14 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT a.*,
+        ss.nome AS season_status_nome,
         (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE,
         CASE 
           WHEN (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) <= 0 THEN 'Esaurito'
           ELSE 'Disponibile'
         END AS stato
       FROM articoli a
+      LEFT JOIN season_status ss ON a.season_status_id = ss.id
       WHERE a.articolo_id = ?
     `, [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ success: false, message: 'Articolo non trovato' });
@@ -426,7 +431,7 @@ router.delete('/sigle/:id', verifyToken, async (req, res) => {
 // POST /api/articoli
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
-  const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria } = req.body;
+  const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria, variante, season_status_id } = req.body;
 
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
@@ -446,8 +451,9 @@ router.post('/', verifyToken, async (req, res) => {
 
     await connection.query(`
       INSERT INTO articoli (articolo_id, codice, descrizione, descrizione_completa, magazzino, settore, categoria, marca,
-        lunghezza, durezza, quantita_totale, quantita_in_kit, quantita_obsoleta, versione, stato, data_inserimento, data_modifica, note, codice_modello, inventario_austria, creato_da, modificato_da)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        lunghezza, durezza, quantita_totale, quantita_in_kit, quantita_obsoleta, versione, stato, data_inserimento, data_modifica, note, codice_modello, inventario_austria, creato_da, modificato_da,
+        variante, season_status_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       newId, codice, descrizione, descrizioneCompleta,
       magazzino, settore, categoria, marca,
@@ -460,7 +466,9 @@ router.post('/', verifyToken, async (req, res) => {
       codiceModello || null,
       invAustria,
       req.userId,
-      req.userId
+      req.userId,
+      variante || null,
+      season_status_id || null
     ]);
 
     const [siglaResult] = await connection.query(
@@ -495,7 +503,7 @@ router.post('/', verifyToken, async (req, res) => {
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { descrizione, lunghezza, durezza, quantita_totale, quantita_obsoleta, versione, stato, note, codiceModello,
-          magazzino, settore, categoria, marca, inventario_austria } = req.body;
+          magazzino, settore, categoria, marca, inventario_austria, variante, season_status_id } = req.body;
 
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
@@ -530,10 +538,12 @@ router.put('/:id', verifyToken, async (req, res) => {
       UPDATE articoli SET 
         descrizione = ?, lunghezza = ?, durezza = ?, quantita_totale = ?, quantita_obsoleta = ?,
         versione = ?, stato = ?, note = ?, codice_modello = ?, magazzino = ?, settore = ?, categoria = ?, marca = ?,
-        inventario_austria = ?, data_modifica = NOW(), modificato_da = ?
+        inventario_austria = ?, data_modifica = NOW(), modificato_da = ?,
+        variante = ?, season_status_id = ?
       WHERE articolo_id = ?
     `, [descrizione, lunghezza, durezza, quantita_totale, quantita_obsoleta, versione, stato, note, codiceModello,
-        magazzino, settore, categoria, marca, invAustria, req.userId, id]);
+        magazzino, settore, categoria, marca, invAustria, req.userId,
+        variante || null, season_status_id || null, id]);
 
     const [newRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
     await registraAudit(connection, 'articoli', 'MODIFICA', id, oldRow[0], newRow[0], req.userId);
@@ -637,7 +647,13 @@ router.post('/:id/obsoleto', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/valori/:campo', verifyToken, async (req, res) => {
   const campo = req.params.campo;
-  const map = { descrizioni: 'descrizione', lunghezze: 'lunghezza', durezze: 'durezza', modelli: 'codice_modello' };
+  const map = { 
+    descrizioni: 'descrizione', 
+    lunghezze: 'lunghezza', 
+    durezze: 'durezza', 
+    modelli: 'codice_modello',
+    varianti: 'variante'
+  };
   const col = map[campo] || campo;
   let sql = `SELECT DISTINCT ${col} AS ${col} FROM articoli WHERE ${col} IS NOT NULL AND ${col} != ''`;
   const params = [];
@@ -647,7 +663,7 @@ router.get('/valori/:campo', verifyToken, async (req, res) => {
   if (req.query.categoria) { sql += ' AND categoria = ?'; params.push(req.query.categoria); }
   if (req.query.marca) { sql += ' AND marca = ?'; params.push(req.query.marca); }
 
-  const filterableFields = ['descrizione', 'codice_modello', 'lunghezza', 'durezza'];
+  const filterableFields = ['descrizione', 'codice_modello', 'lunghezza', 'durezza', 'variante'];
   for (const f of filterableFields) {
     if (f !== col && req.query[f]) {
       sql += ` AND ${f} = ?`;
