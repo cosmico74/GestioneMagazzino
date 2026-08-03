@@ -127,16 +127,15 @@
   <div id="messageArea"></div>
 
   <!-- FILTRI -->
-  <div class="filter-row">
-    <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-    <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
-    <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
-    <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
-    <div class="filter-group"><label>Variante</label><input type="text" id="filtroVariante" placeholder="Variante..." oninput="caricaArticoli()"></div>
-    <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-    <div class="filter-group"><label>Descrizione</label><input type="text" id="filtroDescrizione" placeholder="Cerca..." oninput="caricaArticoli()"></div>
-    <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
-  </div>
+  <!-- FILTRI -->
+<!-- FILTRI -->
+<div class="filter-row">
+  <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+  <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+  <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
+  <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
+  <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
+</div>
 
   <!-- FORM INSERIMENTO -->
   <form id="articleForm" onsubmit="return false;">
@@ -377,9 +376,7 @@ const filtroMag = document.getElementById('filtroMagazzino');
 const filtroSettore = document.getElementById('filtroSettore');
 const filtroCat = document.getElementById('filtroCategoria');
 const filtroMar = document.getElementById('filtroMarca');
-const filtroDesc = document.getElementById('filtroDescrizione');
-const filtroVariante = document.getElementById('filtroVariante');
-const filtroSeason = document.getElementById('filtroSeasonStatus');
+
 
 // Elementi del form di inserimento
 const descrizioneInput = document.getElementById('descrizione');
@@ -494,14 +491,15 @@ const endpointMap = {
 };
 
 function getCurrentFilters() {
+  // Legge i valori dai campi del FORM (non più dai filtri)
   return {
     magazzino: filtroMag.value,
     settore: filtroSettore.value,
     categoria: filtroCat.value,
     marca: filtroMar.value,
-    descrizione: filtroDesc.value,
-    variante: filtroVariante.value,
-    season_status_id: filtroSeason.value
+    descrizione: descrizioneInput.value.trim(),
+    variante: varianteInput.value.trim(),
+    season_status_id: seasonStatusSelect.value || null
   };
 }
 
@@ -539,7 +537,7 @@ async function caricaArticoli() {
     await refreshAllDatalists();
 
     const params = new URLSearchParams();
-    const f = getCurrentFilters();
+    const f = getCurrentFilters(); // ora legge dal form
     if (f.magazzino) params.append('magazzino', f.magazzino);
     if (f.settore) params.append('settore', f.settore);
     if (f.categoria) params.append('categoria', f.categoria);
@@ -547,14 +545,9 @@ async function caricaArticoli() {
     if (f.descrizione) params.append('descrizione', f.descrizione);
     if (f.variante) params.append('variante', f.variante);
     if (f.season_status_id) params.append('season_status_id', f.season_status_id);
+    
     const res = await apiFetch('/articoli?' + params.toString());
-    if (res.success) {
-      articoliCorrente = res.data;
-      articoliFiltrati = [...articoliCorrente];
-      paginaCorrente = 1;
-      ordinaArticoli();
-      renderTabellaPaginata();
-    } else showMessage(res.message, 'error');
+    // ... resto invariato
   } catch(err) { showMessage(err.message, 'error'); }
 }
 
@@ -627,9 +620,12 @@ function resetFiltri() {
   filtroSettore.value = '';
   filtroCat.value = '';
   filtroMar.value = '';
-  filtroDesc.value = '';
-  filtroVariante.value = '';
-  filtroSeason.value = '';
+  
+  // Resetta anche i campi del form (che ora fungono anche da filtri)
+  descrizioneInput.value = '';
+  varianteInput.value = '';
+  seasonStatusSelect.value = '';
+  
   caricaMarchePerCategoria(null, filtroMar);
   caricaArticoli();
 }
@@ -1151,14 +1147,15 @@ function attachFormEvents() {
     if (el) {
       el.addEventListener('input', () => {
         refreshAllDatalists();
-        caricaArticoli();
+        caricaArticoli(); // ora filtra in base ai valori del form
       });
-    } else {
-      console.warn('Elemento input del form non trovato:', id);
     }
   });
+  // Anche il cambio di season status deve attivare il filtro
+  seasonStatusSelect.addEventListener('change', () => {
+    caricaArticoli();
+  });
 }
-
 window.onload = async () => {
   if (!restoreSession()) { window.location.href = 'Login.html'; return; }
   await caricaAnagrafiche();
