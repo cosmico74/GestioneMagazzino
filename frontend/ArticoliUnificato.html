@@ -127,15 +127,14 @@
   <div id="messageArea"></div>
 
   <!-- FILTRI -->
-  <!-- FILTRI -->
-<!-- FILTRI -->
-<div class="filter-row">
-  <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-  <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
-  <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
-  <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
-  <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
-</div>
+  <div class="filter-row">
+    <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+    <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+    <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
+    <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
+    <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+    <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
+  </div>
 
   <!-- FORM INSERIMENTO -->
   <form id="articleForm" onsubmit="return false;">
@@ -353,7 +352,7 @@ async function apiFetch(endpoint, options = {}) {
     const response = await fetch(url, {
       ...options,
       headers,
-      cache: 'no-cache' // ulteriore sicurezza
+      cache: 'no-cache'
     });
 
     // Se 304 o 204, il corpo è vuoto: restituisci null
@@ -378,50 +377,6 @@ async function apiFetch(endpoint, options = {}) {
     if (contentType && contentType.includes('application/json')) {
       return await response.json();
     } else {
-      return await response.text();
-    }
-  } catch (error) {
-    console.error('❌ apiFetch error:', error);
-    throw error;
-  }
-}
-  // 🔥 Aggiungi un parametro anti-cache per evitare 304
-  const separator = endpoint.includes('?') ? '&' : '?';
-  const url = `/api${endpoint}${separator}_=${Date.now()}`;
-
-  try {
-    const response = await fetch(url, { ...options, headers });
-
-    // Se la risposta è 304, il corpo è vuoto: dobbiamo recuperare i dati dalla cache del browser?
-    // In realtà, il browser gestisce automaticamente la cache e restituisce il corpo se disponibile.
-    // Ma per sicurezza, se lo status è 304, proviamo a leggere il body come JSON (potrebbe essere vuoto).
-    // In alternativa, possiamo forzare il refresh della cache bypassando il caching.
-    // La soluzione migliore è usare il parametro anti-cache, che evita il 304.
-
-    if (!response.ok) {
-      let errorMsg = `Errore ${response.status}`;
-      try {
-        const data = await response.json();
-        errorMsg = data.message || data.error || errorMsg;
-      } catch (_) {
-        // se non è JSON, usa il testo
-        const text = await response.text();
-        if (text) errorMsg = text;
-      }
-      throw new Error(errorMsg);
-    }
-
-    // Se lo status è 204 o 304, non c'è body da leggere
-    if (response.status === 204 || response.status === 304) {
-      return null;
-    }
-
-    // Altrimenti, prova a leggere come JSON
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return await response.json();
-    } else {
-      // Se non è JSON, restituisci il testo
       return await response.text();
     }
   } catch (error) {
@@ -455,7 +410,7 @@ const filtroMag = document.getElementById('filtroMagazzino');
 const filtroSettore = document.getElementById('filtroSettore');
 const filtroCat = document.getElementById('filtroCategoria');
 const filtroMar = document.getElementById('filtroMarca');
-
+const filtroSeason = document.getElementById('filtroSeasonStatus'); // dichiarato
 
 // Elementi del form di inserimento
 const descrizioneInput = document.getElementById('descrizione');
@@ -543,7 +498,10 @@ async function caricaAnagrafiche() {
 
     await refreshAllDatalists();
     await caricaArticoli();
-  } catch(err) { showMessage('Errore caricamento anagrafiche', 'error'); }
+  } catch(err) {
+    console.error('Errore caricaAnagrafiche:', err);
+    showMessage('Errore caricamento anagrafiche', 'error');
+  }
 }
 
 // Gestione cambio categoria dal filtro
@@ -616,7 +574,7 @@ async function caricaArticoli() {
     await refreshAllDatalists();
 
     const params = new URLSearchParams();
-    const f = getCurrentFilters(); // ora legge dal form
+    const f = getCurrentFilters();
     if (f.magazzino) params.append('magazzino', f.magazzino);
     if (f.settore) params.append('settore', f.settore);
     if (f.categoria) params.append('categoria', f.categoria);
@@ -624,10 +582,21 @@ async function caricaArticoli() {
     if (f.descrizione) params.append('descrizione', f.descrizione);
     if (f.variante) params.append('variante', f.variante);
     if (f.season_status_id) params.append('season_status_id', f.season_status_id);
-    
+
     const res = await apiFetch('/articoli?' + params.toString());
-    // ... resto invariato
-  } catch(err) { showMessage(err.message, 'error'); }
+    if (res.success) {
+      articoliCorrente = res.data;
+      articoliFiltrati = [...articoliCorrente];
+      paginaCorrente = 1;
+      ordinaArticoli();
+      renderTabellaPaginata();
+    } else {
+      showMessage(res.message || 'Errore caricamento articoli', 'error');
+    }
+  } catch(err) {
+    showMessage(err.message, 'error');
+    console.error('❌ caricaArticoli error:', err);
+  }
 }
 
 // ============================================================
@@ -699,12 +668,11 @@ function resetFiltri() {
   filtroSettore.value = '';
   filtroCat.value = '';
   filtroMar.value = '';
-  
+  filtroSeason.value = '';
   // Resetta anche i campi del form (che ora fungono anche da filtri)
   descrizioneInput.value = '';
   varianteInput.value = '';
   seasonStatusSelect.value = '';
-  
   caricaMarchePerCategoria(null, filtroMar);
   caricaArticoli();
 }
@@ -1226,7 +1194,7 @@ function attachFormEvents() {
     if (el) {
       el.addEventListener('input', () => {
         refreshAllDatalists();
-        caricaArticoli(); // ora filtra in base ai valori del form
+        caricaArticoli();
       });
     }
   });
