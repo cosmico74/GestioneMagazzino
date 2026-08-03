@@ -338,19 +338,58 @@ function showMessage(msg, type) {
   setTimeout(() => div.innerHTML = '', 5000);
 }
 async function apiFetch(endpoint, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
-  const res = await fetch('/api' + endpoint, { ...options, headers });
-  if (!res.ok) {
-    let errMsg = 'Errore ' + res.status;
-    try {
-      const data = await res.json();
-      errMsg = data.error || data.message || errMsg;
-      if (data.details) errMsg += ': ' + data.details;
-    } catch(e) {}
-    throw new Error(errMsg);
+  const token = localStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+    ...options.headers
+  };
+
+  // 🔥 Aggiungi un parametro anti-cache per evitare 304
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const url = `/api${endpoint}${separator}_=${Date.now()}`;
+
+  try {
+    const response = await fetch(url, { ...options, headers });
+
+    // Se la risposta è 304, il corpo è vuoto: dobbiamo recuperare i dati dalla cache del browser?
+    // In realtà, il browser gestisce automaticamente la cache e restituisce il corpo se disponibile.
+    // Ma per sicurezza, se lo status è 304, proviamo a leggere il body come JSON (potrebbe essere vuoto).
+    // In alternativa, possiamo forzare il refresh della cache bypassando il caching.
+    // La soluzione migliore è usare il parametro anti-cache, che evita il 304.
+
+    if (!response.ok) {
+      let errorMsg = `Errore ${response.status}`;
+      try {
+        const data = await response.json();
+        errorMsg = data.message || data.error || errorMsg;
+      } catch (_) {
+        // se non è JSON, usa il testo
+        const text = await response.text();
+        if (text) errorMsg = text;
+      }
+      throw new Error(errorMsg);
+    }
+
+    // Se lo status è 204 o 304, non c'è body da leggere
+    if (response.status === 204 || response.status === 304) {
+      return null;
+    }
+
+    // Altrimenti, prova a leggere come JSON
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    } else {
+      // Se non è JSON, restituisci il testo
+      return await response.text();
+    }
+  } catch (error) {
+    console.error('❌ apiFetch error:', error);
+    throw error;
   }
-  return res.json();
 }
+
 function restoreSession() { return !!localStorage.getItem('token'); }
 function logout() {
   localStorage.removeItem('token');
