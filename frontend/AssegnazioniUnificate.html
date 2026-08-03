@@ -394,25 +394,55 @@ function showMessage(msg, type) {
   d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
   setTimeout(function() { d.innerHTML = ''; }, 5000);
 }
-async function apiFetch(endpoint, options) {
-  options = options || {};
-  var headers = { 'Content-Type': 'application/json' };
-  var auth = getAuthHeader();
-  for (var key in auth) { if (auth.hasOwnProperty(key)) headers[key] = auth[key]; }
-  for (var h in options.headers) { if (options.headers.hasOwnProperty(h)) headers[h] = options.headers[h]; }
-  var r = await fetch('/api' + endpoint, { method: options.method || 'GET', headers: headers, body: options.body });
-  if (r.status === 401 || r.status === 403) {
-    localStorage.removeItem('token'); localStorage.removeItem('user');
-    window.location.href = 'Login.html';
-    throw new Error('Sessione scaduta');
+async function apiFetch(endpoint, options = {}) {
+  const token = localStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+    ...options.headers
+  };
+
+  // 🔥 Parametro anti-cache per evitare 304
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const url = `/api${endpoint}${separator}_=${Date.now()}`;
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      cache: 'no-cache' // ulteriore sicurezza
+    });
+
+    // Se 304 o 204, il corpo è vuoto: restituisci null
+    if (response.status === 304 || response.status === 204) {
+      return null;
+    }
+
+    if (!response.ok) {
+      let errorMsg = `Errore ${response.status}`;
+      try {
+        const data = await response.json();
+        errorMsg = data.message || data.error || errorMsg;
+      } catch (_) {
+        const text = await response.text();
+        if (text) errorMsg = text;
+      }
+      throw new Error(errorMsg);
+    }
+
+    // Leggi come JSON (solo se il Content-Type lo dice)
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    } else {
+      return await response.text();
+    }
+  } catch (error) {
+    console.error('❌ apiFetch error:', error);
+    throw error;
   }
-  if (!r.ok) {
-    var msg = 'Errore ' + r.status;
-    try { var data = await r.json(); msg = data.message || msg; } catch(e) {}
-    throw new Error(msg);
-  }
-  return r.json();
 }
+
 function formatDate(d) {
   if (!d) return '-';
   var dt = new Date(d);
