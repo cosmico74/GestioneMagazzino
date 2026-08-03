@@ -40,6 +40,28 @@ async function canUserUseMagazzino(userId, userRole, magazzinoId) {
 }
 
 // ============================================================
+// 🔥 HELPER: verifica duplicati su (descrizione, lunghezza, season_status_id, variante)
+// ============================================================
+async function checkDuplicate(connection, descrizione, lunghezza, seasonStatusId, variante, excludeId = null) {
+  let sql = `
+    SELECT articolo_id FROM articoli 
+    WHERE descrizione = ? 
+      AND (lunghezza = ? OR (lunghezza IS NULL AND ? IS NULL))
+      AND (season_status_id = ? OR (season_status_id IS NULL AND ? IS NULL))
+      AND (variante = ? OR (variante IS NULL AND ? IS NULL))
+  `;
+  const params = [descrizione, lunghezza, lunghezza, seasonStatusId, seasonStatusId, variante, variante];
+
+  if (excludeId) {
+    sql += ' AND articolo_id != ?';
+    params.push(excludeId);
+  }
+
+  const [rows] = await connection.query(sql, params);
+  return rows.length > 0;
+}
+
+// ============================================================
 // HELPER: genera codice e descrizione
 // ============================================================
 function generateArticleCode(articleData, id) {
@@ -50,6 +72,7 @@ function generateArticleCode(articleData, id) {
   if (articleData.durezza) code += `-D${articleData.durezza}`;
   return code;
 }
+
 function buildDescrizioneCompleta(desc, lung, dur) {
   return [desc, lung, dur].filter(v => v && v !== '0' && v !== 'N/A').join(' ');
 }
@@ -143,7 +166,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD SIGLE
+// CRUD SIGLE (invariato)
 // ============================================================
 router.get('/:id/sigle', verifyToken, async (req, res) => {
   try {
@@ -428,7 +451,7 @@ router.delete('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/articoli
+// POST /api/articoli - con controllo duplicati
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria, variante, season_status_id } = req.body;
@@ -440,6 +463,16 @@ router.post('/', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+
+    // 🔥 CONTROLLO DUPLICATI
+    const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null);
+    if (exists) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Esiste già un articolo con la stessa descrizione, lunghezza, season status e variante.'
+      });
+    }
 
     const [[{ maxId }]] = await connection.query('SELECT MAX(articolo_id) as maxId FROM articoli');
     const newId = (maxId || 0) + 1;
@@ -498,7 +531,7 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /api/articoli/:id
+// PUT /api/articoli/:id - con controllo duplicati
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
@@ -512,6 +545,16 @@ router.put('/:id', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+
+    // 🔥 CONTROLLO DUPLICATI (escludendo l'articolo corrente)
+    const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null, id);
+    if (exists) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Esiste già un altro articolo con la stessa descrizione, lunghezza, season status e variante.'
+      });
+    }
 
     const [oldRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
 
@@ -643,7 +686,7 @@ router.post('/:id/obsoleto', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// VALORI PER DATALIST (con filtro settore)
+// VALORI PER DATALIST
 // ============================================================
 router.get('/valori/:campo', verifyToken, async (req, res) => {
   const campo = req.params.campo;
@@ -676,9 +719,6 @@ router.get('/valori/:campo', verifyToken, async (req, res) => {
   res.json(rows);
 });
 
-// ============================================================
-// VALORI CATEGORIE (con filtro settore)
-// ============================================================
 router.get('/valori/categorie', verifyToken, async (req, res) => {
   let sql = `SELECT DISTINCT categoria AS categoria FROM articoli WHERE categoria IS NOT NULL`;
   const params = [];
@@ -695,9 +735,6 @@ router.get('/valori/categorie', verifyToken, async (req, res) => {
   res.json(rows);
 });
 
-// ============================================================
-// GET /api/articoli/valori/sigle
-// ============================================================
 router.get('/valori/sigle', verifyToken, async (req, res) => {
   try {
     const params = [];
@@ -730,9 +767,6 @@ router.get('/valori/sigle', verifyToken, async (req, res) => {
   }
 });
 
-// ============================================================
-// GET /api/articoli/valori/lunghezze
-// ============================================================
 router.get('/valori/lunghezze', verifyToken, async (req, res) => {
   try {
     const params = [];
@@ -765,9 +799,6 @@ router.get('/valori/lunghezze', verifyToken, async (req, res) => {
   }
 });
 
-// ============================================================
-// GET /api/articoli/valori/attacchi
-// ============================================================
 router.get('/valori/attacchi', verifyToken, async (req, res) => {
   try {
     let sql = `
@@ -803,3 +834,4 @@ router.get('/valori/attacchi', verifyToken, async (req, res) => {
 module.exports = router;
 module.exports.ricalcolaQuantitaTotale = ricalcolaQuantitaTotale;
 module.exports.canUserUseMagazzino = canUserUseMagazzino;
+module.exports.checkDuplicate = checkDuplicate;

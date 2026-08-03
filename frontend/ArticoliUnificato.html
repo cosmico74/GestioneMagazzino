@@ -58,7 +58,7 @@
     .btn-success { background: #27ae60; }
     .btn-secondary { background: linear-gradient(135deg, #6c757d, #565e64); }
     .table-wrapper { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; margin-top: 10px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; }
-    table { width: 100%; min-width: 1700px; border-collapse: collapse; font-size: 0.7rem; }
+    table { width: 100%; min-width: 1800px; border-collapse: collapse; font-size: 0.7rem; }
     th, td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
     th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; }
     tr:hover td { background: #f8fafc; }
@@ -601,7 +601,12 @@ async function salvaArticolo() {
       refreshAllDatalists();
       caricaArticoli();
     } else throw new Error(res.message);
-  } catch(err) { showMessage(err.message, 'error'); }
+  } catch(err) {
+    showMessage(err.message, 'error');
+    if (err.message.includes('descrizione, lunghezza, season status e variante')) {
+      showMessage('⚠️ ' + err.message, 'error');
+    }
+  }
   finally { saveBtn.disabled = false; saveBtn.innerHTML = '💾 Salva'; }
 }
 
@@ -920,7 +925,7 @@ async function eliminaArticolo(id) {
 }
 
 // ============================================================
-// GESTIONE SIGLE (invariata, già presente)
+// GESTIONE SIGLE (invariata)
 // ============================================================
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
