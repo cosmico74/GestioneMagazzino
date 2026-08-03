@@ -34,7 +34,7 @@ router.get('/magazzini', verifyToken, async (req, res) => {
     const [rows] = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
-    console.error('Errore GET /magazzini:', err);
+    console.error('❌ Errore GET /magazzini:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -43,24 +43,39 @@ router.get('/magazzini', verifyToken, async (req, res) => {
 // GET /api/anagrafiche/settori
 // ============================================================
 router.get('/settori', verifyToken, async (req, res) => {
-  const [rows] = await pool.query('SELECT settore_id AS id, nome, descrizione, attivo FROM settori WHERE attivo = true ORDER BY nome');
-  res.json(rows);
+  try {
+    const [rows] = await pool.query('SELECT settore_id AS id, nome, descrizione, attivo FROM settori WHERE attivo = true ORDER BY nome');
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Errore GET /settori:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============================================================
 // GET /api/anagrafiche/categorie
 // ============================================================
 router.get('/categorie', verifyToken, async (req, res) => {
-  const [rows] = await pool.query('SELECT categoria_id AS id, nome, descrizione, attivo FROM categorie WHERE attivo = true ORDER BY nome');
-  res.json(rows);
+  try {
+    const [rows] = await pool.query('SELECT categoria_id AS id, nome, descrizione, attivo FROM categorie WHERE attivo = true ORDER BY nome');
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Errore GET /categorie:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============================================================
 // GET /api/anagrafiche/marche
 // ============================================================
 router.get('/marche', verifyToken, async (req, res) => {
-  const [rows] = await pool.query('SELECT marca_id AS id, nome, descrizione, sito_web, attivo FROM marche WHERE attivo = true ORDER BY nome');
-  res.json(rows);
+  try {
+    const [rows] = await pool.query('SELECT marca_id AS id, nome, descrizione, sito_web, attivo FROM marche WHERE attivo = true ORDER BY nome');
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Errore GET /marche:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============================================================
@@ -68,13 +83,25 @@ router.get('/marche', verifyToken, async (req, res) => {
 // ============================================================
 router.get('/season-status', verifyToken, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT id, nome, descrizione FROM season_status WHERE attivo = true ORDER BY nome'
-    );
+    const [rows] = await pool.query('SELECT id, nome, descrizione FROM season_status WHERE attivo = true ORDER BY nome');
     res.json(rows);
   } catch (err) {
-    console.error('Errore GET /season-status:', err);
+    console.error('❌ Errore GET /season-status:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/anagrafiche/varianti (opzionale, se usi tabella varianti)
+// ============================================================
+router.get('/varianti', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id, nome, descrizione FROM varianti WHERE attivo = true ORDER BY nome');
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Errore GET /varianti:', err);
+    // Se la tabella non esiste, restituisci array vuoto
+    res.json([]);
   }
 });
 
@@ -142,7 +169,7 @@ router.get('/menu', verifyToken, async (req, res) => {
     }));
     res.json(menuData);
   } catch (error) {
-    console.error('Errore in /menu:', error);
+    console.error('❌ Errore in /menu:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -155,6 +182,7 @@ router.get('/marche/tutti', verifyToken, async (req, res) => {
     const [rows] = await pool.query('SELECT marca_id AS id, nome, descrizione, sito_web, attivo FROM marche ORDER BY nome');
     res.json(rows);
   } catch (err) {
+    console.error('❌ Errore GET /marche/tutti:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -169,6 +197,7 @@ router.post('/marche', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Marca creata', id: result.insertId });
   } catch (err) {
+    console.error('❌ Errore POST /marche:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -184,6 +213,7 @@ router.put('/marche/:id', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Marca aggiornata' });
   } catch (err) {
+    console.error('❌ Errore PUT /marche/:id:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -194,6 +224,7 @@ router.delete('/marche/:id', verifyToken, async (req, res) => {
     await pool.query('DELETE FROM marche WHERE marca_id = ?', [id]);
     res.json({ success: true, message: 'Marca eliminata' });
   } catch (err) {
+    console.error('❌ Errore DELETE /marche/:id:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -206,6 +237,7 @@ router.get('/categorie/tutti', verifyToken, async (req, res) => {
     const [rows] = await pool.query('SELECT categoria_id AS id, nome, descrizione, attivo FROM categorie ORDER BY nome');
     res.json(rows);
   } catch (err) {
+    console.error('❌ Errore GET /categorie/tutti:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -220,6 +252,7 @@ router.post('/categorie', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Categoria creata', id: result.insertId });
   } catch (err) {
+    console.error('❌ Errore POST /categorie:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -235,6 +268,7 @@ router.put('/categorie/:id', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Categoria aggiornata' });
   } catch (err) {
+    console.error('❌ Errore PUT /categorie/:id:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -245,6 +279,7 @@ router.delete('/categorie/:id', verifyToken, async (req, res) => {
     await pool.query('DELETE FROM categorie WHERE categoria_id = ?', [id]);
     res.json({ success: true, message: 'Categoria eliminata' });
   } catch (err) {
+    console.error('❌ Errore DELETE /categorie/:id:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -257,6 +292,7 @@ router.get('/settori/tutti', verifyToken, async (req, res) => {
     const [rows] = await pool.query('SELECT settore_id AS id, nome, descrizione, attivo FROM settori ORDER BY nome');
     res.json(rows);
   } catch (err) {
+    console.error('❌ Errore GET /settori/tutti:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -271,6 +307,7 @@ router.post('/settori', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Settore creato', id: result.insertId });
   } catch (err) {
+    console.error('❌ Errore POST /settori:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -286,6 +323,7 @@ router.put('/settori/:id', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Settore aggiornato' });
   } catch (err) {
+    console.error('❌ Errore PUT /settori/:id:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -296,6 +334,7 @@ router.delete('/settori/:id', verifyToken, async (req, res) => {
     await pool.query('DELETE FROM settori WHERE settore_id = ?', [id]);
     res.json({ success: true, message: 'Settore eliminato' });
   } catch (err) {
+    console.error('❌ Errore DELETE /settori/:id:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -322,7 +361,7 @@ router.get('/marche-per-categoria/:categoriaId', verifyToken, async (req, res) =
     const [rows] = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
-    console.error('Errore marche per categoria:', err);
+    console.error('❌ Errore marche per categoria:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -331,7 +370,6 @@ router.get('/marche-per-categoria/:categoriaId', verifyToken, async (req, res) =
 // SETTORI MARCHE - Gestione abbinamenti
 // ============================================================
 
-// GET /api/anagrafiche/settori-marche/tutti
 router.get('/settori-marche/tutti', verifyToken, async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -343,12 +381,11 @@ router.get('/settori-marche/tutti', verifyToken, async (req, res) => {
     `);
     res.json(rows);
   } catch (err) {
-    console.error('Errore GET /settori-marche/tutti:', err);
+    console.error('❌ Errore GET /settori-marche/tutti:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/anagrafiche/settori-marche/:settoreId
 router.get('/settori-marche/:settoreId', verifyToken, async (req, res) => {
   const { settoreId } = req.params;
   try {
@@ -361,12 +398,11 @@ router.get('/settori-marche/:settoreId', verifyToken, async (req, res) => {
     `, [settoreId]);
     res.json(rows);
   } catch (err) {
-    console.error(`Errore GET /settori-marche/${settoreId}:`, err);
+    console.error(`❌ Errore GET /settori-marche/${settoreId}:`, err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/anagrafiche/settori-marche
 router.post('/settori-marche', verifyToken, async (req, res) => {
   if (req.userRole !== 'admin') {
     return res.status(403).json({ success: false, message: 'Solo admin può modificare gli abbinamenti' });
@@ -390,12 +426,11 @@ router.post('/settori-marche', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Associazione creata' });
   } catch (err) {
-    console.error('Errore POST /settori-marche:', err);
+    console.error('❌ Errore POST /settori-marche:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// DELETE /api/anagrafiche/settori-marche
 router.delete('/settori-marche', verifyToken, async (req, res) => {
   if (req.userRole !== 'admin') {
     return res.status(403).json({ success: false, message: 'Solo admin può modificare gli abbinamenti' });
@@ -411,7 +446,7 @@ router.delete('/settori-marche', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Associazione rimossa' });
   } catch (err) {
-    console.error('Errore DELETE /settori-marche:', err);
+    console.error('❌ Errore DELETE /settori-marche:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -420,7 +455,6 @@ router.delete('/settori-marche', verifyToken, async (req, res) => {
 // CATEGORIE MARCHE – Gestione abbinamenti
 // ============================================================
 
-// GET /api/anagrafiche/categorie-marche/tutti - Tutti gli abbinamenti
 router.get('/categorie-marche/tutti', verifyToken, async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -433,12 +467,11 @@ router.get('/categorie-marche/tutti', verifyToken, async (req, res) => {
     `);
     res.json(rows);
   } catch (err) {
-    console.error('Errore GET /categorie-marche/tutti:', err);
+    console.error('❌ Errore GET /categorie-marche/tutti:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/anagrafiche/categorie-marche - Crea abbinamento
 router.post('/categorie-marche', verifyToken, async (req, res) => {
   if (req.userRole !== 'admin') {
     return res.status(403).json({ success: false, message: 'Solo admin può modificare gli abbinamenti' });
@@ -448,7 +481,6 @@ router.post('/categorie-marche', verifyToken, async (req, res) => {
     return res.status(400).json({ success: false, message: 'categoria_id e marca_id obbligatori' });
   }
   try {
-    // Verifica esistenza
     const [cat] = await pool.query('SELECT categoria_id FROM categorie WHERE categoria_id = ?', [categoria_id]);
     if (!cat.length) return res.status(404).json({ success: false, message: 'Categoria non trovata' });
     const [mar] = await pool.query('SELECT marca_id FROM marche WHERE marca_id = ?', [marca_id]);
@@ -460,12 +492,11 @@ router.post('/categorie-marche', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Associazione creata' });
   } catch (err) {
-    console.error('Errore POST /categorie-marche:', err);
+    console.error('❌ Errore POST /categorie-marche:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// DELETE /api/anagrafiche/categorie-marche - Elimina abbinamento
 router.delete('/categorie-marche', verifyToken, async (req, res) => {
   if (req.userRole !== 'admin') {
     return res.status(403).json({ success: false, message: 'Solo admin può modificare gli abbinamenti' });
@@ -481,25 +512,9 @@ router.delete('/categorie-marche', verifyToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Associazione rimossa' });
   } catch (err) {
-    console.error('Errore DELETE /categorie-marche:', err);
+    console.error('❌ Errore DELETE /categorie-marche:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
-// ============================================================
-// GET /api/anagrafiche/season-status
-// ============================================================
-router.get('/season-status', verifyToken, async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      'SELECT id, nome, descrizione FROM season_status WHERE attivo = true ORDER BY nome'
-    );
-    res.json(rows);
-  } catch (err) {
-    console.error('Errore GET /season-status:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 
 module.exports = router;
