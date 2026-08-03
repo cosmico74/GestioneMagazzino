@@ -290,6 +290,7 @@
       <button class="btn" onclick="aggiungiSigla()">➕ Aggiungi</button>
     </div>
     <div class="modal-buttons">
+      <button class="btn btn-secondary" onclick="ricalcolaQuantita()">🔄 Ricalcola quantità</button>
       <button class="btn btn-secondary" onclick="chiudiModalSigle()">Chiudi</button>
     </div>
   </div>
@@ -1215,6 +1216,23 @@ window.onload = async () => {
   const arrow = document.querySelector('.sort-arrow.sort-asc[data-col="descrizione"]');
   if (arrow) arrow.classList.add('active');
 };
+
+async function ricalcolaQuantita() {
+  if (!currentSigleArticoloId) return;
+  try {
+    const res = await apiFetch('/articoli/' + currentSigleArticoloId + '/ricalcola', { method: 'POST' });
+    if (res.success) {
+      showMessage('Quantità totale ricalcolata: ' + res.nuovaQuantita, 'success');
+      await caricaSigleArticolo(currentSigleArticoloId);
+      await caricaArticoli();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch(err) {
+    showMessage('Errore: ' + err.message, 'error');
+  }
+}
+
 </script>
 </body>
 </html>

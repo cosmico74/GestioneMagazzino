@@ -831,6 +831,24 @@ router.get('/valori/attacchi', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================================
+// POST /api/articoli/:id/ricalcola - Forza ricalcolo quantità totale
+// ============================================================
+router.post('/:id/ricalcola', verifyToken, async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const nuovaQuantita = await ricalcolaQuantitaTotale(connection, req.params.id);
+    await connection.commit();
+    res.json({ success: true, message: 'Quantità ricalcolata', nuovaQuantita });
+  } catch (err) {
+    await connection.rollback();
+    console.error('❌ Errore ricalcolo:', err);
+    res.status(500).json({ success: false, message: err.message });
+  } finally {
+    connection.release();
+  }
+});
+
 module.exports = router;
 module.exports.ricalcolaQuantitaTotale = ricalcolaQuantitaTotale;
 module.exports.canUserUseMagazzino = canUserUseMagazzino;
