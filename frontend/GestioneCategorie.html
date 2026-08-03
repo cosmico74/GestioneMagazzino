@@ -49,6 +49,8 @@
     .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
     .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
     .text-center { text-align: center; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #e2e8f0; border-top-color: #1a73e8; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -57,9 +59,7 @@
   <!-- COMPACT BAR con LOGO CENTRATO -->
   <div class="compact-bar">
     <div style="flex:1;"></div>
-    <div class="logo">
-      <img src="/images/kastle-logo.png" alt="Kastle">
-    </div>
+    <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
     <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
       <span id="loginInfo" class="login-info"></span>
       <button class="btn btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
@@ -70,18 +70,28 @@
   <h2>📋 Gestione Categorie</h2>
   <div id="messageArea"></div>
 
-  <button class="btn btn-success" onclick="apriModaleNuovo()">➕ Nuova Categoria</button>
-  <button class="btn btn-secondary" onclick="caricaCategorie()">🔄 Aggiorna</button>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
+    <button class="btn btn-success" onclick="apriModaleNuovo()">➕ Nuova Categoria</button>
+    <button class="btn btn-secondary" onclick="caricaCategorie()">🔄 Aggiorna</button>
+  </div>
 
   <div class="table-wrapper" style="margin-top:15px;">
     <table>
-      <thead><tr><th>ID</th><th>Nome</th><th>Descrizione</th><th>Attivo</th><th>Azioni</th></tr></thead>
-      <tbody id="tabellaBody"><tr><td colspan="5" class="text-center">Caricamento...</td></tr></tbody>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>Descrizione</th>
+          <th>Attivo</th>
+          <th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="tabellaBody"><tr><td colspan="5" class="text-center"><span class="spinner"></span> Caricamento...</td></tr></tbody>
     </table>
   </div>
 </div>
 
-<!-- MODAL -->
+<!-- MODAL CATEGORIA -->
 <div id="modalCategoria" class="modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -106,187 +116,186 @@
   </div>
 </div>
 
-
 <script>
 // ============================================================
 // UTILITY
 // ============================================================
-function getAuthHeader() { const t = localStorage.getItem('token'); return t ? { 'Authorization': 'Bearer ' + t } : {}; }
-function showMessage(m, t) { const d = document.getElementById('messageArea'); d.innerHTML = '<div class="message ' + t + '">' + m + '</div>'; setTimeout(() => d.innerHTML = '', 5000); }
-async function apiFetch(e, o = {}) {
-  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...o.headers };
-  const r = await fetch('/api' + e, { ...o, headers });
-  if (r.status === 401 || r.status === 403) { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; throw new Error('Sessione scaduta'); }
-  if (!r.ok) { let msg = 'Errore ' + r.status; try { const d = await r.json(); msg = d.message || msg; } catch(e) {} throw new Error(msg); }
-  return r.json();
+function getAuthHeader() {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
 }
-function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; }
+function showMessage(msg, type) {
+  const d = document.getElementById('messageArea');
+  d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
+  setTimeout(() => d.innerHTML = '', 5000);
+}
+async function apiFetch(endpoint, options = {}) {
+  const token = localStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+    ...options.headers
+  };
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const url = `/api${endpoint}${separator}_=${Date.now()}`;
+  try {
+    const response = await fetch(url, { ...options, headers, cache: 'no-cache' });
+    if (response.status === 304 || response.status === 204) return null;
+    if (!response.ok) {
+      let errorMsg = `Errore ${response.status}`;
+      try { const data = await response.json(); errorMsg = data.message || data.error || errorMsg; } catch (_) {}
+      throw new Error(errorMsg);
+    }
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) return await response.json();
+    return await response.text();
+  } catch (error) {
+    console.error('❌ apiFetch error:', error);
+    throw error;
+  }
+}
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = 'Login.html';
+}
 
 // ============================================================
 // VARIABILI
 // ============================================================
 let currentUser = null;
-let utenti = [];
-let soggetti = [];
-let soggettiByRuolo = [];
-
-const filtroRuolo = document.getElementById('filtroRuolo');
-const filtroUsername = document.getElementById('filtroUsername');
+let categorie = [];
 
 // ============================================================
 // CARICAMENTO DATI
 // ============================================================
-async function caricaSoggetti() {
+async function caricaCategorie() {
+  const tbody = document.getElementById('tabellaBody');
+  tbody.innerHTML = '<tr><td colspan="5" class="text-center"><span class="spinner"></span> Caricamento...</td></tr>';
   try {
-    const data = await apiFetch('/soggetti');
-    soggetti = Array.isArray(data) ? data : [];
-  } catch(e) { console.error(e); }
+    const data = await apiFetch('/anagrafiche/categorie/tutti');
+    categorie = Array.isArray(data) ? data : [];
+    renderTabella();
+  } catch(e) {
+    showMessage('Errore caricamento categorie: ' + e.message, 'error');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center">❌ Errore nel caricamento</td></tr>';
+  }
 }
-async function caricaUtenti() {
-  try {
-    await caricaSoggetti();
-    const r = await apiFetch('/utenti');
-    if (r.success) {
-      utenti = r.data || [];
-      applicaFiltri();
-    } else showMessage(r.message, 'error');
-  } catch(e) { showMessage('Errore caricamento utenti: '+e.message, 'error'); }
-}
-function applicaFiltri() {
-  const ruolo = filtroRuolo.value;
-  const username = filtroUsername.value.toLowerCase();
-  let filtrati = utenti;
-  if (ruolo) filtrati = filtrati.filter(u => u.ruolo === ruolo);
-  if (username) filtrati = filtrati.filter(u => u.username.toLowerCase().includes(username));
-  renderTabella(filtrati);
-}
-function renderTabella(lista) {
+
+function renderTabella() {
   const tbody = document.getElementById('tabellaBody');
   tbody.innerHTML = '';
-  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nessun utente</td></tr>'; return; }
-  lista.forEach(u => {
-    const sog = soggetti.find(s => s.id == u.riferimento_id);
-    const sogNome = sog ? (sog.nome||'') + ' ' + (sog.cognome||'') : '-';
+  if (!categorie.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center">📭 Nessuna categoria</td></tr>';
+    return;
+  }
+  categorie.forEach(c => {
     const row = tbody.insertRow();
-    row.insertCell(0).innerText = u.id;
-    row.insertCell(1).innerText = u.username;
-    row.insertCell(2).innerText = u.ruolo;
-    row.insertCell(3).innerText = sogNome;
-    row.insertCell(4).innerText = u.nome_visualizzato || '';
-    row.insertCell(5).innerText = u.email || '';
-    const actions = row.insertCell(6);
+    row.insertCell(0).innerText = c.id;
+    row.insertCell(1).innerText = c.nome;
+    row.insertCell(2).innerText = c.descrizione || '';
+    row.insertCell(3).innerText = c.attivo ? 'SI' : 'NO';
+    const actions = row.insertCell(4);
     actions.className = 'actions';
-    actions.innerHTML = '<button class="btn btn-sm" onclick="modificaUtente('+u.id+')">✏️</button><button class="btn btn-sm btn-danger" onclick="eliminaUtente('+u.id+')">🗑️</button>';
+    actions.innerHTML = `
+      <button class="btn btn-sm" onclick="modificaCategoria(${c.id})">✏️</button>
+      <button class="btn btn-sm btn-danger" onclick="eliminaCategoria(${c.id})">🗑️</button>
+    `;
   });
 }
 
 // ============================================================
 // MODALE
 // ============================================================
-function popolaSoggettiPerRuolo(ruolo) {
-  const sel = document.getElementById('riferimentoId');
-  sel.innerHTML = '<option value="">-- Nessuno --</option>';
-  if (ruolo === 'admin') return;
-  const lista = soggetti.filter(s => s.tipo === ruolo.toUpperCase());
-  lista.forEach(s => {
-    let label = (s.nome||'') + ' ' + (s.cognome||'');
-    if (s.livello) label += ' (liv. '+s.livello+')';
-    sel.appendChild(new Option(label, s.id));
-  });
+function apriModaleNuovo() {
+  document.getElementById('modalTitle').innerText = 'Nuova Categoria';
+  document.getElementById('categoriaId').value = '';
+  document.getElementById('nome').value = '';
+  document.getElementById('descrizione').value = '';
+  document.getElementById('attivo').value = '1';
+  document.getElementById('modalCategoria').style.display = 'flex';
 }
-async function caricaSoggettiPerRuolo() {
-  const ruolo = document.getElementById('ruolo').value;
-  popolaSoggettiPerRuolo(ruolo);
+
+function modificaCategoria(id) {
+  const c = categorie.find(x => x.id == id);
+  if (!c) return;
+  document.getElementById('modalTitle').innerText = 'Modifica Categoria';
+  document.getElementById('categoriaId').value = c.id;
+  document.getElementById('nome').value = c.nome;
+  document.getElementById('descrizione').value = c.descrizione || '';
+  document.getElementById('attivo').value = c.attivo ? '1' : '0';
+  document.getElementById('modalCategoria').style.display = 'flex';
 }
-async function apriModaleNuovo() {
-  document.getElementById('modalTitle').innerText = 'Nuovo Utente';
-  document.getElementById('utenteId').value = '';
-  document.getElementById('username').value = '';
-  document.getElementById('password').value = '';
-  document.getElementById('password').placeholder = 'Inserisci password';
-  document.getElementById('ruolo').value = 'promoter';
-  await caricaSoggetti();
-  popolaSoggettiPerRuolo('promoter');
-  document.getElementById('riferimentoId').value = '';
-  document.getElementById('nomeVisualizzato').value = '';
-  document.getElementById('email').value = '';
-  document.getElementById('utenteModal').style.display = 'flex';
+
+function chiudiModal() {
+  document.getElementById('modalCategoria').style.display = 'none';
 }
-async function modificaUtente(id) {
-  const u = utenti.find(x => x.id == id);
-  if (!u) return;
-  document.getElementById('modalTitle').innerText = 'Modifica Utente';
-  document.getElementById('utenteId').value = u.id;
-  document.getElementById('username').value = u.username;
-  document.getElementById('password').value = '';
-  document.getElementById('password').placeholder = 'Lascia vuoto per mantenere invariata';
-  document.getElementById('ruolo').value = u.ruolo;
-  await caricaSoggetti();
-  popolaSoggettiPerRuolo(u.ruolo);
-  document.getElementById('riferimentoId').value = u.riferimento_id || '';
-  document.getElementById('nomeVisualizzato').value = u.nome_visualizzato || '';
-  document.getElementById('email').value = u.email || '';
-  document.getElementById('utenteModal').style.display = 'flex';
-}
-function chiudiModal() { document.getElementById('utenteModal').style.display = 'none'; }
 
 // ============================================================
 // SALVA / ELIMINA
 // ============================================================
-async function salvaUtente() {
-  const id = document.getElementById('utenteId').value;
+async function salvaCategoria() {
+  const id = document.getElementById('categoriaId').value;
   const dati = {
-    username: document.getElementById('username').value.trim(),
-    password: document.getElementById('password').value,
-    ruolo: document.getElementById('ruolo').value,
-    riferimentoId: document.getElementById('riferimentoId').value || null,
-    nomeVisualizzato: document.getElementById('nomeVisualizzato').value.trim(),
-    email: document.getElementById('email').value.trim()
+    nome: document.getElementById('nome').value.trim(),
+    descrizione: document.getElementById('descrizione').value.trim(),
+    attivo: parseInt(document.getElementById('attivo').value)
   };
-  if (!dati.username) { showMessage('Username obbligatorio', 'error'); return; }
-  if (!id && !dati.password) { showMessage('Password obbligatoria per nuovo utente', 'error'); return; }
-  if (!id) {
-    const exists = utenti.some(u => u.username === dati.username);
-    if (exists) { showMessage('Username già in uso', 'error'); return; }
-  } else {
-    const exists = utenti.some(u => u.username === dati.username && u.id != id);
-    if (exists) { showMessage('Username già in uso da un altro utente', 'error'); return; }
-  }
+  if (!dati.nome) { showMessage('Il nome è obbligatorio', 'error'); return; }
   try {
     let res;
     if (id) {
-      res = await apiFetch('/utenti/' + id, { method: 'PUT', body: JSON.stringify(dati) });
+      res = await apiFetch('/anagrafiche/categorie/' + id, { method: 'PUT', body: JSON.stringify(dati) });
     } else {
-      res = await apiFetch('/utenti', { method: 'POST', body: JSON.stringify(dati) });
+      res = await apiFetch('/anagrafiche/categorie', { method: 'POST', body: JSON.stringify(dati) });
     }
     if (res.success) {
       showMessage(res.message, 'success');
       chiudiModal();
-      caricaUtenti();
-    } else showMessage(res.message, 'error');
-  } catch(e) { showMessage('Errore: '+e.message, 'error'); }
+      caricaCategorie();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch(e) {
+    showMessage(e.message, 'error');
+  }
 }
-async function eliminaUtente(id) {
-  if (!confirm('Eliminare questo utente?')) return;
+
+async function eliminaCategoria(id) {
+  if (!confirm('Eliminare questa categoria?')) return;
   try {
-    const res = await apiFetch('/utenti/' + id, { method: 'DELETE' });
-    if (res.success) { showMessage('Utente eliminato', 'success'); caricaUtenti(); }
-    else showMessage(res.message, 'error');
-  } catch(e) { showMessage('Errore: '+e.message, 'error'); }
+    const res = await apiFetch('/anagrafiche/categorie/' + id, { method: 'DELETE' });
+    if (res.success) {
+      showMessage('Categoria eliminata', 'success');
+      caricaCategorie();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch(e) {
+    showMessage(e.message, 'error');
+  }
 }
 
 // ============================================================
 // INIT
 // ============================================================
-window.onload = async () => {
+window.onload = async function() {
   const token = localStorage.getItem('token');
-  if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
-  try { currentUser = JSON.parse(localStorage.getItem('user')); } catch(e) { logout(); return; }
-  if (currentUser.ruolo !== 'admin') { document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin.</div>'; return; }
-  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato||currentUser.username) + ' (' + currentUser.ruolo + ')';
-  await caricaUtenti();
-  filtroRuolo.addEventListener('change', applicaFiltri);
-  filtroUsername.addEventListener('input', applicaFiltri);
+  if (!token) {
+    document.body.innerHTML = '<div class="container"><h2>⛔ Accesso negato</h2><a href="Login.html">Login</a></div>';
+    return;
+  }
+  try {
+    currentUser = JSON.parse(localStorage.getItem('user'));
+  } catch(e) { logout(); return; }
+  if (currentUser.ruolo !== 'admin') {
+    document.querySelector('.container').innerHTML = '<div class="message error">Accesso negato: solo admin.</div>';
+    return;
+  }
+  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
+
+  // Carica i dati
+  await caricaCategorie();
 };
 </script>
 </body>
