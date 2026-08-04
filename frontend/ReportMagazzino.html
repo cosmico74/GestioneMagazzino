@@ -57,18 +57,7 @@
     .checkbox-group { display: flex; align-items: center; gap: 10px; flex: 0 1 auto; }
     .checkbox-group label { display: flex; align-items: center; gap: 6px; font-weight: normal; font-size: 0.75rem; cursor: pointer; margin: 0; }
     .checkbox-group input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
-    #loadingOverlay {
-      display: none;
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0.8);
-      z-index: 1000;
-      justify-content: center;
-      align-items: center;
-      border-radius: 12px;
-      flex-direction: column;
-      gap: 10px;
-    }
+    #loadingOverlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 1000; justify-content: center; align-items: center; border-radius: 12px; flex-direction: column; gap: 10px; }
     #loadingOverlay.show { display: flex; }
     #loadingOverlay span { font-size: 0.9rem; color: #1a73e8; font-weight: 600; }
     .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; background: #f8f9fa; border-top: 1px solid #e2e8f0; font-size: 0.7rem; flex-wrap: wrap; gap: 8px; }
@@ -113,7 +102,7 @@
         <button class="btn btn-success" onclick="esportaCSV('austria')">📊 CSV</button>
       </div>
     </div>
-    <div class="table-wrapper"><table id="austriaTable"><thead><tr><th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th><th data-sort="codice_modello">Codice Modello <span class="sort-arrow" data-col="codice_modello">▲</span></th><th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th><th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th><th data-sort="variante">Variante <span class="sort-arrow" data-col="variante">▲</span></th><th data-sort="season_status_nome">Season <span class="sort-arrow" data-col="season_status_nome">▲</span></th><th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th><th data-sort="quantita_totale">Quantità Totale <span class="sort-arrow" data-col="quantita_totale">▲</span></th><th data-sort="magazzino_nome">Magazzino <span class="sort-arrow" data-col="magazzino_nome">▲</span></th></tr></thead><tbody id="austriaBody"><tr><td colspan="9" class="text-center">Caricare il report</td></tr></tbody></table></div>
+    <div class="table-wrapper"><table id="austriaTable"><thead><tr><th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th><th data-sort="codice_modello">Codice Modello <span class="sort-arrow" data-col="codice_modello">▲</span></th><th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th><th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th><th data-sort="variante">Variante <span class="sort-arrow" data-col="variante">▲</span></th><th data-sort="anno">Anno <span class="sort-arrow" data-col="anno">▲</span></th><th data-sort="season_status_nome">Season <span class="sort-arrow" data-col="season_status_nome">▲</span></th><th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th><th data-sort="quantita_totale">Quantità Totale <span class="sort-arrow" data-col="quantita_totale">▲</span></th><th data-sort="magazzino_nome">Magazzino <span class="sort-arrow" data-col="magazzino_nome">▲</span></th></tr></thead><tbody id="austriaBody"><tr><td colspan="10" class="text-center">Caricare il report</td></tr></tbody></table></div>
   </div>
 
   <!-- TAB ITALIA -->
@@ -135,7 +124,7 @@
         <button class="btn btn-success" onclick="esportaCSV('italia')">📊 CSV</button>
       </div>
     </div>
-    <div class="table-wrapper"><table id="italiaTable"><thead><tr><th>#</th><th data-sort="tipo_oggetto">Tipo <span class="sort-arrow" data-col="tipo_oggetto">▲</span></th><th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th><th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th><th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th><th data-sort="variante">Variante <span class="sort-arrow" data-col="variante">▲</span></th><th data-sort="season_status_nome">Season <span class="sort-arrow" data-col="season_status_nome">▲</span></th><th data-sort="sigla_sci">Sigla <span class="sort-arrow" data-col="sigla_sci">▲</span></th><th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th><th data-sort="stato">Stato <span class="sort-arrow" data-col="stato">▲</span></th><th data-sort="destinatario">Destinatario <span class="sort-arrow" data-col="destinatario">▲</span></th><th data-sort="quantita">Quantità <span class="sort-arrow" data-col="quantita">▲</span></th><th data-sort="giacenza">Giacenza <span class="sort-arrow" data-col="giacenza">▲</span></th><th data-sort="magazzino_nome">Magazzino <span class="sort-arrow" data-col="magazzino_nome">▲</span></th></tr></thead><tbody id="italiaBody"><tr><td colspan="14" class="text-center">Caricare il report</td></tr></tbody></table></div>
+    <div class="table-wrapper"><table id="italiaTable"><thead><tr><th>#</th><th data-sort="tipo_oggetto">Tipo <span class="sort-arrow" data-col="tipo_oggetto">▲</span></th><th data-sort="codice">Codice <span class="sort-arrow" data-col="codice">▲</span></th><th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th><th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th><th data-sort="variante">Variante <span class="sort-arrow" data-col="variante">▲</span></th><th data-sort="anno">Anno <span class="sort-arrow" data-col="anno">▲</span></th><th data-sort="season_status_nome">Season <span class="sort-arrow" data-col="season_status_nome">▲</span></th><th data-sort="sigla_sci">Sigla <span class="sort-arrow" data-col="sigla_sci">▲</span></th><th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th><th data-sort="stato">Stato <span class="sort-arrow" data-col="stato">▲</span></th><th data-sort="destinatario">Destinatario <span class="sort-arrow" data-col="destinatario">▲</span></th><th data-sort="quantita">Quantità <span class="sort-arrow" data-col="quantita">▲</span></th><th data-sort="giacenza">Giacenza <span class="sort-arrow" data-col="giacenza">▲</span></th><th data-sort="magazzino_nome">Magazzino <span class="sort-arrow" data-col="magazzino_nome">▲</span></th></tr></thead><tbody id="italiaBody"><tr><td colspan="15" class="text-center">Caricare il report</td></tr></tbody></table></div>
   </div>
 
   <!-- TAB SOGGETTI -->
@@ -159,13 +148,13 @@
     </div>
     <div class="table-wrapper">
       <table id="soggettiTable">
-        <thead><tr><th>#</th><th data-sort="tipo">Tipo <span class="sort-arrow" data-col="tipo">▲</span></th><th data-sort="codice_sigla">Codice / Sigla <span class="sort-arrow" data-col="codice_sigla">▲</span></th><th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th><th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th><th data-sort="variante">Variante <span class="sort-arrow" data-col="variante">▲</span></th><th data-sort="season_status">Season <span class="sort-arrow" data-col="season_status">▲</span></th><th data-sort="sigla">Sigla <span class="sort-arrow" data-col="sigla">▲</span></th><th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th><th data-sort="quantita">Quantità <span class="sort-arrow" data-col="quantita">▲</span></th><th data-sort="stato">Stato <span class="sort-arrow" data-col="stato">▲</span></th><th data-sort="destinatario">Destinatario <span class="sort-arrow" data-col="destinatario">▲</span></th><th data-sort="data">Data <span class="sort-arrow" data-col="data">▲</span></th></tr></thead>
-        <tbody id="soggettiBody"><tr><td colspan="13" class="text-center">Seleziona un soggetto e carica</td></tr></tbody>
+        <thead><tr><th>#</th><th data-sort="tipo">Tipo <span class="sort-arrow" data-col="tipo">▲</span></th><th data-sort="codice_sigla">Codice / Sigla <span class="sort-arrow" data-col="codice_sigla">▲</span></th><th data-sort="descrizione">Descrizione <span class="sort-arrow sort-asc active" data-col="descrizione">▲</span></th><th data-sort="lunghezza">Lunghezza <span class="sort-arrow" data-col="lunghezza">▲</span></th><th data-sort="variante">Variante <span class="sort-arrow" data-col="variante">▲</span></th><th data-sort="anno">Anno <span class="sort-arrow" data-col="anno">▲</span></th><th data-sort="season_status">Season <span class="sort-arrow" data-col="season_status">▲</span></th><th data-sort="sigla">Sigla <span class="sort-arrow" data-col="sigla">▲</span></th><th data-sort="nota">Nota <span class="sort-arrow" data-col="nota">▲</span></th><th data-sort="quantita">Quantità <span class="sort-arrow" data-col="quantita">▲</span></th><th data-sort="stato">Stato <span class="sort-arrow" data-col="stato">▲</span></th><th data-sort="destinatario">Destinatario <span class="sort-arrow" data-col="destinatario">▲</span></th><th data-sort="data">Data <span class="sort-arrow" data-col="data">▲</span></th></tr></thead>
+        <tbody id="soggettiBody"><tr><td colspan="14" class="text-center">Seleziona un soggetto e carica</td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <!-- BARRA PAGINAZIONE UNICA per Italia e Soggetti -->
+  <!-- BARRA PAGINAZIONE UNICA -->
   <div class="pagination-bar">
     <div class="pagination-info">
       <span>Righe per pagina:</span>
@@ -204,20 +193,29 @@ function showMessage(msg, type) {
   setTimeout(() => d.innerHTML = '', 5000);
 }
 async function apiFetch(endpoint, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
-  const r = await fetch('/api' + endpoint, { ...options, headers });
-  if (r.status === 401 || r.status === 403) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = 'Login.html';
-    throw new Error('Sessione scaduta');
+  const token = localStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+    ...options.headers
+  };
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const url = `/api${endpoint}${separator}_=${Date.now()}`;
+  try {
+    const response = await fetch(url, { ...options, headers, cache: 'no-cache' });
+    if (response.status === 304 || response.status === 204) return null;
+    if (!response.ok) {
+      let errorMsg = `Errore ${response.status}`;
+      try { const data = await response.json(); errorMsg = data.message || data.error || errorMsg; } catch (_) {}
+      throw new Error(errorMsg);
+    }
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) return await response.json();
+    return await response.text();
+  } catch (error) {
+    console.error('❌ apiFetch error:', error);
+    throw error;
   }
-  if (!r.ok) {
-    let msg = 'Errore ' + r.status;
-    try { const data = await r.json(); msg = data.message || msg; } catch(e) {}
-    throw new Error(msg);
-  }
-  return r.json();
 }
 function logout() {
   localStorage.removeItem('token');
@@ -250,13 +248,9 @@ let righePerPagina = 25;
 function compareValues(a, b, col, asc) {
   let va = a[col] !== undefined ? a[col] : '';
   let vb = b[col] !== undefined ? b[col] : '';
-  
-  // Gestione null/undefined
   if (va === null || va === undefined) va = '';
   if (vb === null || vb === undefined) vb = '';
-  
-  // Conversione per tipi numerici e date
-  if (col === 'lunghezza' || col === 'quantita' || col === 'quantita_totale' || col === 'giacenza') {
+  if (col === 'lunghezza' || col === 'quantita' || col === 'quantita_totale' || col === 'giacenza' || col === 'anno') {
     va = parseFloat(va) || 0;
     vb = parseFloat(vb) || 0;
   } else if (col === 'data') {
@@ -266,7 +260,6 @@ function compareValues(a, b, col, asc) {
     va = va.toString().toLowerCase();
     vb = vb.toString().toLowerCase();
   }
-  
   if (va < vb) return asc ? -1 : 1;
   if (va > vb) return asc ? 1 : -1;
   return 0;
@@ -274,7 +267,6 @@ function compareValues(a, b, col, asc) {
 
 function sortData(data, col, asc) {
   if (!data || !data.length) return data;
-  // Crea una copia per non mutare l'originale
   return data.slice().sort((a, b) => {
     let r = compareValues(a, b, col, asc);
     if (r !== 0) return r;
@@ -297,14 +289,9 @@ function handleSort(table, col) {
   else if (table === 'soggetti') { state = sortSoggetti; dataKey = 'soggettiData'; renderFn = renderSoggetti; }
   else return;
 
-  // 🔥 Controlla se i dati esistono
   const data = window[dataKey];
-  if (!data || !data.length) {
-    console.warn('⚠️ Nessun dato da ordinare per', table);
-    return;
-  }
+  if (!data || !data.length) return;
 
-  // Cambia direzione o colonna
   if (state.col === col) {
     state.asc = !state.asc;
   } else {
@@ -312,21 +299,15 @@ function handleSort(table, col) {
     state.asc = true;
   }
 
-  // Ordina i dati
   const sorted = sortData(data, state.col, state.asc);
-  
-  // 🔥 Aggiorna i dati globali con i dati ordinati
   window[dataKey] = sorted;
 
-  // Reset pagina per i tab che usano paginazione
   if (table === 'italia' || table === 'soggetti') {
     paginaCorrente = 1;
   }
 
-  // Renderizza la tabella
   renderFn(sorted);
 
-  // Aggiorna le frecce nell'intestazione
   const tableEl = document.getElementById(table + 'Table');
   if (tableEl) {
     tableEl.querySelectorAll('thead th .sort-arrow').forEach(el => el.classList.remove('active'));
@@ -339,22 +320,13 @@ function handleSort(table, col) {
 }
 function attachSortListeners() {
   document.querySelectorAll('#austriaTable thead th[data-sort]').forEach(th => {
-    th.addEventListener('click', function(e) {
-      const col = this.getAttribute('data-sort');
-      if (col) handleSort('austria', col);
-    });
+    th.addEventListener('click', function(e) { const col = this.getAttribute('data-sort'); if (col) handleSort('austria', col); });
   });
   document.querySelectorAll('#italiaTable thead th[data-sort]').forEach(th => {
-    th.addEventListener('click', function(e) {
-      const col = this.getAttribute('data-sort');
-      if (col) handleSort('italia', col);
-    });
+    th.addEventListener('click', function(e) { const col = this.getAttribute('data-sort'); if (col) handleSort('italia', col); });
   });
   document.querySelectorAll('#soggettiTable thead th[data-sort]').forEach(th => {
-    th.addEventListener('click', function(e) {
-      const col = this.getAttribute('data-sort');
-      if (col) handleSort('soggetti', col);
-    });
+    th.addEventListener('click', function(e) { const col = this.getAttribute('data-sort'); if (col) handleSort('soggetti', col); });
   });
 }
 
@@ -370,7 +342,6 @@ function updatePagination(totali, start, end) {
 
   if (stats) stats.innerText = totali > 0 ? 'Mostrando ' + (start + 1) + '-' + end + ' di ' + totali : 'Mostrando 0-0 di 0';
   if (currentPage) currentPage.innerText = paginaCorrente;
-
   const totPag = Math.ceil(totali / righePerPagina);
   if (prevBtn) prevBtn.disabled = (paginaCorrente <= 1);
   if (nextBtn) nextBtn.disabled = (paginaCorrente >= totPag);
@@ -380,7 +351,6 @@ function updatePagination(totali, start, end) {
 function cambiaRighePerPagina() {
   righePerPagina = parseInt(document.getElementById('rowsPerPage').value);
   paginaCorrente = 1;
-  // Ricarica i dati correnti (se caricati)
   const activeTab = document.querySelector('.tab.active');
   if (activeTab) {
     const tab = activeTab.dataset.tab;
@@ -389,9 +359,7 @@ function cambiaRighePerPagina() {
   }
 }
 
-function paginaPrecedente() {
-  if (paginaCorrente > 1) { paginaCorrente--; ricaricaTabCorrente(); }
-}
+function paginaPrecedente() { if (paginaCorrente > 1) { paginaCorrente--; ricaricaTabCorrente(); } }
 function paginaSuccessiva() {
   const activeTab = document.querySelector('.tab.active');
   const tab = activeTab ? activeTab.dataset.tab : null;
@@ -551,7 +519,7 @@ async function caricaAustria() {
   if (cat) params.append('categoria', cat);
   if (marca) params.append('marca', marca);
   const tbody = document.getElementById('austriaBody');
-  tbody.innerHTML = '<tr><td colspan="9" class="text-center">⏳ Caricamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="10" class="text-center">⏳ Caricamento...</td></tr>';
   try {
     const r = await apiFetch('/report/austria?' + params.toString());
     if (r.success) {
@@ -564,14 +532,14 @@ async function caricaAustria() {
     } else showMessage(r.message, 'error');
   } catch(e) {
     showMessage(e.message, 'error');
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center">❌ Errore nel caricamento</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center">❌ Errore nel caricamento</td></tr>';
   }
 }
 
 function renderAustria(data) {
   const tbody = document.getElementById('austriaBody');
   tbody.innerHTML = '';
-  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="9" class="text-center">📭 Nessun dato</td></tr>'; return; }
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="10" class="text-center">📭 Nessun dato</td></tr>'; return; }
   data.forEach(r => {
     const row = tbody.insertRow();
     row.insertCell(0).innerText = r.codice || '-';
@@ -579,10 +547,11 @@ function renderAustria(data) {
     row.insertCell(2).innerText = r.descrizione || '-';
     row.insertCell(3).innerText = r.lunghezza || '-';
     row.insertCell(4).innerText = r.variante || '';
-    row.insertCell(5).innerText = r.season_status_nome || '';
-    row.insertCell(6).innerText = r.nota || '';
-    row.insertCell(7).innerText = r.quantita_totale || 0;
-    row.insertCell(8).innerText = r.magazzino_nome || '-';
+    row.insertCell(5).innerText = r.anno || '';
+    row.insertCell(6).innerText = r.season_status_nome || '';
+    row.insertCell(7).innerText = r.nota || '';
+    row.insertCell(8).innerText = r.quantita_totale || 0;
+    row.insertCell(9).innerText = r.magazzino_nome || '-';
   });
 }
 
@@ -610,7 +579,7 @@ async function caricaItalia() {
   if (desc) params.append('filtro_descrizione', desc);
   if (lun) params.append('filtro_lunghezza', lun);
   const tbody = document.getElementById('italiaBody');
-  tbody.innerHTML = '<tr><td colspan="14" class="text-center">⏳ Caricamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="15" class="text-center">⏳ Caricamento...</td></tr>';
   try {
     const r = await apiFetch('/report/italia?' + params.toString());
     if (r.success) {
@@ -623,7 +592,7 @@ async function caricaItalia() {
     } else showMessage(r.message, 'error');
   } catch(e) {
     showMessage(e.message, 'error');
-    tbody.innerHTML = '<tr><td colspan="14" class="text-center">❌ Errore nel caricamento</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="15" class="text-center">❌ Errore nel caricamento</td></tr>';
   }
 }
 
@@ -632,7 +601,7 @@ function renderItalia(data) {
   tbody.innerHTML = '';
   
   if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="14" class="text-center">📭 Nessun dato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="15" class="text-center">📭 Nessun dato</td></tr>';
     updatePagination(0, 0, 0);
     return;
   }
@@ -659,22 +628,23 @@ function renderItalia(data) {
     row.insertCell(3).innerText = r.descrizione || '-';
     row.insertCell(4).innerText = r.lunghezza || '-';
     row.insertCell(5).innerText = r.variante || '';
-    row.insertCell(6).innerText = r.season_status_nome || '';
+    row.insertCell(6).innerText = r.anno || '';
+    row.insertCell(7).innerText = r.season_status_nome || '';
     if (tipo === 'KIT') {
-      row.insertCell(7).innerText = r.sigla_sci || 'NA';
+      row.insertCell(8).innerText = r.sigla_sci || 'NA';
     } else {
-      row.insertCell(7).innerText = raggruppa ? (r.sigle || '') : '';
+      row.insertCell(8).innerText = raggruppa ? (r.sigle || '') : '';
     }
-    row.insertCell(8).innerText = r.nota || '';
+    row.insertCell(9).innerText = r.nota || '';
     const stato = r.stato || 'In magazzino';
     const statoBadge = stato === 'In magazzino' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-    row.insertCell(9).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
-    row.insertCell(10).innerText = r.destinatario || '-';
-    row.insertCell(11).innerText = r.quantita || 0;
-    row.insertCell(12).innerText = r.giacenza || 0;
-    row.insertCell(13).innerText = r.magazzino_nome || '-';
+    row.insertCell(10).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    row.insertCell(11).innerText = r.destinatario || '-';
+    row.insertCell(12).innerText = r.quantita || 0;
+    row.insertCell(13).innerText = r.giacenza || 0;
+    row.insertCell(14).innerText = r.magazzino_nome || '-';
   });
-} 
+}
 
 // ============================================================
 // REPORT SOGGETTI
@@ -697,7 +667,7 @@ async function caricaSoggetti() {
   if (marca) params.append('marca', marca);
 
   const tbody = document.getElementById('soggettiBody');
-  tbody.innerHTML = '<tr><td colspan="13" class="text-center">⏳ Caricamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="14" class="text-center">⏳ Caricamento...</td></tr>';
   try {
     const r = await apiFetch('/report/soggetti?' + params.toString());
     if (r.success) {
@@ -710,7 +680,7 @@ async function caricaSoggetti() {
     } else showMessage(r.message, 'error');
   } catch(e) {
     showMessage(e.message, 'error');
-    tbody.innerHTML = '<tr><td colspan="13" class="text-center">❌ Errore nel caricamento</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="text-center">❌ Errore nel caricamento</td></tr>';
   }
 }
 
@@ -719,7 +689,7 @@ function renderSoggetti(data) {
   tbody.innerHTML = '';
   
   if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="13" class="text-center">📭 Nessun oggetto</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="text-center">📭 Nessun oggetto</td></tr>';
     updatePagination(0, 0, 0);
     return;
   }
@@ -745,19 +715,21 @@ function renderSoggetti(data) {
     row.insertCell(3).innerText = r.descrizione || '-';
     row.insertCell(4).innerText = r.lunghezza || '-';
     row.insertCell(5).innerText = r.variante || '';
-    row.insertCell(6).innerText = r.season_status || '';
-    row.insertCell(7).innerText = r.sigla || 'NA';
-    row.insertCell(8).innerText = r.nota || '';
-    row.insertCell(9).innerText = r.quantita || 0;
+    row.insertCell(6).innerText = r.anno || '';
+    row.insertCell(7).innerText = r.season_status || '';
+    row.insertCell(8).innerText = r.sigla || 'NA';
+    row.insertCell(9).innerText = r.nota || '';
+    row.insertCell(10).innerText = r.quantita || 0;
     const stato = r.stato || 'In carico';
     const statoBadge = stato === 'In carico' ? 'badge-stato-magazzino' : 'badge-stato-assegnato';
-    row.insertCell(10).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
-    row.insertCell(11).innerText = r.destinatario || '-';
-    row.insertCell(12).innerText = r.data ? formatDate(r.data) : '-';
+    row.insertCell(11).innerHTML = '<span class="badge ' + statoBadge + '">' + stato + '</span>';
+    row.insertCell(12).innerText = r.destinatario || '-';
+    row.insertCell(13).innerText = r.data ? formatDate(r.data) : '-';
   });
 }
+
 // ============================================================
-// ESPORTAZIONE PDF E CSV (COMPLETE)
+// ESPORTAZIONE PDF E CSV
 // ============================================================
 async function generaPDF(tab, anteprima = false) {
   let data, columns, title, filename;
@@ -770,6 +742,7 @@ async function generaPDF(tab, anteprima = false) {
       { header: 'Descrizione', dataKey: 'descrizione' },
       { header: 'Lunghezza', dataKey: 'lunghezza' },
       { header: 'Variante', dataKey: 'variante' },
+      { header: 'Anno', dataKey: 'anno' },
       { header: 'Season Status', dataKey: 'season_status_nome' },
       { header: 'Nota', dataKey: 'nota' },
       { header: 'Quantità Totale', dataKey: 'quantita_totale' },
@@ -787,6 +760,7 @@ async function generaPDF(tab, anteprima = false) {
       { header: 'Descrizione', dataKey: 'descrizione' },
       { header: 'Lunghezza', dataKey: 'lunghezza' },
       { header: 'Variante', dataKey: 'variante' },
+      { header: 'Anno', dataKey: 'anno' },
       { header: 'Season Status', dataKey: 'season_status_nome' },
       { header: raggruppa ? 'Sigle' : 'Sigla (Kit)', dataKey: 'sigla_sci' },
       { header: 'Nota', dataKey: 'nota' },
@@ -807,6 +781,7 @@ async function generaPDF(tab, anteprima = false) {
       { header: 'Descrizione', dataKey: 'descrizione' },
       { header: 'Lunghezza', dataKey: 'lunghezza' },
       { header: 'Variante', dataKey: 'variante' },
+      { header: 'Anno', dataKey: 'anno' },
       { header: 'Season Status', dataKey: 'season_status' },
       { header: 'Sigla', dataKey: 'sigla' },
       { header: 'Nota', dataKey: 'nota' },
@@ -897,16 +872,16 @@ function esportaCSV(tab) {
 
   if (tab === 'austria') {
     data = austriaData;
-    columns = ['codice', 'codice_modello', 'descrizione', 'lunghezza', 'variante', 'season_status_nome', 'nota', 'quantita_totale', 'magazzino_nome'];
+    columns = ['codice', 'codice_modello', 'descrizione', 'lunghezza', 'variante', 'anno', 'season_status_nome', 'nota', 'quantita_totale', 'magazzino_nome'];
     filename = 'report_austria.csv';
   } else if (tab === 'italia') {
     data = italiaData;
     const raggruppa = document.getElementById('raggruppaCheck').checked;
-    columns = ['tipo_oggetto', 'codice', 'descrizione', 'lunghezza', 'variante', 'season_status_nome', raggruppa ? 'sigle' : 'sigla_sci', 'nota', 'stato', 'destinatario', 'quantita', 'giacenza', 'magazzino_nome'];
+    columns = ['tipo_oggetto', 'codice', 'descrizione', 'lunghezza', 'variante', 'anno', 'season_status_nome', raggruppa ? 'sigle' : 'sigla_sci', 'nota', 'stato', 'destinatario', 'quantita', 'giacenza', 'magazzino_nome'];
     filename = 'report_italia.csv';
   } else if (tab === 'soggetti') {
     data = soggettiData;
-    columns = ['tipo', 'codice_sigla', 'descrizione', 'lunghezza', 'variante', 'season_status', 'sigla', 'nota', 'quantita', 'stato', 'destinatario', 'data'];
+    columns = ['tipo', 'codice_sigla', 'descrizione', 'lunghezza', 'variante', 'anno', 'season_status', 'sigla', 'nota', 'quantita', 'stato', 'destinatario', 'data'];
     filename = 'report_soggetti.csv';
   } else {
     showMessage('Report non valido', 'error');
@@ -924,6 +899,7 @@ function esportaCSV(tab) {
     descrizione: 'Descrizione',
     lunghezza: 'Lunghezza',
     variante: 'Variante',
+    anno: 'Anno',
     season_status_nome: 'Season Status',
     season_status: 'Season Status',
     nota: 'Nota',
@@ -1007,12 +983,11 @@ window.onload = async function() {
 
   attachSortListeners();
 
-  // Event listeners per i filtri
   document.getElementById('soggettoSelect').addEventListener('change', function() {
     if (this.value) caricaSoggetti();
     else {
       document.getElementById('soggettiBody').innerHTML =
-        '<tr><td colspan="13" class="text-center">Seleziona un soggetto e carica</td></tr>';
+        '<tr><td colspan="14" class="text-center">Seleziona un soggetto e carica</td></tr>';
       soggettiData = [];
     }
   });
@@ -1047,7 +1022,6 @@ window.onload = async function() {
     if (el) el.addEventListener('change', caricaAustria);
   });
 
-  // Sincronizza il cambio della select di paginazione
   document.getElementById('rowsPerPage').addEventListener('change', cambiaRighePerPagina);
 };
 </script>

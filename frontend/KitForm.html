@@ -51,42 +51,10 @@
     .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
     .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; }
     .readonly-info { background: #f8f9fa; padding: 8px 10px; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem; }
-    .assegnazione-tooltip {
-      cursor: help;
-      border-bottom: 1px dashed #1a73e8;
-      position: relative;
-    }
-    .assegnazione-tooltip:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: 100%;
-      left: 0;
-      background: #1e2a3a;
-      color: white;
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      white-space: nowrap;
-      z-index: 1000;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .kit-riepilogo {
-      background: #f8f9fa;
-      border-radius: 6px;
-      padding: 8px 12px;
-      margin-bottom: 10px;
-      font-size: 0.85rem;
-      border-left: 3px solid #1a73e8;
-    }
-    .badge-kit-count {
-      display: inline-block;
-      background: #17a2b8;
-      color: white;
-      border-radius: 12px;
-      padding: 1px 8px;
-      font-size: 0.65rem;
-      margin-left: 4px;
-    }
+    .assegnazione-tooltip { cursor: help; border-bottom: 1px dashed #1a73e8; position: relative; }
+    .assegnazione-tooltip:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 0; background: #1e2a3a; color: white; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; white-space: nowrap; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .kit-riepilogo { background: #f8f9fa; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.85rem; border-left: 3px solid #1a73e8; }
+    .badge-kit-count { display: inline-block; background: #17a2b8; color: white; border-radius: 12px; padding: 1px 8px; font-size: 0.65rem; margin-left: 4px; }
   </style>
 </head>
 <body>
@@ -106,7 +74,7 @@
   <h2>📦 Gestione Kit</h2>
   <div id="messageArea"></div>
 
-  <!-- FILTRI con settore -->
+  <!-- FILTRI -->
   <div class="form-row">
     <div class="form-group" style="flex:0.5;">
       <label>Magazzino</label>
@@ -125,7 +93,7 @@
     </div>
     <div class="form-group" style="flex:1;">
       <label>Ricerca</label>
-      <input type="text" id="filtroRicerca" placeholder="Codice, descrizione, sigla, variante..." oninput="caricaKit()">
+      <input type="text" id="filtroRicerca" placeholder="Codice, descrizione, sigla, variante, anno..." oninput="caricaKit()">
     </div>
     <div class="form-group" style="flex:0.3; display:flex; align-items:flex-end;">
       <button class="btn btn-success" onclick="resetForm()" style="width:100%;">➕ Nuovo Kit</button>
@@ -195,6 +163,7 @@
           <th>Descrizione</th>
           <th>Sigla Sci</th>
           <th>Variante Sci</th>
+          <th>Anno Sci</th>
           <th>Attacco</th>
           <th>Lunghezza</th>
           <th>Skistopper</th>
@@ -227,6 +196,7 @@
     <div class="form-row">
       <div class="form-group"><label>Sigla Sci</label><div id="editGroupSigla" class="readonly-info"></div></div>
       <div class="form-group"><label>Variante Sci</label><div id="editGroupVariante" class="readonly-info"></div></div>
+      <div class="form-group"><label>Anno Sci</label><div id="editGroupAnno" class="readonly-info"></div></div>
       <div class="form-group"><label>Lunghezza</label><div id="editGroupLunghezza" class="readonly-info"></div></div>
     </div>
     <div class="form-row">
@@ -275,14 +245,29 @@ function showMessage(msg, type) {
   setTimeout(() => div.innerHTML = '', 5000);
 }
 async function apiFetch(endpoint, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
-  const res = await fetch('/api' + endpoint, { ...options, headers });
-  if (!res.ok) {
-    let err = 'Errore ' + res.status;
-    try { const data = await res.json(); err = data.message || err; } catch(e) {}
-    throw new Error(err);
+  const token = localStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+    ...options.headers
+  };
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const url = `/api${endpoint}${separator}_=${Date.now()}`;
+  try {
+    const response = await fetch(url, { ...options, headers, cache: 'no-cache' });
+    if (response.status === 304 || response.status === 204) return null;
+    if (!response.ok) {
+      let errorMsg = `Errore ${response.status}`;
+      try { const data = await response.json(); errorMsg = data.message || data.error || errorMsg; } catch (_) {}
+      throw new Error(errorMsg);
+    }
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) return await response.json();
+    return await response.text();
+  } catch (error) {
+    console.error('❌ apiFetch error:', error);
+    throw error;
   }
-  return res.json();
 }
 function logout() {
   localStorage.removeItem('token');
@@ -324,6 +309,7 @@ const editGroupSettore = document.getElementById('editGroupSettore');
 const editGroupSci = document.getElementById('editGroupSci');
 const editGroupSigla = document.getElementById('editGroupSigla');
 const editGroupVariante = document.getElementById('editGroupVariante');
+const editGroupAnno = document.getElementById('editGroupAnno');
 const editGroupLunghezza = document.getElementById('editGroupLunghezza');
 const editGroupAttacco = document.getElementById('editGroupAttacco');
 const editGroupSkistopper = document.getElementById('editGroupSkistopper');
@@ -382,7 +368,6 @@ async function caricaAnagrafiche() {
     window.attCat = attCat;
     window.skCat = skCat;
 
-    // Carica con il settore di default
     const defaultSettore = kitSettoreSelect.value || 1;
     await caricaSci(defaultSettore);
     await caricaArticoliPerCategoria(defaultSettore);
@@ -434,7 +419,7 @@ async function caricaAnagrafiche() {
 }
 
 // ============================================================
-// CARICA SCI (con filtro settore e variante)
+// CARICA SCI (con filtro settore, variante, anno)
 // ============================================================
 async function caricaSci(settore = null) {
   let params = new URLSearchParams({ min_giacenza: '1' });
@@ -447,13 +432,14 @@ async function caricaSci(settore = null) {
 
   const sciGroupMap = {};
   articoliSciRaw.forEach(a => {
-    const key = `${a.descrizione}|${a.lunghezza || ''}|${a.variante || ''}`;
+    const key = `${a.descrizione}|${a.lunghezza || ''}|${a.variante || ''}|${a.anno_nome || ''}`;
     if (!sciGroupMap[key]) {
       sciGroupMap[key] = {
         articolo_id: a.articolo_id,
         descrizione: a.descrizione,
         lunghezza: a.lunghezza || '',
         variante: a.variante || '',
+        anno: a.anno_nome || '',
         quantita_totale: 0,
         articoli_ids: []
       };
@@ -472,12 +458,13 @@ async function caricaSci(settore = null) {
   articoliSci.forEach(a => {
     let label = (a.descrizione + ' ' + (a.lunghezza || '') + ' ' + (a.durezza || '')).trim();
     if (a.variante) label += ' (' + a.variante + ')';
+    if (a.anno) label += ' [' + a.anno + ']';
     kitSciSelect.appendChild(new Option(label, a.articolo_id));
   });
 }
 
 // ============================================================
-// CARICA ARTICOLI PER CATEGORIA (attacchi e skistoppers) con settore
+// CARICA ARTICOLI PER CATEGORIA (attacchi e skistoppers)
 // ============================================================
 async function caricaArticoliPerCategoria(settore = null) {
   const magId = kitMagazzinoSelect.value;
@@ -681,7 +668,7 @@ function resetForm() {
 }
 
 // ============================================================
-// SALVA KIT (form principale)
+// SALVA KIT
 // ============================================================
 async function salvaKit() {
   const magazzino = kitMagazzinoSelect.value;
@@ -784,7 +771,7 @@ async function salvaKit() {
 }
 
 // ============================================================
-// CARICA KIT (con filtro settore)
+// CARICA KIT
 // ============================================================
 async function caricaKit() {
   try {
@@ -806,13 +793,13 @@ async function caricaKit() {
       console.warn('⚠️ Risposta /kit non riconosciuta:', res);
     }
 
-    // Filtro lato client per ricerca
     if (search) {
       allKits = allKits.filter(k =>
         (k.codice_kit || '').toLowerCase().includes(search) ||
         (k.descrizione || '').toLowerCase().includes(search) ||
         (k.sigla_sci || '').toLowerCase().includes(search) ||
-        (k.variante_sci || '').toLowerCase().includes(search)
+        (k.variante_sci || '').toLowerCase().includes(search) ||
+        (k.anno_sci || '').toString().includes(search)
       );
     }
 
@@ -832,7 +819,7 @@ function popolaTabellaKit() {
   let filtered = allKits;
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="14" class="text-center">Nessun kit trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="15" class="text-center">Nessun kit trovato</td></tr>';
     return;
   }
 
@@ -841,13 +828,14 @@ function popolaTabellaKit() {
   filtered.forEach(k => {
     const attacco = k.attacco_descrizione || 'N/A';
     const skistopper = k.skistopper_descrizione || 'Nessuno';
-    const key = `${k.descrizione}|${k.lunghezza_sci || ''}|${k.sigla_sci || ''}|${k.variante_sci || ''}|${attacco}|${skistopper}|${k.ultimo_destinatario || 'In magazzino'}`;
+    const key = `${k.descrizione}|${k.lunghezza_sci || ''}|${k.sigla_sci || ''}|${k.variante_sci || ''}|${k.anno_sci || ''}|${attacco}|${skistopper}|${k.ultimo_destinatario || 'In magazzino'}`;
     if (!groups[key]) {
       groups[key] = {
         descrizione: k.descrizione || '',
         lunghezza_sci: k.lunghezza_sci || '',
         sigla_sci: k.sigla_sci || '',
         variante_sci: k.variante_sci || '',
+        anno_sci: k.anno_sci || '',
         attacco: attacco,
         skistopper: skistopper,
         magazzino: k.magazzino,
@@ -884,14 +872,15 @@ function popolaTabellaKit() {
     row.insertCell(2).innerText = group.descrizione || '-';
     row.insertCell(3).innerText = group.sigla_sci || 'NA';
     row.insertCell(4).innerText = group.variante_sci || '';
-    row.insertCell(5).innerText = group.attacco || 'N/A';
-    row.insertCell(6).innerText = group.lunghezza_sci || '-';
-    row.insertCell(7).innerText = group.skistopper || 'Nessuno';
-    row.insertCell(8).innerText = ['Alpino','Nordico','Freeride'][(group.settore || 1) - 1] || '';
-    row.insertCell(9).innerText = mag;
-    row.insertCell(10).innerText = group.quantita_totale || 0;
+    row.insertCell(5).innerText = group.anno_sci || '';
+    row.insertCell(6).innerText = group.attacco || 'N/A';
+    row.insertCell(7).innerText = group.lunghezza_sci || '-';
+    row.insertCell(8).innerText = group.skistopper || 'Nessuno';
+    row.insertCell(9).innerText = ['Alpino','Nordico','Freeride'][(group.settore || 1) - 1] || '';
+    row.insertCell(10).innerText = mag;
+    row.insertCell(11).innerText = group.quantita_totale || 0;
 
-    const tdAssegnato = row.insertCell(11);
+    const tdAssegnato = row.insertCell(12);
     const assegnato = group.ultimo_destinatario || 'In magazzino';
     const span = document.createElement('span');
     span.textContent = assegnato;
@@ -901,9 +890,9 @@ function popolaTabellaKit() {
     }
     tdAssegnato.appendChild(span);
 
-    row.insertCell(12).innerText = group.note || '';
+    row.insertCell(13).innerText = group.note || '';
 
-    const actions = row.insertCell(13);
+    const actions = row.insertCell(14);
     actions.className = 'action-buttons';
     if (group.kits.length > 1) {
       const btnGroup = document.createElement('button');
@@ -946,6 +935,7 @@ function apriEditGroupModal(kits) {
   const lung = firstKit.lunghezza_sci || '';
   const sigla = firstKit.sigla_sci || 'NA';
   const variante = firstKit.variante_sci || '';
+  const anno = firstKit.anno_sci || '';
   const attacco = firstKit.attacco_descrizione || 'N/A';
   const skistopper = firstKit.skistopper_descrizione || 'Nessuno';
   const mag = magazzini.find(m => m.id == firstKit.magazzino)?.nome || 'Magazzino ' + firstKit.magazzino;
@@ -955,7 +945,7 @@ function apriEditGroupModal(kits) {
   editGroupRiepilogo.innerHTML = `
     <strong>Gruppo (${kits.length} kit)</strong> — ${desc}<br>
     <span style="font-size:0.8rem;color:#555;">
-      Sigla: ${sigla} | Variante: ${variante || '-'} | Lunghezza: ${lung} cm | Attacco: ${attacco} | Skistopper: ${skistopper}
+      Sigla: ${sigla} | Variante: ${variante || '-'} | Anno: ${anno || '-'} | Lunghezza: ${lung} cm | Attacco: ${attacco} | Skistopper: ${skistopper}
     </span>
   `;
   editGroupMagazzino.textContent = mag;
@@ -963,6 +953,7 @@ function apriEditGroupModal(kits) {
   editGroupSci.textContent = desc;
   editGroupSigla.textContent = sigla;
   editGroupVariante.textContent = variante || '-';
+  editGroupAnno.textContent = anno || '-';
   editGroupLunghezza.textContent = lung ? lung + ' cm' : '-';
   editGroupAttacco.textContent = attacco;
   editGroupSkistopper.textContent = skistopper;
@@ -1078,6 +1069,7 @@ async function apriEditKitModal(kitId) {
     const sciLung = kit.lunghezza_sci || '';
     const sciSigla = kit.sigla_sci || 'NA';
     const sciVariante = kit.variante_sci || '';
+    const sciAnno = kit.anno_sci || '';
     const attDesc = attDet ? attDet.articolo_descrizione || 'Attacco ID ' + attDet.articolo_id : 'N/A';
     const skDesc = skDet ? skDet.articolo_descrizione || 'Skistopper ID ' + skDet.articolo_id : 'Nessuno';
     modal.innerHTML = `
@@ -1096,6 +1088,7 @@ async function apriEditKitModal(kitId) {
         <div class="form-row">
           <div class="form-group"><label>Sigla Sci</label><div class="readonly-info">${sciSigla}</div></div>
           <div class="form-group"><label>Variante Sci</label><div class="readonly-info">${sciVariante || '-'}</div></div>
+          <div class="form-group"><label>Anno Sci</label><div class="readonly-info">${sciAnno || '-'}</div></div>
           <div class="form-group"><label>Lunghezza</label><div class="readonly-info">${sciLung ? sciLung + ' cm' : '-'}</div></div>
         </div>
         <div class="form-row">
@@ -1250,12 +1243,6 @@ window.onload = async () => {
       handleSort(col);
     });
   });
-
-  const initArrow = document.getElementById('sort-descrizione');
-  if (initArrow) {
-    initArrow.classList.add('active');
-    initArrow.textContent = '▲';
-  }
 };
 </script>
 </body>
