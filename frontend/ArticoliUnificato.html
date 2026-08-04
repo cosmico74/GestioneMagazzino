@@ -193,7 +193,7 @@
       border-bottom: 1px solid #e2e8f0;
       text-align: left;
       line-height: 1.3;
-      background: white; /* per le celle sticky */
+      background: white;
     }
     th {
       background: #f1f5f9;
@@ -209,17 +209,17 @@
     tr:hover td { background: #f8fafc; }
     th:hover { background: #e2e8f0; }
 
-    /* 🔒 COLONNE FISSE (prime 3) */
+    /* 🔒 COLONNE FISSE (prime 3) - classi da applicare alle celle */
     .col-sticky-1 { position: sticky; left: 0; z-index: 11; background: inherit; }
-    .col-sticky-2 { position: sticky; left: 70px; z-index: 11; background: inherit; }
-    .col-sticky-3 { position: sticky; left: 130px; z-index: 11; background: inherit; }
+    .col-sticky-2 { position: sticky; left: 75px; z-index: 11; background: inherit; }
+    .col-sticky-3 { position: sticky; left: 135px; z-index: 11; background: inherit; }
 
     /* Le intestazioni delle colonne fisse devono stare sopra le celle */
     th.col-sticky-1, th.col-sticky-2, th.col-sticky-3 { z-index: 13; }
 
     /* Larghezze fisse per le colonne sticky */
-    .col-sticky-1 { width: 90px; min-width: 90px; max-width: 90px; }
-    .col-sticky-2 { width: 50px; min-width: 50px; max-width: 50px; }
+    .col-sticky-1 { width: 85px; min-width: 85px; max-width: 85px; }
+    .col-sticky-2 { width: 40px; min-width: 40px; max-width: 40px; }
     .col-sticky-3 { width: 180px; min-width: 180px; max-width: 180px; }
 
     /* ============================================================
@@ -281,7 +281,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ============================================================
-       MODALI
+       MODALE MODIFICA - STILE MIGLIORATO
        ============================================================ */
     .modal {
       display: none;
@@ -294,30 +294,152 @@
       justify-content: center;
       align-items: center;
       z-index: 1000;
+      backdrop-filter: blur(2px);
     }
     .modal-content {
       background: white;
-      border-radius: 16px;
+      border-radius: 20px;
       width: 90%;
-      max-width: 700px;
-      max-height: 85vh;
+      max-width: 750px;
+      max-height: 90vh;
       overflow-y: auto;
-      padding: 15px;
+      padding: 25px 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     }
-    .modal-buttons {
+    .modal-header {
       display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 12px;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e8edf2;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
     }
-    .form-row {
+    .modal-header h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #1e2a3a;
+    }
+    .modal-header .close {
+      font-size: 1.8rem;
+      font-weight: 300;
+      cursor: pointer;
+      color: #aaa;
+      line-height: 1;
+      transition: 0.2s;
+    }
+    .modal-header .close:hover { color: #333; transform: rotate(90deg); }
+
+    .modal-body {
+      padding: 4px 0;
+    }
+
+    /* Griglia form nel modale */
+    .modal-grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 12px 16px;
     }
-    .modal .form-group label { font-size: 0.65rem; }
-    .modal .form-control { font-size: 0.7rem; padding: 3px 5px; }
+    .modal-grid-1 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .modal-grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px 16px;
+    }
+
+    .modal .form-group { margin-bottom: 0; }
+    .modal .form-group label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.7rem;
+      color: #2c3e50;
+      margin-bottom: 2px;
+      letter-spacing: 0.3px;
+    }
+    .modal .form-group .form-control {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      background: #fafbfc;
+      transition: border-color 0.2s;
+    }
+    .modal .form-group .form-control:focus {
+      border-color: #1a73e8;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(26,115,232,0.15);
+      background: white;
+    }
+    .modal .form-group .form-control:read-only {
+      background: #f0f2f4;
+      cursor: not-allowed;
+    }
+    .modal .form-group textarea.form-control { resize: vertical; min-height: 50px; }
+    .modal .form-group select.form-control { appearance: auto; }
+
+    .modal-divider {
+      border: none;
+      border-top: 1px solid #e8edf2;
+      margin: 16px 0;
+    }
+    .modal-divider-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #6c757d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-divider-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e8edf2;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid #e8edf2;
+    }
+    .modal-footer .btn {
+      padding: 6px 18px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .modal-footer .btn-danger { background: #dc3545; }
+    .modal-footer .btn-danger:hover { background: #c82333; }
+    .modal-footer .btn-success { background: #28a745; }
+    .modal-footer .btn-success:hover { background: #218838; }
+    .modal-footer .btn-secondary { background: #6c757d; }
+    .modal-footer .btn-secondary:hover { background: #5a6268; }
+
+    .field-note {
+      font-size: 0.6rem;
+      color: #6c757d;
+      display: block;
+      margin-top: 2px;
+    }
+    .field-note i { font-style: normal; }
+
+    .checkbox-inline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .checkbox-inline input { width: auto; margin: 0; }
+    .checkbox-inline label { font-size: 0.7rem; font-weight: normal; margin: 0; }
 
     /* ============================================================
        SIGLE TABLE
@@ -393,6 +515,7 @@
       .form-row-single { grid-template-columns: 1fr 1fr 1fr; }
       .filter-row { flex-wrap: wrap; }
       .filter-group { min-width: 70px; flex: 1 1 100px; }
+      .modal-grid-3 { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 768px) {
       .container { padding: 2px 10px 10px 10px; }
@@ -404,8 +527,9 @@
       .logo img { height: 40px; }
       .pagination-bar { flex-direction: column; align-items: stretch; }
       .pagination-info { justify-content: center; }
-      .modal-content { width: 95%; padding: 12px; }
-      .form-row { grid-template-columns: 1fr; }
+      .modal-content { width: 95%; padding: 15px; }
+      .modal-grid-2 { grid-template-columns: 1fr; }
+      .modal-grid-3 { grid-template-columns: 1fr; }
     }
     @media (max-width: 480px) {
       .form-row-single { grid-template-columns: 1fr; }
@@ -454,9 +578,9 @@
   <!-- FORM INSERIMENTO - TUTTO SU UNA RIGA -->
   <form id="articleForm" onsubmit="return false;">
     <div class="form-row-single">
-      <!-- Codice Modello (colonna fissa 1) -->
+      <!-- Codice Modello -->
       <div class="form-group"><label>Codice Modello</label><input type="text" id="codice_modello" list="codice_modelloList" autocomplete="off"><datalist id="codice_modelloList"></datalist></div>
-      <!-- Descrizione (colonna fissa 2) -->
+      <!-- Descrizione -->
       <div class="form-group"><label>Descrizione *</label><input type="text" id="descrizione" list="descrizioneList" required autocomplete="off"><datalist id="descrizioneList"></datalist></div>
       <!-- Lunghezza -->
       <div class="form-group"><label>Lunghezza</label><input type="text" id="lunghezza" list="lunghezzaList" autocomplete="off"><datalist id="lunghezzaList"></datalist></div>
@@ -541,46 +665,121 @@
   </div>
 </div>
 
-<!-- MODALI (invariati) -->
+<!-- MODAL EDIT - STILE MIGLIORATO -->
 <div id="modalEdit" class="modal">
   <div class="modal-content">
-    <h3>✏️ Modifica Articolo</h3>
+    <div class="modal-header">
+      <h3>✏️ Modifica Articolo</h3>
+      <span class="close" onclick="chiudiModale()">&times;</span>
+    </div>
     <form id="editForm" onsubmit="return false;">
       <input type="hidden" id="editId">
-      <div class="form-row">
-        <div class="form-group"><label>Magazzino *</label><select id="editMagazzino" required></select></div>
-        <div class="form-group"><label>Settore *</label><select id="editSettore" required></select></div>
-        <div class="form-group"><label>Categoria *</label><select id="editCategoria" required></select></div>
-        <div class="form-group"><label>Marca *</label><select id="editMarca" required></select></div>
-      </div>
-      <div class="form-group"><label>Descrizione *</label><input type="text" id="editDescrizione" list="editDescrizioneList" required><datalist id="editDescrizioneList"></datalist></div>
-      <div class="form-row">
-        <div class="form-group"><label>Codice Modello</label><input type="text" id="editCodiceModello" list="editModelloList"><datalist id="editModelloList"></datalist></div>
-        <div class="form-group"><label>Lunghezza (cm)</label><input type="text" id="editLunghezza" list="editLunghezzaList"><datalist id="editLunghezzaList"></datalist></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>Durezza</label><input type="text" id="editDurezza" list="editDurezzaList"><datalist id="editDurezzaList"></datalist></div>
-        <div class="form-group"><label>Variante</label><input type="text" id="editVariante" list="editVarianteList"><datalist id="editVarianteList"></datalist></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>Anno *</label><select id="editAnno" class="form-control"><option value="">Seleziona</option></select></div>
-        <div class="form-group"><label>Season Status</label><select id="editSeasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
-      </div>
-      <div class="form-group">
-        <label>Quantità Totale</label>
-        <input type="number" id="editQuantita" min="0" readonly>
-        <small class="field-note"><i>⚠️ La quantità totale si gestisce tramite il modale delle sigle (pulsante 🔖)</i></small>
-      </div>
-      <div class="form-group"><label>Note</label><textarea id="editNote" rows="2"></textarea></div>
-      <div class="form-group">
-        <div class="checkbox-inline">
-          <input type="checkbox" id="editInventarioAustria" checked>
-          <label for="editInventarioAustria">🇦🇹 Inventario Austria</label>
+      <div class="modal-body">
+        <!-- Prima riga: 4 select -->
+        <div class="modal-grid-2">
+          <div class="form-group">
+            <label>Magazzino *</label>
+            <select id="editMagazzino" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label>Settore *</label>
+            <select id="editSettore" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label>Categoria *</label>
+            <select id="editCategoria" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label>Marca *</label>
+            <select id="editMarca" class="form-control" required></select>
+          </div>
         </div>
-      </div>
-      <div class="modal-buttons">
-        <button type="button" class="btn" onclick="salvaModifica()">💾 Salva</button>
-        <button type="button" class="btn btn-danger" onclick="chiudiModale()">Annulla</button>
+
+        <!-- Descrizione -->
+        <div class="modal-grid-1">
+          <div class="form-group">
+            <label>Descrizione *</label>
+            <input type="text" id="editDescrizione" class="form-control" list="editDescrizioneList" required>
+            <datalist id="editDescrizioneList"></datalist>
+          </div>
+        </div>
+
+        <!-- Riga: Codice Modello, Lunghezza -->
+        <div class="modal-grid-2">
+          <div class="form-group">
+            <label>Codice Modello</label>
+            <input type="text" id="editCodiceModello" class="form-control" list="editModelloList">
+            <datalist id="editModelloList"></datalist>
+          </div>
+          <div class="form-group">
+            <label>Lunghezza (cm)</label>
+            <input type="text" id="editLunghezza" class="form-control" list="editLunghezzaList">
+            <datalist id="editLunghezzaList"></datalist>
+          </div>
+        </div>
+
+        <!-- Riga: Durezza, Variante -->
+        <div class="modal-grid-2">
+          <div class="form-group">
+            <label>Durezza</label>
+            <input type="text" id="editDurezza" class="form-control" list="editDurezzaList">
+            <datalist id="editDurezzaList"></datalist>
+          </div>
+          <div class="form-group">
+            <label>Variante</label>
+            <input type="text" id="editVariante" class="form-control" list="editVarianteList">
+            <datalist id="editVarianteList"></datalist>
+          </div>
+        </div>
+
+        <!-- Riga: Anno, Season Status -->
+        <div class="modal-grid-2">
+          <div class="form-group">
+            <label>Anno *</label>
+            <select id="editAnno" class="form-control">
+              <option value="">Seleziona</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Season Status</label>
+            <select id="editSeasonStatus" class="form-control">
+              <option value="">Seleziona</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Divisore -->
+        <hr class="modal-divider">
+        <div class="modal-divider-label">📊 Quantità e Note</div>
+
+        <!-- Quantità + Note -->
+        <div class="modal-grid-2">
+          <div class="form-group">
+            <label>Quantità Totale</label>
+            <input type="number" id="editQuantita" class="form-control" min="0" readonly>
+            <small class="field-note"><i>⚠️ Gestisci la quantità dal modale delle sigle (🔖)</i></small>
+          </div>
+          <div class="form-group">
+            <label>Inventario Austria</label>
+            <div class="checkbox-inline" style="margin-top:6px;">
+              <input type="checkbox" id="editInventarioAustria" checked>
+              <label for="editInventarioAustria">🇦🇹 Austria</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-grid-1">
+          <div class="form-group">
+            <label>Note</label>
+            <textarea id="editNote" class="form-control" rows="2"></textarea>
+          </div>
+        </div>
+
+        <!-- Footer pulsanti -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="chiudiModale()">Annulla</button>
+          <button type="button" class="btn btn-success" onclick="salvaModifica()">💾 Salva modifiche</button>
+        </div>
       </div>
     </form>
   </div>
@@ -589,7 +788,10 @@
 <!-- MODAL SIGLE -->
 <div id="modalSigle" class="modal">
   <div class="modal-content">
-    <h3>🔖 Gestione Sigle</h3>
+    <div class="modal-header">
+      <h3>🔖 Gestione Sigle</h3>
+      <span class="close" onclick="chiudiModalSigle()">&times;</span>
+    </div>
     <p><strong>Articolo:</strong> <span id="sigleArticoloDesc"></span></p>
     <table class="sigle-table" id="sigleTableBodyContainer">
       <thead>
@@ -608,17 +810,17 @@
     </table>
     <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:12px;">
       <h4 style="font-size:0.8rem;">➕ Aggiungi nuova sigla</h4>
-      <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr 1fr 0.5fr 0.5fr;">
-        <div class="form-group"><label>Sigla *</label><input type="text" id="nuovaSigla" placeholder="Sigla"></div>
-        <div class="form-group"><label>Durezza</label><input type="text" id="nuovaSiglaDurezza"></div>
-        <div class="form-group"><label>Codice Modello</label><input type="text" id="nuovaSiglaModello" list="modelliList"><datalist id="modelliList"></datalist></div>
-        <div class="form-group"><label>Note</label><input type="text" id="nuovaSiglaNote"></div>
-        <div class="form-group"><label>Quantità</label><input type="number" id="nuovaSiglaQuantita" value="0" min="0"></div>
-        <div class="form-group"><label>Qtà Austria</label><input type="number" id="nuovaSiglaQuantitaAustria" value="0" min="0"></div>
+      <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr 1fr 0.5fr 0.5fr; gap:8px;">
+        <div class="form-group"><label>Sigla *</label><input type="text" id="nuovaSigla" class="form-control" placeholder="Sigla"></div>
+        <div class="form-group"><label>Durezza</label><input type="text" id="nuovaSiglaDurezza" class="form-control"></div>
+        <div class="form-group"><label>Codice Modello</label><input type="text" id="nuovaSiglaModello" class="form-control" list="modelliList"><datalist id="modelliList"></datalist></div>
+        <div class="form-group"><label>Note</label><input type="text" id="nuovaSiglaNote" class="form-control"></div>
+        <div class="form-group"><label>Quantità</label><input type="number" id="nuovaSiglaQuantita" class="form-control" value="0" min="0"></div>
+        <div class="form-group"><label>Qtà Austria</label><input type="number" id="nuovaSiglaQuantitaAustria" class="form-control" value="0" min="0"></div>
       </div>
       <button class="btn" onclick="aggiungiSigla()">➕ Aggiungi</button>
     </div>
-    <div class="modal-buttons">
+    <div class="modal-footer">
       <button class="btn btn-secondary" onclick="ricalcolaQuantita()">🔄 Ricalcola</button>
       <button class="btn btn-secondary" onclick="chiudiModalSigle()">Chiudi</button>
     </div>
@@ -628,11 +830,14 @@
 <!-- MODAL MODIFICA SIGLA -->
 <div id="modalModificaSigla" class="modal">
   <div class="modal-content" style="max-width:500px;">
-    <h3>✏️ Modifica Sigla</h3>
+    <div class="modal-header">
+      <h3>✏️ Modifica Sigla</h3>
+      <span class="close" onclick="chiudiModificaSigla()">&times;</span>
+    </div>
     <div class="form-group"><label>Sigla *</label><input type="text" id="modSiglaInput" class="form-control"></div>
     <div class="form-group"><label>Nota</label><input type="text" id="modNotaInput" class="form-control" placeholder="Nota (opzionale)"></div>
     <div class="form-group"><label>Quantità Austria</label><input type="number" id="modQuantitaAustriaInput" class="form-control" min="0" placeholder="0"></div>
-    <div class="modal-buttons">
+    <div class="modal-footer">
       <button class="btn btn-secondary" onclick="chiudiModificaSigla()">Annulla</button>
       <button class="btn btn-success" onclick="salvaModificaSigla()">💾 Salva</button>
     </div>
@@ -642,19 +847,22 @@
 <!-- MODAL OBSOLESCENZA -->
 <div id="modalObsoleto" class="modal">
   <div class="modal-content" style="max-width:400px;">
-    <h3>📦 Rendi Obsoleto</h3>
+    <div class="modal-header">
+      <h3>📦 Rendi Obsoleto</h3>
+      <span class="close" onclick="chiudiModalObsoleto()">&times;</span>
+    </div>
     <p>Articolo: <span id="obsArticoloDesc"></span></p>
-    <div class="form-group"><label>Quantità da rendere obsoleta *</label><input type="number" id="obsQuantita" min="1"><small>Disponibile: <span id="obsDisponibile"></span></small></div>
-    <div class="form-group"><label>Note</label><input type="text" id="obsNote"></div>
-    <div class="modal-buttons">
-      <button class="btn btn-warning" onclick="confermaObsolescenza()">Conferma</button>
+    <div class="form-group"><label>Quantità da rendere obsoleta *</label><input type="number" id="obsQuantita" class="form-control" min="1"><small>Disponibile: <span id="obsDisponibile"></span></small></div>
+    <div class="form-group"><label>Note</label><input type="text" id="obsNote" class="form-control"></div>
+    <div class="modal-footer">
       <button class="btn btn-secondary" onclick="chiudiModalObsoleto()">Annulla</button>
+      <button class="btn btn-warning" onclick="confermaObsolescenza()">Conferma</button>
     </div>
   </div>
 </div>
 
-
 <script>
+
 // ============================================================
 // UTILITY
 // ============================================================
