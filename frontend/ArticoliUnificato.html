@@ -118,64 +118,35 @@
     }
 
     /* ============================================================
-       📋 FORM INSERIMENTO
+       📋 FORM INSERIMENTO - TUTTO SU UNA RIGA
        ============================================================ */
-    .form-row-3col, .form-row-4col-slim, .form-row-2col {
+    .form-row-single {
       display: grid;
+      grid-template-columns: 1.2fr 1.8fr 0.5fr 0.5fr 1fr 0.6fr 0.8fr 0.5fr 0.3fr 1fr;
       gap: 6px;
-      margin-bottom: 4px;
       align-items: end;
+      margin-bottom: 4px;
     }
-    .form-row-3col { grid-template-columns: 2fr 1fr 0.5fr; }
-    .form-row-4col-slim { grid-template-columns: 0.8fr 1.2fr 0.6fr 0.8fr 0.6fr; }
-    .form-row-2col { grid-template-columns: 0.3fr 1.7fr; }
-
-    .form-group { margin-bottom: 0; }
-    label { font-weight: 600; font-size: 0.65rem; margin-bottom: 1px; display: block; color: #2c3e50; }
-    input, select, textarea {
+    .form-row-single .form-group { margin-bottom: 0; }
+    .form-row-single label { font-weight: 600; font-size: 0.6rem; margin-bottom: 1px; display: block; color: #2c3e50; white-space: nowrap; }
+    .form-row-single input, .form-row-single select, .form-row-single textarea {
       width: 100%;
-      padding: 3px 5px;
+      padding: 2px 4px;
       border: 1px solid #cbd5e0;
-      border-radius: 4px;
-      font-size: 0.7rem;
+      border-radius: 3px;
+      font-size: 0.65rem;
       background: #f9fafb;
     }
-    input[type="number"] { max-width: 80px; }
-    input#lunghezza { max-width: 60px; }
-    input#durezza { max-width: 60px; }
-    input#versione { max-width: 50px; }
-    select#anno { max-width: 80px; }
-    select#seasonStatus { max-width: 120px; }
-
-    input:read-only { background: #e9ecef; cursor: not-allowed; }
-    input:focus, select:focus, textarea:focus {
-      border-color: #1a73e8;
-      outline: none;
-      box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
-    }
-
-    .btn {
-      background: linear-gradient(135deg, #1a73e8, #0f5bb5);
-      color: white;
-      border: none;
-      padding: 3px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.7rem;
-      transition: 0.1s;
-    }
-    .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-    .btn-danger { background: linear-gradient(135deg, #dc3545, #b02a37); }
-    .btn-warning { background: #f39c12; color: white; }
-    .btn-success { background: #27ae60; }
-    .btn-secondary { background: linear-gradient(135deg, #6c757d, #565e64); }
-
-    .checkbox-inline { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
-    .checkbox-inline input { width: auto; margin: 0; }
-    .checkbox-inline label { margin: 0; font-weight: normal; font-size: 0.65rem; }
-
-    .field-note { color: #666; font-size: 0.6rem; display: block; margin-top: 1px; }
-    .field-note i { font-style: normal; }
+    .form-row-single input[type="number"] { max-width: 70px; }
+    .form-row-single input#lunghezza { max-width: 55px; }
+    .form-row-single input#durezza { max-width: 55px; }
+    .form-row-single input#versione { max-width: 45px; }
+    .form-row-single select#anno { max-width: 75px; }
+    .form-row-single select#seasonStatus { max-width: 100px; }
+    .form-row-single .btn { padding: 2px 8px; font-size: 0.65rem; }
+    .form-row-single .checkbox-inline { display: flex; align-items: center; gap: 4px; margin: 0; }
+    .form-row-single .checkbox-inline input { width: auto; margin: 0; }
+    .form-row-single .checkbox-inline label { font-size: 0.6rem; font-weight: normal; margin: 0; }
 
     /* ============================================================
        📊 TABELLA CON SCROLL ORIZZONTALE
@@ -401,16 +372,13 @@
        RESPONSIVE
        ============================================================ */
     @media (max-width: 1024px) {
-      .form-row-4col-slim { grid-template-columns: 1fr 1fr 1fr; }
-      .form-row-3col { grid-template-columns: 1fr 1fr; }
+      .form-row-single { grid-template-columns: 1fr 1fr 1fr; }
       .filter-row { flex-wrap: wrap; }
       .filter-group { min-width: 70px; flex: 1 1 100px; }
     }
     @media (max-width: 768px) {
       .container { padding: 2px 10px 10px 10px; }
-      .form-row-4col-slim { grid-template-columns: 1fr 1fr; }
-      .form-row-3col { grid-template-columns: 1fr; }
-      .form-row-2col { grid-template-columns: 1fr; }
+      .form-row-single { grid-template-columns: 1fr 1fr; }
       .filter-group { min-width: 50px; flex: 1 1 70px; }
       .filter-row .btn { align-self: flex-start; margin-top: 4px; }
       .insertion-divider .section-label { font-size: 0.6rem; }
@@ -422,7 +390,7 @@
       .form-row { grid-template-columns: 1fr; }
     }
     @media (max-width: 480px) {
-      .form-row-4col-slim { grid-template-columns: 1fr; }
+      .form-row-single { grid-template-columns: 1fr; }
       .filter-group { flex: 1 1 100%; }
     }
   </style>
@@ -465,34 +433,36 @@
     <span class="line"></span>
   </div>
 
-  <!-- FORM INSERIMENTO -->
+  <!-- FORM INSERIMENTO - TUTTO SU UNA RIGA -->
   <form id="articleForm" onsubmit="return false;">
-    <div class="form-row-3col">
+    <div class="form-row-single">
+      <!-- Codice Modello -->
       <div class="form-group"><label>Codice Modello</label><input type="text" id="codice_modello" list="codice_modelloList" autocomplete="off"><datalist id="codice_modelloList"></datalist></div>
+      <!-- Descrizione -->
       <div class="form-group"><label>Descrizione *</label><input type="text" id="descrizione" list="descrizioneList" required autocomplete="off"><datalist id="descrizioneList"></datalist></div>
-      <div class="form-group"><label>Lunghezza (cm)</label><input type="text" id="lunghezza" list="lunghezzaList" autocomplete="off"><datalist id="lunghezzaList"></datalist></div>
-    </div>
-    <div class="form-row-4col-slim">
+      <!-- Lunghezza -->
+      <div class="form-group"><label>Lunghezza</label><input type="text" id="lunghezza" list="lunghezzaList" autocomplete="off"><datalist id="lunghezzaList"></datalist></div>
+      <!-- Durezza -->
       <div class="form-group"><label>Durezza</label><input type="text" id="durezza" list="durezzaList" autocomplete="off"><datalist id="durezzaList"></datalist></div>
+      <!-- Variante -->
       <div class="form-group"><label>Variante</label><input type="text" id="variante" list="varianteList" autocomplete="off"><datalist id="varianteList"></datalist></div>
+      <!-- Anno -->
       <div class="form-group"><label>Anno *</label><select id="anno" class="form-control"><option value="">Seleziona</option></select></div>
+      <!-- Season Status -->
       <div class="form-group"><label>Season Status</label><select id="seasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
+      <!-- Quantità -->
       <div class="form-group"><label>Quantità *</label><input type="number" id="quantita" value="1" min="1" step="1" required></div>
-    </div>
-    <div class="form-row-2col">
+      <!-- Versione -->
       <div class="form-group"><label>Versione</label><input type="text" id="versione" value="1.0"></div>
-      <div class="form-group"><label>Note</label><textarea id="note" rows="1"></textarea></div>
-    </div>
-    <div class="form-row-2col" style="grid-template-columns: 1fr 1fr;">
-      <div class="form-group">
-        <div class="checkbox-inline">
+      <!-- Note + pulsanti (accorpati) -->
+      <div class="form-group" style="display:flex; gap:4px; align-items:center;">
+        <div style="flex:1;"><input type="text" id="note" placeholder="Note" style="width:100%;"></div>
+        <div class="checkbox-inline" style="flex-shrink:0;">
           <input type="checkbox" id="inventarioAustria" checked>
-          <label for="inventarioAustria">🇦🇹 Inventario Austria</label>
+          <label for="inventarioAustria">🇦🇹</label>
         </div>
-      </div>
-      <div class="form-group" style="display:flex; gap:6px; align-items:flex-end; justify-content:flex-end;">
-        <button type="button" class="btn" id="saveBtn" onclick="salvaArticolo()">💾 Salva</button>
-        <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
+        <button type="button" class="btn" id="saveBtn" onclick="salvaArticolo()" style="flex-shrink:0;">💾</button>
+        <button type="button" class="btn btn-secondary" onclick="resetForm()" style="flex-shrink:0;">🔄</button>
       </div>
     </div>
   </form>
@@ -658,7 +628,6 @@
     </div>
   </div>
 </div>
-
 
 <script>
 // ============================================================
