@@ -40,17 +40,18 @@ async function canUserUseMagazzino(userId, userRole, magazzinoId) {
 }
 
 // ============================================================
-// 🔥 HELPER: verifica duplicati su (descrizione, lunghezza, season_status_id, variante)
+// 🔥 HELPER: verifica duplicati su (descrizione, lunghezza, season_status_id, variante, anno_id)
 // ============================================================
-async function checkDuplicate(connection, descrizione, lunghezza, seasonStatusId, variante, excludeId = null) {
+async function checkDuplicate(connection, descrizione, lunghezza, seasonStatusId, variante, annoId, excludeId = null) {
   let sql = `
     SELECT articolo_id FROM articoli 
     WHERE descrizione = ? 
       AND (lunghezza = ? OR (lunghezza IS NULL AND ? IS NULL))
       AND (season_status_id = ? OR (season_status_id IS NULL AND ? IS NULL))
       AND (variante = ? OR (variante IS NULL AND ? IS NULL))
+      AND anno_id = ?
   `;
-  const params = [descrizione, lunghezza, lunghezza, seasonStatusId, seasonStatusId, variante, variante];
+  const params = [descrizione, lunghezza, lunghezza, seasonStatusId, seasonStatusId, variante, variante, annoId];
 
   if (excludeId) {
     sql += ' AND articolo_id != ?';
@@ -89,13 +90,14 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 }
 
 // ============================================================
-// GET /api/articoli - con filtro settore
+// GET /api/articoli - con filtri
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
     let sql = `
       SELECT a.*,
         ss.nome AS season_status_nome,
+        ann.anno AS anno_nome,
         (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE,
         CASE 
           WHEN (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) <= 0 THEN 'Esaurito'
@@ -113,6 +115,7 @@ router.get('/', verifyToken, async (req, res) => {
       LEFT JOIN categorie c ON a.categoria = c.categoria_id
       LEFT JOIN marche mar ON a.marca = mar.marca_id
       LEFT JOIN season_status ss ON a.season_status_id = ss.id
+      LEFT JOIN anni ann ON a.anno_id = ann.id
       LEFT JOIN utenti u1 ON a.creato_da = u1.id
       LEFT JOIN utenti u2 ON a.modificato_da = u2.id
       WHERE 1=1
@@ -128,6 +131,7 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.query.codice_modello) { sql += ' AND a.codice_modello = ?'; params.push(req.query.codice_modello); }
     if (req.query.variante) { sql += ' AND a.variante LIKE ?'; params.push(`%${req.query.variante}%`); }
     if (req.query.season_status_id) { sql += ' AND a.season_status_id = ?'; params.push(req.query.season_status_id); }
+    if (req.query.anno_id) { sql += ' AND a.anno_id = ?'; params.push(req.query.anno_id); }
     if (req.query.min_giacenza) {
       sql += ' AND (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = \'ARTICOLO\' AND oggetto_id = a.articolo_id), 0)) >= ?';
       params.push(req.query.min_giacenza);
@@ -148,6 +152,7 @@ router.get('/:id', verifyToken, async (req, res) => {
     const [rows] = await db.query(`
       SELECT a.*,
         ss.nome AS season_status_nome,
+        ann.anno AS anno_nome,
         (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) AS GIACENZA_REALE,
         CASE 
           WHEN (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = 'ARTICOLO' AND oggetto_id = a.articolo_id), 0)) <= 0 THEN 'Esaurito'
@@ -155,6 +160,7 @@ router.get('/:id', verifyToken, async (req, res) => {
         END AS stato
       FROM articoli a
       LEFT JOIN season_status ss ON a.season_status_id = ss.id
+      LEFT JOIN anni ann ON a.anno_id = ann.id
       WHERE a.articolo_id = ?
     `, [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ success: false, message: 'Articolo non trovato' });
@@ -177,7 +183,6 @@ router.get('/:id/sigle', verifyToken, async (req, res) => {
        ORDER BY s.sigla`,
       [req.params.id]
     );
-
     for (const s of sigle) {
       try {
         const [inKit] = await db.query(
@@ -194,7 +199,6 @@ router.get('/:id/sigle', verifyToken, async (req, res) => {
         s.giacenza = s.quantita;
       }
     }
-
     res.json(sigle);
   } catch (err) {
     console.error('❌ Errore GET /sigle:', err);
@@ -205,18 +209,14 @@ router.get('/:id/sigle', verifyToken, async (req, res) => {
 router.post('/:id/sigle', verifyToken, async (req, res) => {
   const { sigla, lunghezza, durezza, codice_modello, note, quantita } = req.body;
   if (!sigla) return res.status(400).json({ error: 'Sigla obbligatoria' });
-
   const quantitaVal = quantita || 0;
   const connection = await db.getConnection();
-
   try {
     await connection.beginTransaction();
-
     const [existing] = await connection.query(
       'SELECT id, attivo FROM sigle_articoli WHERE articolo_id = ? AND sigla = ?',
       [req.params.id, sigla]
     );
-
     let siglaId;
     if (existing.length > 0) {
       if (existing[0].attivo === 1) {
@@ -246,12 +246,9 @@ router.post('/:id/sigle', verifyToken, async (req, res) => {
       );
       siglaId = result.insertId;
     }
-
     await ricalcolaQuantitaTotale(connection, req.params.id);
-
     const [newSigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [siglaId]);
     await registraAudit(connection, 'sigle_articoli', 'CREAZIONE', siglaId, null, newSigla[0], req.userId);
-
     await connection.commit();
     res.json({ success: true, message: 'Sigla aggiunta con successo' });
   } catch (err) {
@@ -284,21 +281,16 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
   }
   values.push(req.params.id);
   const sql = `UPDATE sigle_articoli SET ${updateFields.join(', ')} WHERE id = ?`;
-
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
     const [oldRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     if (!oldRows.length) throw new Error('Sigla non trovata');
     const oldData = oldRows[0];
-
     await connection.query(sql, values);
-
     const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     const newData = newRows[0];
-
     await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
-
     await connection.commit();
     res.json({ success: true, message: 'Sigla aggiornata' });
   } catch (err) {
@@ -313,7 +305,6 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   console.log('🔍 PUT /sigle/:id/quantita - body ricevuto:', req.body);
   const { quantita } = req.body;
-
   const quantitaNum = Number(quantita);
   if (isNaN(quantitaNum) || !Number.isInteger(quantitaNum) || quantitaNum < 0) {
     return res.status(400).json({
@@ -322,30 +313,23 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       message: 'Invia un numero intero >= 0'
     });
   }
-
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-
     const [oldRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     if (!oldRows.length) throw new Error('Sigla non trovata');
     const oldData = oldRows[0];
     const articoloId = oldData.articolo_id;
-
     if (quantitaNum > oldData.quantita) {
       console.log('📈 Aumento quantità: da', oldData.quantita, 'a', quantitaNum, '- nessun controllo');
       await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantitaNum, req.params.id]);
-      
       const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
       const newData = newRows[0];
-
       await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
       await ricalcolaQuantitaTotale(connection, articoloId);
-
       await connection.commit();
       return res.json({ success: true, message: 'Quantità aggiornata (aumento)' });
     }
-
     const [usedInKit] = await connection.query(
       'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
       [req.params.id]
@@ -355,7 +339,6 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       [req.params.id, 'ARTICOLO']
     );
     const impegnato = usedInKit[0].totale + assegnato[0].totale;
-
     console.log('🔍 DEBUG riduzione sigla:', {
       siglaId: req.params.id,
       siglaNome: oldData.sigla,
@@ -366,22 +349,17 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       assegnato: assegnato[0].totale,
       impegnato: impegnato
     });
-
     if (quantitaNum < impegnato) {
       await connection.rollback();
       return res.status(400).json({
         error: `Impossibile ridurre la sigla: ${impegnato} unità sono già impegnate (${usedInKit[0].totale} in kit, ${assegnato[0].totale} assegnate)`
       });
     }
-
     await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantitaNum, req.params.id]);
-
     const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     const newData = newRows[0];
-
     await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
     await ricalcolaQuantitaTotale(connection, articoloId);
-
     await connection.commit();
     res.json({ success: true, message: 'Quantità aggiornata (riduzione)' });
   } catch (err) {
@@ -398,22 +376,16 @@ router.put('/sigle/:id/austria', verifyToken, async (req, res) => {
   if (quantita_austria === undefined || quantita_austria < 0) {
     return res.status(400).json({ error: 'Quantità Austria non valida' });
   }
-
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-
     const [oldRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     if (!oldRows.length) throw new Error('Sigla non trovata');
     const oldData = oldRows[0];
-
     await connection.query('UPDATE sigle_articoli SET quantita_austria = ? WHERE id = ?', [quantita_austria, req.params.id]);
-
     const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     const newData = newRows[0];
-
     await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
-
     await connection.commit();
     res.json({ success: true, message: 'Quantità Austria aggiornata' });
   } catch (err) {
@@ -431,12 +403,9 @@ router.delete('/sigle/:id', verifyToken, async (req, res) => {
     await connection.beginTransaction();
     const [sigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     if (!sigla.length) throw new Error('Sigla non trovata');
-    
     const [count] = await connection.query('SELECT COUNT(*) as cnt FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1', [sigla[0].articolo_id]);
     if (count[0].cnt === 1) throw new Error('Impossibile eliminare l\'unica sigla dell\'articolo');
-    
     await registraAudit(connection, 'sigle_articoli', 'ELIMINAZIONE', req.params.id, sigla[0], null, req.userId);
-    
     await connection.query('UPDATE sigle_articoli SET attivo = 0 WHERE id = ?', [req.params.id]);
     await ricalcolaQuantitaTotale(connection, sigla[0].articolo_id);
     await connection.commit();
@@ -454,7 +423,7 @@ router.delete('/sigle/:id', verifyToken, async (req, res) => {
 // POST /api/articoli - con controllo duplicati
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
-  const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria, variante, season_status_id } = req.body;
+  const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria, variante, season_status_id, anno_id } = req.body;
 
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
@@ -464,13 +433,13 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // 🔥 CONTROLLO DUPLICATI
-    const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null);
+    // 🔥 CONTROLLO DUPLICATI (include anno_id)
+    const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null, anno_id || 5);
     if (exists) {
       await connection.rollback();
       return res.status(400).json({
         success: false,
-        message: 'Esiste già un articolo con la stessa descrizione, lunghezza, season status e variante.'
+        message: 'Esiste già un articolo con la stessa descrizione, lunghezza, season status, variante e anno.'
       });
     }
 
@@ -485,8 +454,8 @@ router.post('/', verifyToken, async (req, res) => {
     await connection.query(`
       INSERT INTO articoli (articolo_id, codice, descrizione, descrizione_completa, magazzino, settore, categoria, marca,
         lunghezza, durezza, quantita_totale, quantita_in_kit, quantita_obsoleta, versione, stato, data_inserimento, data_modifica, note, codice_modello, inventario_austria, creato_da, modificato_da,
-        variante, season_status_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        variante, season_status_id, anno_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       newId, codice, descrizione, descrizioneCompleta,
       magazzino, settore, categoria, marca,
@@ -501,7 +470,8 @@ router.post('/', verifyToken, async (req, res) => {
       req.userId,
       req.userId,
       variante || null,
-      season_status_id || null
+      season_status_id || null,
+      anno_id || 5
     ]);
 
     const [siglaResult] = await connection.query(
@@ -536,7 +506,7 @@ router.post('/', verifyToken, async (req, res) => {
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { descrizione, lunghezza, durezza, quantita_totale, quantita_obsoleta, versione, stato, note, codiceModello,
-          magazzino, settore, categoria, marca, inventario_austria, variante, season_status_id } = req.body;
+          magazzino, settore, categoria, marca, inventario_austria, variante, season_status_id, anno_id } = req.body;
 
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
@@ -547,12 +517,12 @@ router.put('/:id', verifyToken, async (req, res) => {
     await connection.beginTransaction();
 
     // 🔥 CONTROLLO DUPLICATI (escludendo l'articolo corrente)
-    const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null, id);
+    const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null, anno_id || 5, id);
     if (exists) {
       await connection.rollback();
       return res.status(400).json({
         success: false,
-        message: 'Esiste già un altro articolo con la stessa descrizione, lunghezza, season status e variante.'
+        message: 'Esiste già un altro articolo con la stessa descrizione, lunghezza, season status, variante e anno.'
       });
     }
 
@@ -582,11 +552,11 @@ router.put('/:id', verifyToken, async (req, res) => {
         descrizione = ?, lunghezza = ?, durezza = ?, quantita_totale = ?, quantita_obsoleta = ?,
         versione = ?, stato = ?, note = ?, codice_modello = ?, magazzino = ?, settore = ?, categoria = ?, marca = ?,
         inventario_austria = ?, data_modifica = NOW(), modificato_da = ?,
-        variante = ?, season_status_id = ?
+        variante = ?, season_status_id = ?, anno_id = ?
       WHERE articolo_id = ?
     `, [descrizione, lunghezza, durezza, quantita_totale, quantita_obsoleta, versione, stato, note, codiceModello,
         magazzino, settore, categoria, marca, invAustria, req.userId,
-        variante || null, season_status_id || null, id]);
+        variante || null, season_status_id || null, anno_id || 5, id]);
 
     const [newRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
     await registraAudit(connection, 'articoli', 'MODIFICA', id, oldRow[0], newRow[0], req.userId);
@@ -607,21 +577,17 @@ router.put('/:id', verifyToken, async (req, res) => {
 // ============================================================
 router.delete('/:id', verifyToken, async (req, res) => {
   const id = req.params.id;
-
   if (!id || isNaN(parseInt(id))) {
     return res.status(400).json({ success: false, message: 'ID articolo non valido' });
   }
-
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-
     const [oldRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
     if (oldRow.length === 0) {
       await connection.rollback();
       return res.status(404).json({ success: false, message: 'Articolo non trovato' });
     }
-
     const [inKit] = await connection.query(
       'SELECT COUNT(*) AS count FROM kit_dettaglio WHERE articolo_id = ?',
       [id]
@@ -633,7 +599,6 @@ router.delete('/:id', verifyToken, async (req, res) => {
         message: `Impossibile eliminare: l'articolo è utilizzato in ${inKit[0].count} kit. Rimuovilo dai kit prima di eliminarlo.`
       });
     }
-
     const [assegnato] = await connection.query(
       'SELECT SUM(quantita) AS totale FROM carico_sintesi WHERE tipo_oggetto = "ARTICOLO" AND oggetto_id = ? AND quantita > 0',
       [id]
@@ -645,11 +610,9 @@ router.delete('/:id', verifyToken, async (req, res) => {
         message: `Impossibile eliminare: l'articolo è ancora assegnato (${assegnato[0].totale} unità in carico). Rientra l'articolo prima di eliminarlo.`
       });
     }
-
     await registraAudit(connection, 'articoli', 'ELIMINAZIONE', id, oldRow[0], null, req.userId);
     await connection.query('DELETE FROM sigle_articoli WHERE articolo_id = ?', [id]);
     await connection.query('DELETE FROM articoli WHERE articolo_id = ?', [id]);
-
     await connection.commit();
     res.json({ success: true, message: 'Articolo eliminato con successo' });
   } catch (err) {
@@ -700,12 +663,10 @@ router.get('/valori/:campo', verifyToken, async (req, res) => {
   const col = map[campo] || campo;
   let sql = `SELECT DISTINCT ${col} AS ${col} FROM articoli WHERE ${col} IS NOT NULL AND ${col} != ''`;
   const params = [];
-
   if (req.query.magazzino) { sql += ' AND magazzino = ?'; params.push(req.query.magazzino); }
   if (req.query.settore) { sql += ' AND settore = ?'; params.push(req.query.settore); }
   if (req.query.categoria) { sql += ' AND categoria = ?'; params.push(req.query.categoria); }
   if (req.query.marca) { sql += ' AND marca = ?'; params.push(req.query.marca); }
-
   const filterableFields = ['descrizione', 'codice_modello', 'lunghezza', 'durezza', 'variante'];
   for (const f of filterableFields) {
     if (f !== col && req.query[f]) {
@@ -713,7 +674,6 @@ router.get('/valori/:campo', verifyToken, async (req, res) => {
       params.push(req.query[f]);
     }
   }
-
   sql += ` ORDER BY ${col}`;
   const [rows] = await db.query(sql, params);
   res.json(rows);
@@ -837,6 +797,7 @@ router.get('/valori/attacchi', verifyToken, async (req, res) => {
 router.post('/:id/ricalcola', verifyToken, async (req, res) => {
   const connection = await db.getConnection();
   try {
+    await connection.beginTransaction();
     const nuovaQuantita = await ricalcolaQuantitaTotale(connection, req.params.id);
     await connection.commit();
     res.json({ success: true, message: 'Quantità ricalcolata', nuovaQuantita });

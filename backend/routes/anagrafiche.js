@@ -100,6 +100,21 @@ router.get('/season-status', verifyToken, async (req, res) => {
 });
 
 // ============================================================
+// GET /api/anagrafiche/anni
+// ============================================================
+router.get('/anni', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, anno, descrizione FROM anni WHERE attivo = true ORDER BY anno DESC'
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Errore GET /anni:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/anagrafiche/menu
 // ============================================================
 router.get('/menu', verifyToken, async (req, res) => {

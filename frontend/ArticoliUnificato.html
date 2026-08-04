@@ -45,7 +45,7 @@
     .filter-group select, .filter-group input { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: #f9fafb; }
     .form-row-3col, .form-row-4col-slim, .form-row-2col { display: grid; gap: 8px; margin-bottom: 6px; }
     .form-row-3col { grid-template-columns: 2fr 1fr 1fr; }
-    .form-row-4col-slim { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    .form-row-4col-slim { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
     .form-row-2col { grid-template-columns: 2fr 1fr 1fr; }
     .form-group { margin-bottom: 0; }
     label { font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; display: block; color: #2c3e50; }
@@ -58,7 +58,7 @@
     .btn-success { background: #27ae60; }
     .btn-secondary { background: linear-gradient(135deg, #6c757d, #565e64); }
     .table-wrapper { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; margin-top: 10px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; }
-    table { width: 100%; min-width: 1800px; border-collapse: collapse; font-size: 0.7rem; }
+    table { width: 100%; min-width: 1900px; border-collapse: collapse; font-size: 0.7rem; }
     th, td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
     th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; }
     tr:hover td { background: #f8fafc; }
@@ -113,9 +113,7 @@
 
 <div class="compact-bar">
   <div style="flex:1;"></div>
-  <div class="logo">
-    <img src="/images/kastle-logo.png" alt="Kastle">
-  </div>
+  <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
   <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
     <button class="btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
     <button class="btn-secondary" onclick="logout()">🚪 Logout</button>
@@ -132,6 +130,7 @@
     <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
     <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
     <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
+    <div class="filter-group"><label>Anno</label><select id="filtroAnno" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
     <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
     <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
   </div>
@@ -146,6 +145,7 @@
     <div class="form-row-4col-slim">
       <div class="form-group"><label>Durezza</label><input type="text" id="durezza" list="durezzaList" autocomplete="off"><datalist id="durezzaList"></datalist></div>
       <div class="form-group"><label>Variante</label><input type="text" id="variante" list="varianteList" autocomplete="off"><datalist id="varianteList"></datalist></div>
+      <div class="form-group"><label>Anno *</label><select id="anno" class="form-control"><option value="">Seleziona</option></select></div>
       <div class="form-group"><label>Season Status</label><select id="seasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
       <div class="form-group"><label>Quantità *</label><input type="number" id="quantita" value="1" min="1" step="1" required></div>
     </div>
@@ -182,6 +182,7 @@
           <th data-sort="lunghezza">Lunghezza <span class="sort-arrow sort-asc" data-col="lunghezza">▲</span><span class="sort-arrow sort-desc" data-col="lunghezza">▼</span></th>
           <th data-sort="durezza">Durezza <span class="sort-arrow sort-asc" data-col="durezza">▲</span><span class="sort-arrow sort-desc" data-col="durezza">▼</span></th>
           <th data-sort="variante">Variante <span class="sort-arrow sort-asc" data-col="variante">▲</span><span class="sort-arrow sort-desc" data-col="variante">▼</span></th>
+          <th data-sort="anno_nome">Anno <span class="sort-arrow sort-asc" data-col="anno_nome">▲</span><span class="sort-arrow sort-desc" data-col="anno_nome">▼</span></th>
           <th data-sort="season_status_nome">Season <span class="sort-arrow sort-asc" data-col="season_status_nome">▲</span><span class="sort-arrow sort-desc" data-col="season_status_nome">▼</span></th>
           <th data-sort="quantita_totale">Qtà Tot <span class="sort-arrow sort-asc" data-col="quantita_totale">▲</span><span class="sort-arrow sort-desc" data-col="quantita_totale">▼</span></th>
           <th data-sort="giacenza">Giacenza <span class="sort-arrow sort-asc" data-col="giacenza">▲</span><span class="sort-arrow sort-desc" data-col="giacenza">▼</span></th>
@@ -236,7 +237,10 @@
         <div class="form-group"><label>Durezza</label><input type="text" id="editDurezza" list="editDurezzaList"><datalist id="editDurezzaList"></datalist></div>
         <div class="form-group"><label>Variante</label><input type="text" id="editVariante" list="editVarianteList"><datalist id="editVarianteList"></datalist></div>
       </div>
-      <div class="form-group"><label>Season Status</label><select id="editSeasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>Anno *</label><select id="editAnno" class="form-control"><option value="">Seleziona</option></select></div>
+        <div class="form-group"><label>Season Status</label><select id="editSeasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
+      </div>
       <div class="form-group">
         <label>Quantità Totale</label>
         <input type="number" id="editQuantita" min="0" readonly>
@@ -263,18 +267,7 @@
     <h3>🔖 Gestione Sigle</h3>
     <p><strong>Articolo:</strong> <span id="sigleArticoloDesc"></span></p>
     <table class="sigle-table" id="sigleTableBodyContainer">
-      <thead>
-        <tr>
-          <th>Sigla</th>
-          <th>Durezza</th>
-          <th>Codice Modello</th>
-          <th>Note</th>
-          <th>Quantità</th>
-          <th>Impegnato</th>
-          <th>Qtà Austria</th>
-          <th>Azioni</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Sigla</th><th>Durezza</th><th>Codice Modello</th><th>Note</th><th>Quantità</th><th>Impegnato</th><th>Qtà Austria</th><th>Azioni</th></tr></thead>
       <tbody id="sigleTableBody"></tbody>
     </table>
     <div style="margin-top:20px; border-top:1px solid #ddd; padding-top:15px;">
@@ -290,7 +283,7 @@
       <button class="btn" onclick="aggiungiSigla()">➕ Aggiungi</button>
     </div>
     <div class="modal-buttons">
-      <button class="btn btn-secondary" onclick="ricalcolaQuantita()">🔄 Ricalcola quantità</button>
+      <button class="btn btn-secondary" onclick="ricalcolaQuantita()">🔄 Ricalcola</button>
       <button class="btn btn-secondary" onclick="chiudiModalSigle()">Chiudi</button>
     </div>
   </div>
@@ -344,48 +337,24 @@ async function apiFetch(endpoint, options = {}) {
     ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
     ...options.headers
   };
-
-  // 🔥 Parametro anti-cache per evitare 304
   const separator = endpoint.includes('?') ? '&' : '?';
   const url = `/api${endpoint}${separator}_=${Date.now()}`;
-
   try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      cache: 'no-cache'
-    });
-
-    // Se 304 o 204, il corpo è vuoto: restituisci null
-    if (response.status === 304 || response.status === 204) {
-      return null;
-    }
-
+    const response = await fetch(url, { ...options, headers, cache: 'no-cache' });
+    if (response.status === 304 || response.status === 204) return null;
     if (!response.ok) {
       let errorMsg = `Errore ${response.status}`;
-      try {
-        const data = await response.json();
-        errorMsg = data.message || data.error || errorMsg;
-      } catch (_) {
-        const text = await response.text();
-        if (text) errorMsg = text;
-      }
+      try { const data = await response.json(); errorMsg = data.message || data.error || errorMsg; } catch (_) {}
       throw new Error(errorMsg);
     }
-
-    // Leggi come JSON (solo se il Content-Type lo dice)
     const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return await response.json();
-    } else {
-      return await response.text();
-    }
+    if (contentType && contentType.includes('application/json')) return await response.json();
+    return await response.text();
   } catch (error) {
     console.error('❌ apiFetch error:', error);
     throw error;
   }
 }
-
 function restoreSession() { return !!localStorage.getItem('token'); }
 function logout() {
   localStorage.removeItem('token');
@@ -396,7 +365,7 @@ function logout() {
 // ============================================================
 // VARIABILI GLOBALI
 // ============================================================
-let magazzini = [], settori = [], categorie = [], marche = [], seasonStatusList = [];
+let magazzini = [], settori = [], categorie = [], marche = [], seasonStatusList = [], anniList = [];
 let articoliCorrente = [];
 let articoliFiltrati = [];
 let sortColumn = 'descrizione';
@@ -406,19 +375,19 @@ let currentObsId = null;
 let currentSigleArticoloId = null;
 let currentModificaSiglaId = null;
 
-// Elementi dei filtri
 const filtroMag = document.getElementById('filtroMagazzino');
 const filtroSettore = document.getElementById('filtroSettore');
 const filtroCat = document.getElementById('filtroCategoria');
 const filtroMar = document.getElementById('filtroMarca');
-const filtroSeason = document.getElementById('filtroSeasonStatus'); // dichiarato
+const filtroAnno = document.getElementById('filtroAnno');
+const filtroSeason = document.getElementById('filtroSeasonStatus');
 
-// Elementi del form di inserimento
 const descrizioneInput = document.getElementById('descrizione');
 const codiceModelloInput = document.getElementById('codice_modello');
 const lunghezzaInput = document.getElementById('lunghezza');
 const durezzaInput = document.getElementById('durezza');
 const varianteInput = document.getElementById('variante');
+const annoSelect = document.getElementById('anno');
 const seasonStatusSelect = document.getElementById('seasonStatus');
 const quantitaInput = document.getElementById('quantita');
 const noteInput = document.getElementById('note');
@@ -459,18 +428,27 @@ function popolaSelect(sel, items, valKey, textKey) {
 
 async function caricaAnagrafiche() {
   try {
-    [magazzini, settori, categorie, marche, seasonStatusList] = await Promise.all([
+    [magazzini, settori, categorie, marche, seasonStatusList, anniList] = await Promise.all([
       apiFetch('/anagrafiche/magazzini'),
       apiFetch('/anagrafiche/settori'),
       apiFetch('/anagrafiche/categorie'),
       apiFetch('/anagrafiche/marche'),
-      apiFetch('/anagrafiche/season-status')
+      apiFetch('/anagrafiche/season-status'),
+      apiFetch('/anagrafiche/anni')
     ]);
 
     popolaSelect(filtroMag, magazzini, 'id', 'nome');
     popolaSelect(filtroCat, categorie, 'id', 'nome');
+    popolaSelect(filtroAnno, anniList, 'id', 'anno');
     popolaSelect(filtroSeason, seasonStatusList, 'id', 'nome');
+    popolaSelect(annoSelect, anniList, 'id', 'anno');
     popolaSelect(seasonStatusSelect, seasonStatusList, 'id', 'nome');
+
+    // Default anno 2026 (id più alto)
+    if (anniList.length > 0) {
+      const defaultAnno = anniList.find(a => a.anno === 2026) || anniList[0];
+      annoSelect.value = defaultAnno.id;
+    }
 
     const categoriaDefault = filtroCat.value || '';
     await caricaMarchePerCategoria(categoriaDefault, filtroMar);
@@ -505,7 +483,6 @@ async function caricaAnagrafiche() {
   }
 }
 
-// Gestione cambio categoria dal filtro
 async function onCategoriaChanged() {
   const categoriaId = filtroCat.value;
   if (categoriaId) {
@@ -529,7 +506,6 @@ const endpointMap = {
 };
 
 function getCurrentFilters() {
-  // Legge i valori dai campi del FORM (non più dai filtri)
   return {
     magazzino: filtroMag.value,
     settore: filtroSettore.value,
@@ -537,6 +513,7 @@ function getCurrentFilters() {
     marca: filtroMar.value,
     descrizione: descrizioneInput.value.trim(),
     variante: varianteInput.value.trim(),
+    anno_id: filtroAnno.value || null,
     season_status_id: seasonStatusSelect.value || null
   };
 }
@@ -573,7 +550,6 @@ async function refreshAllDatalists() {
 async function caricaArticoli() {
   try {
     await refreshAllDatalists();
-
     const params = new URLSearchParams();
     const f = getCurrentFilters();
     if (f.magazzino) params.append('magazzino', f.magazzino);
@@ -582,6 +558,7 @@ async function caricaArticoli() {
     if (f.marca) params.append('marca', f.marca);
     if (f.descrizione) params.append('descrizione', f.descrizione);
     if (f.variante) params.append('variante', f.variante);
+    if (f.anno_id) params.append('anno_id', f.anno_id);
     if (f.season_status_id) params.append('season_status_id', f.season_status_id);
 
     const res = await apiFetch('/articoli?' + params.toString());
@@ -626,6 +603,7 @@ async function salvaArticolo() {
     lunghezza: lunghezzaInput.value.trim(),
     durezza: durezzaInput.value.trim(),
     variante: varianteInput.value.trim(),
+    anno_id: parseInt(annoSelect.value) || 5,
     season_status_id: seasonStatusSelect.value || null,
     quantita: quantita,
     versione: versioneInput.value.trim(),
@@ -645,7 +623,7 @@ async function salvaArticolo() {
     } else throw new Error(res.message);
   } catch(err) {
     showMessage(err.message, 'error');
-    if (err.message.includes('descrizione, lunghezza, season status e variante')) {
+    if (err.message.includes('descrizione, lunghezza, season status, variante e anno')) {
       showMessage('⚠️ ' + err.message, 'error');
     }
   }
@@ -658,6 +636,7 @@ function resetForm() {
   lunghezzaInput.value = '';
   durezzaInput.value = '';
   varianteInput.value = '';
+  if (anniList.length > 0) annoSelect.value = anniList.find(a => a.anno === 2026)?.id || anniList[0]?.id || '';
   seasonStatusSelect.value = '';
   quantitaInput.value = 1;
   noteInput.value = '';
@@ -669,8 +648,8 @@ function resetFiltri() {
   filtroSettore.value = '';
   filtroCat.value = '';
   filtroMar.value = '';
+  filtroAnno.value = '';
   filtroSeason.value = '';
-  // Resetta anche i campi del form (che ora fungono anche da filtri)
   descrizioneInput.value = '';
   varianteInput.value = '';
   seasonStatusSelect.value = '';
@@ -702,7 +681,7 @@ function compare(a,b,col) {
   if (col === 'quantita_totale' || col === 'giacenza' || col === 'quantita_obsoleta') { va = Number(va)||0; vb = Number(vb)||0; }
   else if (col === 'lunghezza') { va = parseFloat(va)||0; vb = parseFloat(vb)||0; }
   else if (col === 'inventario_austria') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
-  else if (col === 'season_status_nome') { va = va || ''; vb = vb || ''; }
+  else if (col === 'season_status_nome' || col === 'anno_nome') { va = va || ''; vb = vb || ''; }
   else { va = (va||'').toString().toLowerCase(); vb = (vb||'').toString().toLowerCase(); }
   if (va < vb) return -1;
   if (va > vb) return 1;
@@ -748,7 +727,7 @@ function renderTabellaPaginata() {
   tbody.innerHTML = '';
   const totali = articoliFiltrati.length;
   if (totali === 0) {
-    tbody.innerHTML = '<tr><td colspan="19" class="text-center">Nessun articolo trovato</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="20" class="text-center">Nessun articolo trovato</td></tr>';
     document.getElementById('paginationStats').innerText = 'Mostrando 0-0 di 0';
     document.getElementById('paginationCurrentPage').innerText = '1';
     document.getElementById('btnPrevPage').disabled = true;
@@ -782,14 +761,15 @@ function renderTabellaPaginata() {
     row.insertCell(8).innerText = a.lunghezza || '';
     row.insertCell(9).innerText = a.durezza || '';
     row.insertCell(10).innerText = a.variante || '';
-    row.insertCell(11).innerText = a.season_status_nome || '';
-    row.insertCell(12).innerText = a.quantita_totale;
-    row.insertCell(13).innerText = giac;
-    row.insertCell(14).innerText = a.quantita_obsoleta || 0;
-    row.insertCell(15).innerText = a.stato || '';
-    row.insertCell(16).innerText = a.inventario_austria ? '✅' : '❌';
+    row.insertCell(11).innerText = a.anno_nome || '';
+    row.insertCell(12).innerText = a.season_status_nome || '';
+    row.insertCell(13).innerText = a.quantita_totale;
+    row.insertCell(14).innerText = giac;
+    row.insertCell(15).innerText = a.quantita_obsoleta || 0;
+    row.insertCell(16).innerText = a.stato || '';
+    row.insertCell(17).innerText = a.inventario_austria ? '✅' : '❌';
 
-    const tdSigle = row.insertCell(17);
+    const tdSigle = row.insertCell(18);
     const btnSigle = document.createElement('button');
     btnSigle.textContent = '🔖';
     btnSigle.className = 'btn';
@@ -798,7 +778,7 @@ function renderTabellaPaginata() {
     btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione, a.lunghezza);
     tdSigle.appendChild(btnSigle);
 
-    const actions = row.insertCell(18);
+    const actions = row.insertCell(19);
     actions.className = 'action-buttons';
     const btnMod = document.createElement('button');
     btnMod.textContent = '✏️';
@@ -874,16 +854,18 @@ function attachSortListeners() {
 // MODIFICA / ELIMINA
 // ============================================================
 async function caricaSelectsModale() {
-  const [mag,set,cat,mar,ss] = await Promise.all([
+  const [mag,set,cat,mar,ss,anni] = await Promise.all([
     apiFetch('/anagrafiche/magazzini'),
     apiFetch('/anagrafiche/settori'),
     apiFetch('/anagrafiche/categorie'),
     apiFetch('/anagrafiche/marche'),
-    apiFetch('/anagrafiche/season-status')
+    apiFetch('/anagrafiche/season-status'),
+    apiFetch('/anagrafiche/anni')
   ]);
   popolaSelect(document.getElementById('editMagazzino'), mag, 'id', 'nome');
   popolaSelect(document.getElementById('editSettore'), set, 'id', 'nome');
   popolaSelect(document.getElementById('editCategoria'), cat, 'id', 'nome');
+  popolaSelect(document.getElementById('editAnno'), anni, 'id', 'anno');
   popolaSelect(document.getElementById('editSeasonStatus'), ss, 'id', 'nome');
 }
 
@@ -919,6 +901,7 @@ async function modificaArticolo(id) {
   document.getElementById('editLunghezza').value = art.lunghezza || '';
   document.getElementById('editDurezza').value = art.durezza || '';
   document.getElementById('editVariante').value = art.variante || '';
+  document.getElementById('editAnno').value = art.anno_id || '';
   document.getElementById('editSeasonStatus').value = art.season_status_id || '';
   document.getElementById('editCodiceModello').value = art.codice_modello || '';
   document.getElementById('editQuantita').value = art.quantita_totale;
@@ -936,6 +919,7 @@ async function salvaModifica() {
     lunghezza: document.getElementById('editLunghezza').value.trim(),
     durezza: document.getElementById('editDurezza').value.trim(),
     variante: document.getElementById('editVariante').value.trim(),
+    anno_id: parseInt(document.getElementById('editAnno').value) || 5,
     season_status_id: document.getElementById('editSeasonStatus').value || null,
     note: document.getElementById('editNote').value.trim(),
     codiceModello: document.getElementById('editCodiceModello').value.trim(),
@@ -969,7 +953,7 @@ async function eliminaArticolo(id) {
 }
 
 // ============================================================
-// GESTIONE SIGLE (invariata)
+// GESTIONE SIGLE
 // ============================================================
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId;
@@ -998,9 +982,7 @@ async function caricaSigleArticolo(articoloId) {
       qtaInput.value = s.quantita || 0;
       qtaInput.style.width = '80px';
       qtaInput.dataset.siglaId = s.id;
-      qtaInput.addEventListener('input', function() {
-        if (this.value === '' || this.value === '-') this.value = 0;
-      });
+      qtaInput.addEventListener('input', function() { if (this.value === '' || this.value === '-') this.value = 0; });
       qtaCell.appendChild(qtaInput);
       const impegnatoCell = row.insertCell(5);
       const impegnato = (s.quantita || 0) - (s.giacenza || 0);
@@ -1019,9 +1001,7 @@ async function caricaSigleArticolo(articoloId) {
       btnSave.textContent = '💾';
       btnSave.className = 'btn';
       btnSave.style.padding = '2px 6px';
-      btnSave.onclick = function() {
-        aggiornaQuantitaSigla(articoloId, s.id, qtaInput.value);
-      };
+      btnSave.onclick = function() { aggiornaQuantitaSigla(articoloId, s.id, qtaInput.value); };
       actionsCell.appendChild(btnSave);
       const btnSaveAustria = document.createElement('button');
       btnSaveAustria.textContent = '🇦🇹';
@@ -1153,6 +1133,22 @@ async function eliminaSigla(id) {
   } catch(err) { showMessage(err.message, 'error'); }
 }
 
+async function ricalcolaQuantita() {
+  if (!currentSigleArticoloId) return;
+  try {
+    const res = await apiFetch('/articoli/' + currentSigleArticoloId + '/ricalcola', { method: 'POST' });
+    if (res.success) {
+      showMessage('Quantità totale ricalcolata: ' + res.nuovaQuantita, 'success');
+      await caricaSigleArticolo(currentSigleArticoloId);
+      await caricaArticoli();
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch(err) {
+    showMessage('Errore: ' + err.message, 'error');
+  }
+}
+
 function chiudiModalSigle() {
   document.getElementById('modalSigle').style.display = 'none';
   currentSigleArticoloId = null;
@@ -1199,11 +1195,10 @@ function attachFormEvents() {
       });
     }
   });
-  // Anche il cambio di season status deve attivare il filtro
-  seasonStatusSelect.addEventListener('change', () => {
-    caricaArticoli();
-  });
+  annoSelect.addEventListener('change', () => { caricaArticoli(); });
+  seasonStatusSelect.addEventListener('change', () => { caricaArticoli(); });
 }
+
 window.onload = async () => {
   if (!restoreSession()) { window.location.href = 'Login.html'; return; }
   await caricaAnagrafiche();
@@ -1216,23 +1211,6 @@ window.onload = async () => {
   const arrow = document.querySelector('.sort-arrow.sort-asc[data-col="descrizione"]');
   if (arrow) arrow.classList.add('active');
 };
-
-async function ricalcolaQuantita() {
-  if (!currentSigleArticoloId) return;
-  try {
-    const res = await apiFetch('/articoli/' + currentSigleArticoloId + '/ricalcola', { method: 'POST' });
-    if (res.success) {
-      showMessage('Quantità totale ricalcolata: ' + res.nuovaQuantita, 'success');
-      await caricaSigleArticolo(currentSigleArticoloId);
-      await caricaArticoli();
-    } else {
-      showMessage(res.message, 'error');
-    }
-  } catch(err) {
-    showMessage('Errore: ' + err.message, 'error');
-  }
-}
-
 </script>
 </body>
 </html>
