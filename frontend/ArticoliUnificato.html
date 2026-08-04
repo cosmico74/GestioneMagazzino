@@ -39,50 +39,326 @@
       overflow: hidden;
     }
     h2 { margin: 5px 0 8px 0; font-size: 1.3rem; border-left: 5px solid #1a73e8; padding-left: 12px; color: #1e2a3a; display: inline-block; }
-    .filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
+
+    /* ============================================================
+       🔍 SEZIONE RICERCA
+       ============================================================ */
+    .search-section {
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
+    .search-section .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #1a73e8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .search-section .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, #1a73e8, transparent);
+      margin-left: 8px;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 6px;
+      align-items: flex-end;
+    }
     .filter-group { flex: 1; min-width: 100px; }
     .filter-group label { font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; display: block; color: #2c3e50; }
-    .filter-group select, .filter-group input { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: #f9fafb; }
-    .form-row-3col, .form-row-4col-slim, .form-row-2col { display: grid; gap: 8px; margin-bottom: 6px; }
+    .filter-group select, .filter-group input {
+      width: 100%;
+      padding: 4px 6px;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      background: #f9fafb;
+    }
+    .filter-group select:focus, .filter-group input:focus {
+      border-color: #1a73e8;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
+    }
+
+    /* ============================================================
+       📝 SEZIONE INSERIMENTO (divider + label)
+       ============================================================ */
+    .insertion-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0 6px 0;
+    }
+    .insertion-divider .line {
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(to right, #1a73e8, #cbd5e0);
+      border: none;
+    }
+    .insertion-divider .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #27ae60;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 4px;
+    }
+
+    /* ============================================================
+       📋 FORM INSERIMENTO
+       ============================================================ */
+    .form-row-3col, .form-row-4col-slim, .form-row-2col {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
     .form-row-3col { grid-template-columns: 2fr 1fr 1fr; }
     .form-row-4col-slim { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
     .form-row-2col { grid-template-columns: 2fr 1fr 1fr; }
     .form-group { margin-bottom: 0; }
     label { font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; display: block; color: #2c3e50; }
-    input, select, textarea { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: #f9fafb; }
+    input, select, textarea {
+      width: 100%;
+      padding: 4px 6px;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      background: #f9fafb;
+    }
     input:read-only { background: #e9ecef; cursor: not-allowed; }
-    .btn { background: linear-gradient(135deg, #1a73e8, #0f5bb5); color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; transition: 0.1s; }
+    input:focus, select:focus, textarea:focus {
+      border-color: #1a73e8;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #1a73e8, #0f5bb5);
+      color: white;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: 0.1s;
+    }
     .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
     .btn-danger { background: linear-gradient(135deg, #dc3545, #b02a37); }
     .btn-warning { background: #f39c12; color: white; }
     .btn-success { background: #27ae60; }
     .btn-secondary { background: linear-gradient(135deg, #6c757d, #565e64); }
-    .table-wrapper { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; margin-top: 10px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; }
-    table { width: 100%; min-width: 1900px; border-collapse: collapse; font-size: 0.7rem; }
-    th, td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-    th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; }
+
+    .checkbox-inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+    .checkbox-inline input { width: auto; margin: 0; }
+    .checkbox-inline label { margin: 0; font-weight: normal; font-size: 0.7rem; }
+
+    .field-note { color: #666; font-size: 0.65rem; display: block; margin-top: 2px; }
+    .field-note i { font-style: normal; }
+
+    /* ============================================================
+       📊 TABELLA CON SCROLL ORIZZONTALE
+       ============================================================ */
+    .table-wrapper {
+      overflow-x: auto;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+      margin-top: 10px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: white;
+      position: relative;
+    }
+    .table-wrapper::-webkit-scrollbar {
+      height: 8px;
+      width: 8px;
+    }
+    .table-wrapper::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+    .table-wrapper::-webkit-scrollbar-thumb {
+      background: #c1c7cd;
+      border-radius: 4px;
+    }
+    .table-wrapper::-webkit-scrollbar-thumb:hover {
+      background: #a8b0b8;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1900px;
+      border-collapse: collapse;
+      font-size: 0.7rem;
+    }
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+    }
+    th {
+      background: #f1f5f9;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      cursor: pointer;
+    }
     tr:hover td { background: #f8fafc; }
-    .action-buttons { display: flex; gap: 4px; justify-content: center; }
-    .message { padding: 6px 10px; margin-bottom: 8px; border-radius: 8px; font-size: 0.75rem; }
+    th:hover { background: #e2e8f0; }
+
+    /* ============================================================
+       SORTING
+       ============================================================ */
+    .sort-arrow {
+      cursor: pointer;
+      font-size: 0.6rem;
+      margin-left: 3px;
+      color: #aaa;
+      user-select: none;
+      display: inline-block;
+      padding: 0 2px;
+    }
+    .sort-arrow.active {
+      color: #1a73e8;
+      font-weight: bold;
+      font-size: 0.8rem;
+    }
+    th { cursor: default; }
+    th .sort-arrow { cursor: pointer; }
+
+    /* ============================================================
+       ACTION BUTTONS
+       ============================================================ */
+    .action-buttons {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      flex-wrap: nowrap;
+    }
+
+    /* ============================================================
+       MESSAGES
+       ============================================================ */
+    .message {
+      padding: 6px 10px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+    }
     .success { background: #d1fae5; color: #065f46; border-left: 4px solid #10b981; }
     .error { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
     .info { background: #dbeafe; color: #1e40af; border-left: 4px solid #3b82f6; }
-    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #e2e8f0; border-top-color: #1a73e8; border-radius: 50%; animation: spin 0.6s linear infinite; }
+
+    /* ============================================================
+       SPINNER
+       ============================================================ */
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #e2e8f0;
+      border-top-color: #1a73e8;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; border-radius: 20px; width: 90%; max-width: 700px; max-height: 85vh; overflow-y: auto; padding: 20px; }
-    .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-    .sigle-table { width: 100%; margin-top: 10px; border-collapse: collapse; }
-    .sigle-table th, .sigle-table td { padding: 5px; border: 1px solid #ddd; }
-    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .logo { display: flex; justify-content: center; flex: 1; }
-    .logo img { height: 120px; width: auto; display: block; }
-    .required-error { border: 1px solid #ef4444 !important; background-color: #fee2e2 !important; }
+
+    /* ============================================================
+       MODALI
+       ============================================================ */
+    .modal {
+      display: none;
+      position: fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 700px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .modal .form-group label { font-size: 0.7rem; }
+
+    /* ============================================================
+       SIGLE TABLE
+       ============================================================ */
+    .sigle-table {
+      width: 100%;
+      margin-top: 10px;
+      border-collapse: collapse;
+    }
+    .sigle-table th, .sigle-table td {
+      padding: 5px;
+      border: 1px solid #ddd;
+    }
     #modalSigle .modal-content { max-width: 1200px; width: 95%; }
-    .sigle-table { overflow-x: auto; display: block; }
-    .sigle-table th, .sigle-table td { white-space: nowrap; padding: 8px 12px; }
+    .sigle-table {
+      overflow-x: auto;
+      display: block;
+    }
+    .sigle-table th, .sigle-table td {
+      white-space: nowrap;
+      padding: 8px 12px;
+    }
     .sigle-table input[type="number"] { width: 80px; }
+
+    /* ============================================================
+       HEADER / LOGO
+       ============================================================ */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .logo {
+      display: flex;
+      justify-content: center;
+      flex: 1;
+    }
+    .logo img { height: 120px; width: auto; display: block; }
+
+    .required-error { border: 1px solid #ef4444 !important; background-color: #fee2e2 !important; }
+
+    /* ============================================================
+       PAGINAZIONE
+       ============================================================ */
     .pagination-bar {
       display: flex;
       justify-content: space-between;
@@ -94,26 +370,53 @@
       flex-wrap: wrap;
       gap: 8px;
     }
-    .pagination-bar select, .pagination-bar input { width: auto; padding: 2px 6px; border: 1px solid #cbd5e0; border-radius: 4px; }
+    .pagination-bar select, .pagination-bar input {
+      width: auto;
+      padding: 2px 6px;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+    }
     .pagination-bar .btn { padding: 2px 8px; font-size: 0.7rem; }
     .pagination-info { display: flex; align-items: center; gap: 8px; }
     .text-center { text-align: center; }
-    .checkbox-inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
-    .checkbox-inline input { width: auto; margin: 0; }
-    .checkbox-inline label { margin: 0; font-weight: normal; font-size: 0.7rem; }
-    .sort-arrow { cursor: pointer; font-size: 0.6rem; margin-left: 3px; color: #aaa; user-select: none; display: inline-block; padding: 0 2px; }
-    .sort-arrow.active { color: #1a73e8; font-weight: bold; font-size: 0.8rem; }
-    th { cursor: default; }
-    th .sort-arrow { cursor: pointer; }
-    .field-note { color: #666; font-size: 0.65rem; display: block; margin-top: 2px; }
-    .field-note i { font-style: normal; }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
+    @media (max-width: 1024px) {
+      .form-row-4col-slim { grid-template-columns: 1fr 1fr 1fr; }
+      .form-row-3col { grid-template-columns: 1fr 1fr; }
+      .filter-row { flex-wrap: wrap; }
+      .filter-group { min-width: 80px; flex: 1 1 120px; }
+    }
+    @media (max-width: 768px) {
+      .container { padding: 2px 10px 10px 10px; }
+      .form-row-4col-slim { grid-template-columns: 1fr 1fr; }
+      .form-row-3col { grid-template-columns: 1fr; }
+      .form-row-2col { grid-template-columns: 1fr; }
+      .filter-group { min-width: 60px; flex: 1 1 80px; }
+      .filter-row .btn { align-self: flex-start; margin-top: 4px; }
+      .insertion-divider .section-label { font-size: 0.65rem; }
+      .compact-bar { flex-wrap: wrap; padding: 4px 10px; }
+      .logo img { height: 60px; }
+      .pagination-bar { flex-direction: column; align-items: stretch; }
+      .pagination-info { justify-content: center; }
+      .modal-content { width: 95%; padding: 15px; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .form-row-4col-slim { grid-template-columns: 1fr; }
+      .filter-group { flex: 1 1 100%; }
+    }
   </style>
 </head>
 <body>
 
 <div class="compact-bar">
   <div style="flex:1;"></div>
-  <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
+  <div class="logo">
+    <img src="/images/kastle-logo.png" alt="Kastle">
+  </div>
   <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
     <button class="btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
     <button class="btn-secondary" onclick="logout()">🚪 Logout</button>
@@ -124,15 +427,25 @@
   <div class="header-bar"><h2>📦 Gestione Articoli</h2></div>
   <div id="messageArea"></div>
 
-  <!-- FILTRI -->
-  <div class="filter-row">
-    <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-    <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
-    <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
-    <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
-    <div class="filter-group"><label>Anno</label><select id="filtroAnno" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-    <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-    <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
+  <!-- 🔍 SEZIONE RICERCA -->
+  <div class="search-section">
+    <div class="section-label">🔍 Ricerca</div>
+    <div class="filter-row">
+      <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+      <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+      <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
+      <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
+      <div class="filter-group"><label>Anno</label><select id="filtroAnno" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+      <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+      <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
+    </div>
+  </div>
+
+  <!-- 📝 DIVIDER + INSERIMENTO -->
+  <div class="insertion-divider">
+    <span class="line"></span>
+    <span class="section-label">📝 Inserimento</span>
+    <span class="line"></span>
   </div>
 
   <!-- FORM INSERIMENTO -->
@@ -167,6 +480,7 @@
     </div>
   </form>
 
+  <!-- TABELLA CON SCROLL ORIZZONTALE -->
   <div class="table-wrapper">
     <table id="tabellaArticoli">
       <thead>
@@ -267,7 +581,18 @@
     <h3>🔖 Gestione Sigle</h3>
     <p><strong>Articolo:</strong> <span id="sigleArticoloDesc"></span></p>
     <table class="sigle-table" id="sigleTableBodyContainer">
-      <thead><tr><th>Sigla</th><th>Durezza</th><th>Codice Modello</th><th>Note</th><th>Quantità</th><th>Impegnato</th><th>Qtà Austria</th><th>Azioni</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Sigla</th>
+          <th>Durezza</th>
+          <th>Codice Modello</th>
+          <th>Note</th>
+          <th>Quantità</th>
+          <th>Impegnato</th>
+          <th>Qtà Austria</th>
+          <th>Azioni</th>
+        </tr>
+      </thead>
       <tbody id="sigleTableBody"></tbody>
     </table>
     <div style="margin-top:20px; border-top:1px solid #ddd; padding-top:15px;">
@@ -316,6 +641,7 @@
     </div>
   </div>
 </div>
+
 
 <script>
 // ============================================================
