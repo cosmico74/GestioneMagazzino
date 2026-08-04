@@ -528,4 +528,92 @@ router.delete('/categorie-marche', verifyToken, async (req, res) => {
   }
 });
 
+
+// ============================================================
+// CRUD ANNI
+// ============================================================
+
+// GET /api/anagrafiche/anni - già presente
+
+// POST /api/anagrafiche/anni
+router.post('/anni', verifyToken, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Solo admin può creare anni' });
+    }
+    const { anno, descrizione, attivo } = req.body;
+    if (!anno) return res.status(400).json({ success: false, message: 'L\'anno è obbligatorio' });
+    
+    // Verifica duplicato
+    const [existing] = await pool.query('SELECT id FROM anni WHERE anno = ?', [anno]);
+    if (existing.length) {
+      return res.status(400).json({ success: false, message: 'L\'anno ' + anno + ' esiste già' });
+    }
+
+    const [result] = await pool.query(
+      'INSERT INTO anni (anno, descrizione, attivo) VALUES (?, ?, ?)',
+      [anno, descrizione || null, attivo !== undefined ? attivo : 1]
+    );
+    res.json({ success: true, message: 'Anno creato', id: result.insertId });
+  } catch (err) {
+    console.error('Errore POST /anni:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /api/anagrafiche/anni/:id
+router.put('/anni/:id', verifyToken, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Solo admin può modificare anni' });
+    }
+    const { id } = req.params;
+    const { anno, descrizione, attivo } = req.body;
+    if (!anno) return res.status(400).json({ success: false, message: 'L\'anno è obbligatorio' });
+
+    // Verifica duplicato (escludendo l'anno corrente)
+    const [existing] = await pool.query('SELECT id FROM anni WHERE anno = ? AND id != ?', [anno, id]);
+    if (existing.length) {
+      return res.status(400).json({ success: false, message: 'L\'anno ' + anno + ' esiste già' });
+    }
+
+    await pool.query(
+      'UPDATE anni SET anno = ?, descrizione = ?, attivo = ? WHERE id = ?',
+      [anno, descrizione || null, attivo !== undefined ? attivo : 1, id]
+    );
+    res.json({ success: true, message: 'Anno aggiornato' });
+  } catch (err) {
+    console.error('Errore PUT /anni/:id:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE /api/anagrafiche/anni/:id
+router.delete('/anni/:id', verifyToken, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Solo admin può eliminare anni' });
+    }
+    const { id } = req.params;
+
+    // Verifica se l'anno è usato da articoli
+    const [used] = await pool.query('SELECT COUNT(*) AS count FROM articoli WHERE anno_id = ?', [id]);
+    if (used[0].count > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Impossibile eliminare: l'anno è utilizzato in ${used[0].count} articoli.`
+      });
+    }
+
+    const [result] = await pool.query('DELETE FROM anni WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Anno non trovato' });
+    }
+    res.json({ success: true, message: 'Anno eliminato' });
+  } catch (err) {
+    console.error('Errore DELETE /anni/:id:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
