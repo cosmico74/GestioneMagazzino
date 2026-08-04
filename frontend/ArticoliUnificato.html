@@ -122,8 +122,8 @@
        ============================================================ */
     .form-row-single {
       display: grid;
-      grid-template-columns: 1.2fr 1.8fr 0.5fr 0.5fr 1fr 0.6fr 0.8fr 0.5fr 0.3fr 1fr;
-      gap: 6px;
+      grid-template-columns: 0.8fr 1.8fr 0.4fr 0.4fr 0.5fr 0.5fr 0.7fr 0.4fr 0.25fr 1.4fr 0.3fr 0.15fr;
+      gap: 5px;
       align-items: end;
       margin-bottom: 4px;
     }
@@ -137,14 +137,17 @@
       font-size: 0.65rem;
       background: #f9fafb;
     }
-    .form-row-single input[type="number"] { max-width: 70px; }
-    .form-row-single input#lunghezza { max-width: 55px; }
-    .form-row-single input#durezza { max-width: 55px; }
-    .form-row-single input#versione { max-width: 45px; }
-    .form-row-single select#anno { max-width: 75px; }
-    .form-row-single select#seasonStatus { max-width: 100px; }
-    .form-row-single .btn { padding: 2px 8px; font-size: 0.65rem; }
-    .form-row-single .checkbox-inline { display: flex; align-items: center; gap: 4px; margin: 0; }
+    .form-row-single input[type="number"] { max-width: 60px; }
+    .form-row-single input#lunghezza { max-width: 50px; }
+    .form-row-single input#durezza { max-width: 50px; }
+    .form-row-single input#variante { max-width: 80px; }
+    .form-row-single input#versione { max-width: 40px; }
+    .form-row-single select#anno { max-width: 70px; }
+    .form-row-single select#seasonStatus { max-width: 90px; }
+    .form-row-single textarea#note { font-size: 0.65rem; padding: 2px 4px; min-height: 28px; resize: vertical; }
+
+    .form-row-single .btn { padding: 2px 6px; font-size: 0.65rem; }
+    .form-row-single .checkbox-inline { display: flex; align-items: center; gap: 3px; margin: 0; }
     .form-row-single .checkbox-inline input { width: auto; margin: 0; }
     .form-row-single .checkbox-inline label { font-size: 0.6rem; font-weight: normal; margin: 0; }
 
@@ -444,25 +447,29 @@
       <div class="form-group"><label>Lunghezza</label><input type="text" id="lunghezza" list="lunghezzaList" autocomplete="off"><datalist id="lunghezzaList"></datalist></div>
       <!-- Durezza -->
       <div class="form-group"><label>Durezza</label><input type="text" id="durezza" list="durezzaList" autocomplete="off"><datalist id="durezzaList"></datalist></div>
-      <!-- Variante -->
-      <div class="form-group"><label>Variante</label><input type="text" id="variante" list="varianteList" autocomplete="off"><datalist id="varianteList"></datalist></div>
+      <!-- Variante (stretto) -->
+      <div class="form-group"><label>Variante</label><input type="text" id="variante" list="varianteList" autocomplete="off" style="max-width:80px;"><datalist id="varianteList"></datalist></div>
       <!-- Anno -->
       <div class="form-group"><label>Anno *</label><select id="anno" class="form-control"><option value="">Seleziona</option></select></div>
       <!-- Season Status -->
       <div class="form-group"><label>Season Status</label><select id="seasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
       <!-- Quantità -->
-      <div class="form-group"><label>Quantità *</label><input type="number" id="quantita" value="1" min="1" step="1" required></div>
+      <div class="form-group"><label>Qtà *</label><input type="number" id="quantita" value="1" min="1" step="1" required></div>
       <!-- Versione -->
-      <div class="form-group"><label>Versione</label><input type="text" id="versione" value="1.0"></div>
-      <!-- Note + pulsanti (accorpati) -->
-      <div class="form-group" style="display:flex; gap:4px; align-items:center;">
-        <div style="flex:1;"><input type="text" id="note" placeholder="Note" style="width:100%;"></div>
-        <div class="checkbox-inline" style="flex-shrink:0;">
+      <div class="form-group"><label>Versione</label><input type="text" id="versione" value="1.0" style="max-width:40px;"></div>
+      <!-- Note (allargata) -->
+      <div class="form-group"><label>Note</label><textarea id="note" rows="1" style="min-height:28px;"></textarea></div>
+      <!-- Checkbox Austria -->
+      <div class="form-group" style="display:flex; align-items:center; gap:2px; padding-top:10px;">
+        <div class="checkbox-inline">
           <input type="checkbox" id="inventarioAustria" checked>
           <label for="inventarioAustria">🇦🇹</label>
         </div>
-        <button type="button" class="btn" id="saveBtn" onclick="salvaArticolo()" style="flex-shrink:0;">💾</button>
-        <button type="button" class="btn btn-secondary" onclick="resetForm()" style="flex-shrink:0;">🔄</button>
+      </div>
+      <!-- Pulsanti -->
+      <div class="form-group" style="display:flex; gap:3px; align-items:center; padding-top:10px;">
+        <button type="button" class="btn" id="saveBtn" onclick="salvaArticolo()">💾</button>
+        <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄</button>
       </div>
     </div>
   </form>
@@ -628,6 +635,7 @@
     </div>
   </div>
 </div>
+
 
 <script>
 // ============================================================
