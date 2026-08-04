@@ -200,7 +200,7 @@
       font-weight: 600;
       position: sticky;
       top: 0;
-      z-index: 12;
+      z-index: 15;
       cursor: pointer;
       font-size: 0.6rem;
       text-transform: uppercase;
@@ -209,18 +209,27 @@
     tr:hover td { background: #f8fafc; }
     th:hover { background: #e2e8f0; }
 
-    /* 🔒 COLONNE FISSE (prime 3) - classi da applicare alle celle */
-    .col-sticky-1 { position: sticky; left: 0; z-index: 11; background: inherit; }
-    .col-sticky-2 { position: sticky; left: 75px; z-index: 11; background: inherit; }
-    .col-sticky-3 { position: sticky; left: 135px; z-index: 11; background: inherit; }
+    /* 🔒 COLONNE FISSE (prime 3) - CORRETTE */
+    .col-sticky-1, .col-sticky-2, .col-sticky-3 {
+      position: sticky;
+      background: white;
+      z-index: 10;
+    }
+    .col-sticky-1 { left: 0; min-width: 85px; max-width: 85px; }
+    .col-sticky-2 { left: 85px; min-width: 40px; max-width: 40px; }
+    .col-sticky-3 { left: 125px; min-width: 180px; max-width: 180px; }
 
-    /* Le intestazioni delle colonne fisse devono stare sopra le celle */
-    th.col-sticky-1, th.col-sticky-2, th.col-sticky-3 { z-index: 13; }
+    /* Le intestazioni delle colonne fisse devono stare sopra */
+    th.col-sticky-1, th.col-sticky-2, th.col-sticky-3 {
+      background: #f1f5f9;
+      z-index: 20;
+    }
 
-    /* Larghezze fisse per le colonne sticky */
-    .col-sticky-1 { width: 85px; min-width: 85px; max-width: 85px; }
-    .col-sticky-2 { width: 40px; min-width: 40px; max-width: 40px; }
-    .col-sticky-3 { width: 180px; min-width: 180px; max-width: 180px; }
+    /* Le altre celle non devono sovrascrivere */
+    td:not(.col-sticky-1):not(.col-sticky-2):not(.col-sticky-3) {
+      position: relative;
+      z-index: 1;
+    }
 
     /* ============================================================
        SORTING
@@ -862,7 +871,6 @@
 </div>
 
 <script>
-
 // ============================================================
 // UTILITY
 // ============================================================
@@ -989,7 +997,6 @@ async function caricaAnagrafiche() {
     popolaSelect(annoSelect, anniList, 'id', 'anno');
     popolaSelect(seasonStatusSelect, seasonStatusList, 'id', 'nome');
 
-    // Default anno 2026 (id più alto)
     if (anniList.length > 0) {
       const defaultAnno = anniList.find(a => a.anno === 2026) || anniList[0];
       annoSelect.value = defaultAnno.id;
@@ -1295,25 +1302,83 @@ function renderTabellaPaginata() {
     const giac = a.GIACENZA_REALE || 0;
     const row = tbody.insertRow();
     const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
-    row.insertCell(0).innerText = codiceMostrato;
-    row.insertCell(1).innerText = a.articolo_id;
-    row.insertCell(2).innerText = a.descrizione;
-    row.insertCell(3).innerText = a.descrizione_completa;
-    row.insertCell(4).innerText = mag;
-    row.insertCell(5).innerText = settori.find(s => s.id == a.settore)?.nome || '';
-    row.insertCell(6).innerText = cat;
-    row.insertCell(7).innerText = mar;
-    row.insertCell(8).innerText = a.lunghezza || '';
-    row.insertCell(9).innerText = a.durezza || '';
-    row.insertCell(10).innerText = a.variante || '';
-    row.insertCell(11).innerText = a.anno_nome || '';
-    row.insertCell(12).innerText = a.season_status_nome || '';
-    row.insertCell(13).innerText = a.quantita_totale;
-    row.insertCell(14).innerText = giac;
-    row.insertCell(15).innerText = a.quantita_obsoleta || 0;
-    row.insertCell(16).innerText = a.stato || '';
-    row.insertCell(17).innerText = a.inventario_austria ? '✅' : '❌';
 
+    // Colonna 1: Codice (sticky)
+    const td1 = row.insertCell(0);
+    td1.className = 'col-sticky-1';
+    td1.innerText = codiceMostrato;
+
+    // Colonna 2: ID (sticky)
+    const td2 = row.insertCell(1);
+    td2.className = 'col-sticky-2';
+    td2.innerText = a.articolo_id;
+
+    // Colonna 3: Descrizione (sticky)
+    const td3 = row.insertCell(2);
+    td3.className = 'col-sticky-3';
+    td3.innerText = a.descrizione;
+
+    // Colonna 4: Descrizione Completa (non sticky)
+    const td4 = row.insertCell(3);
+    td4.innerText = a.descrizione_completa;
+
+    // Colonna 5: Magazzino
+    const td5 = row.insertCell(4);
+    td5.innerText = mag;
+
+    // Colonna 6: Settore
+    const td6 = row.insertCell(5);
+    td6.innerText = settori.find(s => s.id == a.settore)?.nome || '';
+
+    // Colonna 7: Categoria
+    const td7 = row.insertCell(6);
+    td7.innerText = cat;
+
+    // Colonna 8: Marca
+    const td8 = row.insertCell(7);
+    td8.innerText = mar;
+
+    // Colonna 9: Lunghezza
+    const td9 = row.insertCell(8);
+    td9.innerText = a.lunghezza || '';
+
+    // Colonna 10: Durezza
+    const td10 = row.insertCell(9);
+    td10.innerText = a.durezza || '';
+
+    // Colonna 11: Variante
+    const td11 = row.insertCell(10);
+    td11.innerText = a.variante || '';
+
+    // Colonna 12: Anno
+    const td12 = row.insertCell(11);
+    td12.innerText = a.anno_nome || '';
+
+    // Colonna 13: Season Status
+    const td13 = row.insertCell(12);
+    td13.innerText = a.season_status_nome || '';
+
+    // Colonna 14: Quantità Totale
+    const td14 = row.insertCell(13);
+    td14.innerText = a.quantita_totale;
+
+    // Colonna 15: Giacenza
+    const td15 = row.insertCell(14);
+    td15.innerText = giac;
+
+    // Colonna 16: Quantità Obsoleta
+    const td16 = row.insertCell(15);
+    td16.innerText = a.quantita_obsoleta || 0;
+
+    // Colonna 17: Stato
+    const td17 = row.insertCell(16);
+    td17.innerText = a.stato || '';
+
+    // Colonna 18: Inventario Austria
+    const td18 = row.insertCell(17);
+    td18.innerText = a.inventario_austria ? '✅' : '❌';
+
+    // Colonna 19: Sigle (pulsante)
     const tdSigle = row.insertCell(18);
     const btnSigle = document.createElement('button');
     btnSigle.textContent = '🔖';
@@ -1323,6 +1388,7 @@ function renderTabellaPaginata() {
     btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione, a.lunghezza);
     tdSigle.appendChild(btnSigle);
 
+    // Colonna 20: Azioni
     const actions = row.insertCell(19);
     actions.className = 'action-buttons';
     const btnMod = document.createElement('button');
@@ -1477,9 +1543,16 @@ async function salvaModifica() {
   if (!dati.descrizione) { showMessage('Descrizione obbligatoria', 'error'); return; }
   try {
     const res = await apiFetch('/articoli/' + id, { method: 'PUT', body: JSON.stringify(dati) });
-    if (res.success) { showMessage('Aggiornato', 'success'); chiudiModale(); caricaArticoli(); }
-    else showMessage(res.message, 'error');
-  } catch(err) { showMessage(err.message, 'error'); }
+    if (res.success) {
+      showMessage('Aggiornato', 'success');
+      chiudiModale();
+      await caricaArticoli(); // Ricarica la tabella per aggiornare la quantità
+    } else {
+      showMessage(res.message, 'error');
+    }
+  } catch(err) {
+    showMessage(err.message, 'error');
+  }
 }
 
 function chiudiModale() { document.getElementById('modalEdit').style.display = 'none'; }
@@ -1525,7 +1598,7 @@ async function caricaSigleArticolo(articoloId) {
       qtaInput.type = 'number';
       qtaInput.min = 0;
       qtaInput.value = s.quantita || 0;
-      qtaInput.style.width = '80px';
+      qtaInput.style.width = '70px';
       qtaInput.dataset.siglaId = s.id;
       qtaInput.addEventListener('input', function() { if (this.value === '' || this.value === '-') this.value = 0; });
       qtaCell.appendChild(qtaInput);
@@ -1537,7 +1610,7 @@ async function caricaSigleArticolo(articoloId) {
       qtaAustriaInput.type = 'number';
       qtaAustriaInput.min = 0;
       qtaAustriaInput.value = s.quantita_austria || 0;
-      qtaAustriaInput.style.width = '80px';
+      qtaAustriaInput.style.width = '70px';
       qtaAustriaInput.dataset.siglaId = s.id;
       qtaAustriaInput.dataset.articoloId = articoloId;
       qtaAustriaCell.appendChild(qtaAustriaInput);
