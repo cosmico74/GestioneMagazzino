@@ -394,37 +394,47 @@ async function refreshEditDatalists() {
 async function modificaArticolo(id) {
   try {
     const btn = document.getElementById('btnSalvaModifica');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
 
     const art = articoliCorrente.find(a => a.articolo_id == id);
     if (!art) { showMessage('Articolo non trovato', 'error'); return; }
-    document.getElementById('editId').value = art.articolo_id;
+    
+    const elId = document.getElementById('editId');
+    if (elId) elId.value = art.articolo_id;
+
     await caricaSelectsModale();
-    document.getElementById('editMagazzino').value = art.magazzino;
-    document.getElementById('editSettore').value = art.settore;
-    document.getElementById('editCategoria').value = art.categoria;
+
+    // Impostazione sicura dei campi (previene "Cannot set properties of null")
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    setVal('editMagazzino', art.magazzino);
+    setVal('editSettore', art.settore);
+    setVal('editCategoria', art.categoria);
+    
     const marcaSelect = document.getElementById('editMarca');
     await caricaMarchePerCategoria(art.categoria, marcaSelect, art.marca);
-    document.getElementById('editDescrizione').value = art.descrizione;
-    document.getElementById('editLunghezza').value = art.lunghezza || '';
-    document.getElementById('editDurezza').value = art.durezza || '';
-    document.getElementById('editVariante').value = art.variante || '';
-    document.getElementById('editAnno').value = art.anno_id || '';
-    document.getElementById('editSeasonStatus').value = art.season_status_id || '';
-    document.getElementById('editCodiceModello').value = art.codice_modello || '';
-    document.getElementById('editQuantita').value = art.quantita_totale;
-    document.getElementById('editNote').value = art.note || '';
-    document.getElementById('editInventarioAustria').checked = art.inventario_austria == 1;
+    
+    setVal('editDescrizione', art.descrizione);
+    setVal('editLunghezza', art.lunghezza || '');
+    setVal('editDurezza', art.durezza || '');
+    setVal('editVariante', art.variante || '');
+    setVal('editAnno', art.anno_id || '');
+    setVal('editSeasonStatus', art.season_status_id || '');
+    setVal('editCodiceModello', art.codice_modello || '');
+    setVal('editQuantita', art.quantita_totale);
+    setVal('editNote', art.note || '');
+    
+    const elAustria = document.getElementById('editInventarioAustria');
+    if (elAustria) elAustria.checked = art.inventario_austria == 1;
+
     await refreshEditDatalists();
     document.getElementById('modalEdit').style.display = 'flex';
+
   } catch (err) {
     showMessage('Errore nel caricamento della modifica: ' + err.message, 'error');
     console.error(err);
   } finally {
     const btn = document.getElementById('btnSalvaModifica');
-    btn.disabled = false;
-    btn.innerHTML = '💾 Salva modifiche';
+    if (btn) { btn.disabled = false; btn.innerHTML = '💾 Salva modifiche'; }
   }
 }
 async function salvaModifica() {
