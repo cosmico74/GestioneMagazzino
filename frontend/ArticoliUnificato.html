@@ -573,6 +573,8 @@
       <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
       <div class="filter-group"><label>Anno</label><select id="filtroAnno" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
       <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+      <!-- 🔥 NUOVO filtro codice -->
+      <div class="filter-group"><label>Codice</label><input type="text" id="filtroCodice" placeholder="Cerca codice..." oninput="caricaArticoli()" class="form-control"></div>
       <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
     </div>
   </div>
@@ -665,10 +667,10 @@
       </div>
       <div class="pagination-info">
         <span id="paginationStats">Mostrando 0-0 di 0</span>
-        <button class="btn btn-secondary" id="btnPrevPage" onclick="paginaPrecedente()">◀ Precedente</button>
+        <button class="btn btn-secondary" id="btnPrevPage" onclick="paginaPrecedente()">◀</button>
         <span id="paginationCurrentPage">1</span>
-        <button class="btn btn-secondary" id="btnNextPage" onclick="paginaSuccessiva()">Successiva ▶</button>
-        <span style="font-size:0.6rem;">Vai a pagina <input type="number" id="gotoPageInput" min="1" style="width:50px;" onchange="vaiAPagina(this.value)"></span>
+        <button class="btn btn-secondary" id="btnNextPage" onclick="paginaSuccessiva()">▶</button>
+        <input type="number" id="gotoPageInput" min="1" style="width:50px;" onchange="vaiAPagina(this.value)">
       </div>
     </div>
   </div>
@@ -765,8 +767,10 @@
         <div class="modal-grid-2">
           <div class="form-group">
             <label>Quantità Totale</label>
-            <input type="number" id="editQuantita" class="form-control" min="0" readonly>
-            <small class="field-note"><i>⚠️ Gestisci la quantità dal modale delle sigle (🔖)</i></small>
+            <!-- 🔥 Sostituito l'input con una nota statica -->
+            <div class="form-control" style="background:#f0f2f5; cursor:not-allowed; color:#6c757d;">
+              La quantità si modifica nella gestione delle sigle
+            </div>
           </div>
           <div class="form-group">
             <label>Inventario Austria</label>
@@ -934,6 +938,8 @@ const filtroCat = document.getElementById('filtroCategoria');
 const filtroMar = document.getElementById('filtroMarca');
 const filtroAnno = document.getElementById('filtroAnno');
 const filtroSeason = document.getElementById('filtroSeasonStatus');
+// 🔥 nuovo filtro codice (Dichiarazione corretta qui)
+const filtroCodice = document.getElementById('filtroCodice');
 
 const descrizioneInput = document.getElementById('descrizione');
 const codiceModelloInput = document.getElementById('codice_modello');
@@ -1070,8 +1076,8 @@ function getCurrentFilters() {
     durezza: durezzaInput.value.trim(),
     variante: varianteInput.value.trim(),
     // 🔥 Anno e Season Status presi DAL MODULO di inserimento
-    anno_id: annoSelect.value || null, // <-- CORRETTO (prima era filtroAnno.value)
-    season_status_id: seasonStatusSelect.value || null, // <-- CORRETTO (prima era filtroSeason.value)
+    anno_id: annoSelect.value || null,
+    season_status_id: seasonStatusSelect.value || null,
     // 🔥 Campo di ricerca libero (Codice nella barra filtri)
     codice: filtroCodice.value.trim()
   };
@@ -1119,6 +1125,7 @@ async function caricaArticoli() {
     if (f.variante) params.append('variante', f.variante);
     if (f.anno_id) params.append('anno_id', f.anno_id);
     if (f.season_status_id) params.append('season_status_id', f.season_status_id);
+    if (f.codice) params.append('codice', f.codice); // 🔥
 
     const res = await apiFetch('/articoli?' + params.toString());
     if (res.success) {
@@ -1209,6 +1216,7 @@ function resetFiltri() {
   filtroMar.value = '';
   filtroAnno.value = '';
   filtroSeason.value = '';
+  filtroCodice.value = ''; // 🔥
   descrizioneInput.value = '';
   varianteInput.value = '';
   seasonStatusSelect.value = '';
@@ -1522,6 +1530,7 @@ async function modificaArticolo(id) {
   document.getElementById('editAnno').value = art.anno_id || '';
   document.getElementById('editSeasonStatus').value = art.season_status_id || '';
   document.getElementById('editCodiceModello').value = art.codice_modello || '';
+  // 🔥 Quantità rimossa – mostriamo solo il valore
   document.getElementById('editQuantita').value = art.quantita_totale;
   document.getElementById('editNote').value = art.note || '';
   document.getElementById('editInventarioAustria').checked = art.inventario_austria == 1;
@@ -1822,6 +1831,8 @@ function attachFormEvents() {
   });
   annoSelect.addEventListener('change', () => { caricaArticoli(); });
   seasonStatusSelect.addEventListener('change', () => { caricaArticoli(); });
+  // 🔥 aggiungi listener per il filtro codice
+  filtroCodice.addEventListener('input', () => { caricaArticoli(); });
 }
 
 window.onload = async () => {
