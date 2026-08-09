@@ -40,7 +40,7 @@ async function canUserUseMagazzino(userId, userRole, magazzinoId) {
 }
 
 // ============================================================
-// 🔥 HELPER: verifica duplicati su (descrizione, lunghezza, season_status_id, variante, anno_id)
+// HELPER: verifica duplicati su (descrizione, lunghezza, season_status_id, variante, anno_id)
 // ============================================================
 async function checkDuplicate(connection, descrizione, lunghezza, seasonStatusId, variante, annoId, excludeId = null) {
   let sql = `
@@ -420,7 +420,7 @@ router.delete('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/articoli - con controllo duplicati
+// POST /api/articoli
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
   const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria, variante, season_status_id, anno_id } = req.body;
@@ -433,7 +433,7 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // 🔥 CONTROLLO DUPLICATI (include anno_id)
+    // 🔥 CONTROLLO DUPLICATI
     const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null, anno_id || 5);
     if (exists) {
       await connection.rollback();
@@ -480,6 +480,7 @@ router.post('/', verifyToken, async (req, res) => {
     );
     const siglaId = siglaResult.insertId;
 
+    // 🔥 Ricalcola quantità totale
     await ricalcolaQuantitaTotale(connection, newId);
 
     const [newRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [newId]);
@@ -501,7 +502,7 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /api/articoli/:id - con controllo duplicati
+// PUT /api/articoli/:id - con ricalcolo quantità sempre
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
@@ -528,6 +529,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 
     const [oldRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
 
+    // Aggiornamento quantità se la sigla "NA" è presente (per retrocompatibilità)
     if (quantita_totale !== undefined) {
       const [sigle] = await connection.query(
         'SELECT id, sigla FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1',
@@ -541,7 +543,6 @@ router.put('/:id', verifyToken, async (req, res) => {
         const [oldSigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [sigle[0].id]);
         const [newSigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [sigle[0].id]);
         await registraAudit(connection, 'sigle_articoli', 'MODIFICA', sigle[0].id, oldSigla[0], newSigla[0], req.userId);
-        await ricalcolaQuantitaTotale(connection, id);
       }
     }
 
@@ -557,6 +558,11 @@ router.put('/:id', verifyToken, async (req, res) => {
     `, [descrizione, lunghezza, durezza, quantita_totale, quantita_obsoleta, versione, stato, note, codiceModello,
         magazzino, settore, categoria, marca, invAustria, req.userId,
         variante || null, season_status_id || null, anno_id || 5, id]);
+
+    // 🔥 FORZA IL RICALCOLO DELLA QUANTITÀ TOTALE dalla somma delle sigle
+    // Questo garantisce che quantita_totale sia sempre la somma delle sigle attive
+    // e risolve il problema di discrepanza dopo la modifica di campi che non riguardano le quantità
+    await ricalcolaQuantitaTotale(connection, id);
 
     const [newRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
     await registraAudit(connection, 'articoli', 'MODIFICA', id, oldRow[0], newRow[0], req.userId);
