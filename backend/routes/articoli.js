@@ -308,6 +308,7 @@ router.put('/sigle/:id', verifyToken, async (req, res) => {
   }
 });
 
+/** 🔥 MODIFICATO: Aggiorna la quantità E l'Austria contemporaneamente (con fix del bug stringhe) */
 router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
   console.log('🔍 PUT /sigle/:id/quantita - body ricevuto:', req.body);
   const { quantita } = req.body;
@@ -326,9 +327,12 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
     if (!oldRows.length) throw new Error('Sigla non trovata');
     const oldData = oldRows[0];
     const articoloId = oldData.articolo_id;
+
     if (quantitaNum > oldData.quantita) {
       console.log('📈 Aumento quantità: da', oldData.quantita, 'a', quantitaNum, '- nessun controllo');
-      await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantitaNum, req.params.id]);
+      // 🔥 Aggiorna sia quantita che quantita_austria
+      await connection.query('UPDATE sigle_articoli SET quantita = ?, quantita_austria = ? WHERE id = ?', [quantitaNum, quantitaNum, req.params.id]);
+      
       const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
       const newData = newRows[0];
       await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
@@ -336,32 +340,43 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       await connection.commit();
       return res.json({ success: true, message: 'Quantità aggiornata (aumento)' });
     }
-    const [usedInKit] = await connection.query(
+
+    // 🔥 Recupera quantità impegnate
+    const [usedInKitRaw] = await connection.query(
       'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
       [req.params.id]
     );
-    const [assegnato] = await connection.query(
+    const [assegnatoRaw] = await connection.query(
       'SELECT COALESCE(SUM(quantita), 0) AS totale FROM carico_sintesi WHERE sigla_id = ? AND tipo_oggetto = ?',
       [req.params.id, 'ARTICOLO']
     );
-    const impegnato = usedInKit[0].totale + assegnato[0].totale;
+    
+    // 🔥 FIX CRITICO: Converti esplicitamente in numeri per evitare concatenazioni di stringhe (es. "3" + "0" = "30")
+    const usedInKit = Number(usedInKitRaw[0].totale) || 0;
+    const assegnato = Number(assegnatoRaw[0].totale) || 0;
+    const impegnato = usedInKit + assegnato;
+
     console.log('🔍 DEBUG riduzione sigla:', {
       siglaId: req.params.id,
       siglaNome: oldData.sigla,
       articoloId: oldData.articolo_id,
       quantitaAttuale: oldData.quantita,
       nuovaQuantita: quantitaNum,
-      inKit: usedInKit[0].totale,
-      assegnato: assegnato[0].totale,
+      inKit: usedInKit,
+      assegnato: assegnato,
       impegnato: impegnato
     });
+    
     if (quantitaNum < impegnato) {
       await connection.rollback();
       return res.status(400).json({
-        error: `Impossibile ridurre la sigla: ${impegnato} unità sono già impegnate (${usedInKit[0].totale} in kit, ${assegnato[0].totale} assegnate)`
+        error: `Impossibile ridurre la sigla: ${impegnato} unità sono già impegnate (${usedInKit} in kit, ${assegnato} assegnate)`
       });
     }
-    await connection.query('UPDATE sigle_articoli SET quantita = ? WHERE id = ?', [quantitaNum, req.params.id]);
+    
+    // 🔥 Aggiorna sia quantita che quantita_austria
+    await connection.query('UPDATE sigle_articoli SET quantita = ?, quantita_austria = ? WHERE id = ?', [quantitaNum, quantitaNum, req.params.id]);
+
     const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     const newData = newRows[0];
     await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);

@@ -52,19 +52,22 @@ async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, sigla
   else await connection.query(`UPDATE carico_sintesi SET quantita = ? WHERE id = ?`, [nuovaQuantita, row.id]);
 }
 
-/** Sottrae la quantità venduta dal magazzino, gestendo la giacenza sugli articoli e sulle sigle */
+/** 🔥 MODIFICATO: Sottrae la quantità venduta dal magazzino E DA AUSTRIA contemporaneamente */
 async function decrementaArticoloConSigla(connection, articoloId, siglaId, quantita) {
   const [art] = await connection.query('SELECT quantita_totale, quantita_obsoleta FROM articoli WHERE articolo_id = ? FOR UPDATE', [articoloId]);
   const giacenza = art[0].quantita_totale - (art[0].quantita_obsoleta || 0);
   if (giacenza < quantita) throw new Error(`Quantità insufficiente per articolo ${articoloId}`);
+
   if (siglaId) {
-    const [sigla] = await connection.query('SELECT quantita FROM sigle_articoli WHERE id = ? AND articolo_id = ? AND attivo = 1 FOR UPDATE', [siglaId, articoloId]);
+    const [sigla] = await connection.query('SELECT quantita, quantita_austria FROM sigle_articoli WHERE id = ? AND articolo_id = ? AND attivo = 1 FOR UPDATE', [siglaId, articoloId]);
     if (!sigla.length || sigla[0].quantita < quantita) throw new Error(`Quantità insufficiente per la sigla ${siglaId}`);
-    await connection.query('UPDATE sigle_articoli SET quantita = quantita - ? WHERE id = ?', [quantita, siglaId]);
+    // 🔥 Decrementa sia quantita che quantita_austria insieme
+    await connection.query('UPDATE sigle_articoli SET quantita = quantita - ?, quantita_austria = quantita_austria - ? WHERE id = ?', [quantita, quantita, siglaId]);
   } else {
     const [sigla] = await connection.query('SELECT id FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1 AND quantita >= ? FOR UPDATE', [articoloId, quantita]);
     if (!sigla.length) throw new Error(`Nessuna sigla con quantità sufficiente per articolo ${articoloId}`);
-    await connection.query('UPDATE sigle_articoli SET quantita = quantita - ? WHERE id = ?', [quantita, sigla[0].id]);
+    // 🔥 Decrementa sia quantita che quantita_austria insieme
+    await connection.query('UPDATE sigle_articoli SET quantita = quantita - ?, quantita_austria = quantita_austria - ? WHERE id = ?', [quantita, quantita, sigla[0].id]);
   }
   await ricalcolaQuantitaTotale(connection, articoloId);
 }
@@ -188,7 +191,6 @@ router.put('/:id', verifyToken, async (req, res) => {
       'UPDATE vendite SET stato_consegna = COALESCE(?, stato_consegna), tipo_documento = ?, data_documento = ?, numero_documento = ?, note = ?, importo = ? WHERE id = ?',
       [stato_consegna, tipo_documento || null, data_documento || null, numero_documento || null, note || null, importo || null, id]
     );
-    // 🔥 Se è stata appena effettuata la consegna, cancella la sigla associata al movimento
     if (stato_consegna === 'CONSEGNATO') {
       await connection.query(
         `UPDATE movimenti SET sigla_id = NULL WHERE id = (SELECT movimento_id FROM vendite WHERE id = ?)`,
@@ -222,7 +224,6 @@ router.post('/consegna-massiva', verifyToken, async (req, res) => {
         'UPDATE vendite SET stato_consegna = "CONSEGNATO", note = ? WHERE id = ?',
         [nuovaNota, id]
       );
-      // 🔥 Cancella la sigla associata al movimento di questa vendita
       await connection.query(
         `UPDATE movimenti SET sigla_id = NULL WHERE id = ?`,
         [vendita[0].movimento_id]
