@@ -65,8 +65,6 @@
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #e2e8f0; border-top-color: #1a73e8; border-radius: 50%; animation: spin 0.6s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 768px) { .filter-bar { flex-direction: column; align-items: stretch; } }
-    .hidden-filter { display: none !important; }
-    .btn-action-cell { display: flex; gap: 4px; }
   </style>
 </head>
 <body>
@@ -114,6 +112,8 @@
     <div class="btn-group" style="display:flex; gap:6px; align-items:flex-end;">
       <button class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
       <button class="btn btn-warning" onclick="apriModalStorico()">📜 Storico</button>
+      <!-- 🔥 Nuovo pulsante per la consegna massiva (nascosto di default) -->
+      <button class="btn btn-success" id="btnConsegnaMassiva" style="display:none;" onclick="apriModaleConsegnaMassiva()">📦 Effettua Consegna Selezionati</button>
     </div>
   </div>
 
@@ -133,6 +133,7 @@
           <th data-sort="magazzinoNome">Magazzino / Soggetto <span class="sort-arrow" data-col="magazzinoNome">▲</span></th>
         </tr>
         <tr id="rigaHeaderStato" style="display:none;">
+          <th class="checkbox-col"><input type="checkbox" id="selectAllConsegne" onclick="toggleSelectAllConsegne()"></th>
           <th>ID</th>
           <th>Data</th>
           <th>Cliente</th>
@@ -174,6 +175,7 @@
   </div>
 </div>
 
+<!-- Modale di Vendita (Già presente, con scelta soggetto, bolla/fattura) -->
 <div id="modalVendita" class="modal">
   <div class="modal-content" style="max-width:700px;">
     <div class="modal-header"><h3>💰 Conferma Vendita</h3><span class="close" onclick="chiudiModaleVendita()">&times;</span></div>
@@ -191,6 +193,7 @@
   </div>
 </div>
 
+<!-- Modale per Nuovo Cliente -->
 <div id="modalNuovoCliente" class="modal">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header"><h3>➕ Nuovo Cliente</h3><span class="close" onclick="chiudiModaleNuovoCliente()">&times;</span></div>
@@ -203,6 +206,7 @@
   </div>
 </div>
 
+<!-- Modale Storico Vendite -->
 <div id="modalStorico" class="modal">
   <div class="modal-content" style="max-width:1100px;">
     <div class="modal-header"><h3>📜 Storico Vendite</h3><span class="close" onclick="chiudiModalStorico()">&times;</span></div>
@@ -214,6 +218,24 @@
   </div>
 </div>
 
+<!-- 🔥 NUOVA MODALE: Consegna Massiva con Note -->
+<div id="modalConsegnaMassiva" class="modal">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header"><h3>📦 Conferma Consegna Massiva</h3><span class="close" onclick="chiudiModaleConsegnaMassiva()">&times;</span></div>
+    <div id="consegnaMassivaRiepilogo" style="margin-bottom:15px;"></div>
+    <div class="form-group">
+      <label>Note di Consegna (opzionali)</label>
+      <textarea id="noteConsegnaMassiva" class="form-control" rows="3" placeholder="Inserisci eventuali note per la consegna..."></textarea>
+      <small style="color:#6c757d; font-size:0.7rem;">Le note verranno accodate a quelle già esistenti per ogni vendita.</small>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="chiudiModaleConsegnaMassiva()">Annulla</button>
+      <button class="btn btn-success" id="btnConfermaConsegnaMassiva" onclick="confermaConsegnaMassiva()">✅ Conferma Consegna</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale Modifica Vendita Singola -->
 <div id="modalModificaVendita" class="modal">
   <div class="modal-content" style="max-width:600px;">
     <div class="modal-header"><h3>✏️ Modifica Vendita #<span id="modificaVenditaId">-</span></h3><span class="close" onclick="chiudiModificaVendita()">&times;</span></div>
@@ -246,9 +268,6 @@ function logout() { localStorage.removeItem('token'); localStorage.removeItem('u
 /** Formatta una data ISO in una stringa leggibile (gg-mm-aaaa hh:mm) */
 function formatDate(d) { if (!d) return '-'; const dt = new Date(d); return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear() + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0'); }
 
-/** Formatta una data ISO in solo giorno (gg-mm-aaaa) */
-function formatDateShort(d) { if (!d) return '-'; const dt = new Date(d); return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear(); }
-
 let sortColumn = 'numero';
 let sortAsc = true;
 let currentUser = null;
@@ -257,6 +276,7 @@ let clienti = [];
 let oggetti = [];
 let oggettiFiltrati = [];
 let selezione = [];
+let selezioneConsegna = []; // 🔥 Nuovo array per gestire gli ID delle consegne selezionate
 let storicoVendite = [];
 let storicoFiltrato = [];
 let paginaCorrente = 1, righePerPagina = 25;
@@ -280,7 +300,9 @@ function cambiaModalitaVista() {
   document.getElementById('soggettoSection').style.display = isVendita ? 'none' : 'none';
   document.getElementById('filtriGenerali').style.display = isVendita ? 'flex' : 'none';
   document.getElementById('selectedContainer').style.display = 'none';
+  document.getElementById('btnConsegnaMassiva').style.display = 'none';
   selezione = [];
+  selezioneConsegna = []; // 🔥 Resetta la selezione delle consegne
   document.getElementById('rigaHeaderVendita').style.display = isVendita ? 'table-row' : 'none';
   document.getElementById('rigaHeaderStato').style.display = isVendita ? 'none' : 'table-row';
   if (!isVendita) { sourceMag.checked = false; sourceSog.checked = true; }
@@ -587,7 +609,7 @@ async function caricaOggetti() {
   }
 }
 
-/** Renderizza la tabella dei dati applicando la paginazione. Se non è in modalità vendita, mostra i pulsanti di azione per stato */
+/** Renderizza la tabella. In modalità Vendita mostra checkbox per la selezione acquisto, in altre mostra checkbox per la selezione consegna */
 function renderTabella() {
   const tbody = document.getElementById('tabellaBody');
   tbody.innerHTML = '';
@@ -605,8 +627,11 @@ function renderTabella() {
   const pagina = oggettiFiltrati.slice(start, end);
   updatePagination(totali, start, end);
   selezione = [];
+  selezioneConsegna = [];
   document.getElementById('selectedContainer').style.display = 'none';
+  document.getElementById('btnConsegnaMassiva').style.display = 'none';
   document.getElementById('selectAll').checked = false;
+  document.getElementById('selectAllConsegne').checked = false;
 
   if (modalitaVista === 'VENDITA') {
     pagina.forEach((obj, idx) => {
@@ -617,12 +642,8 @@ function renderTabella() {
       chk.dataset.index = start + idx;
       chk.addEventListener('change', function() {
         const i = parseInt(this.dataset.index);
-        if (this.checked) {
-          if (!selezione.includes(i)) selezione.push(i);
-        } else {
-          const pos = selezione.indexOf(i);
-          if (pos > -1) selezione.splice(pos, 1);
-        }
+        if (this.checked) { if (!selezione.includes(i)) selezione.push(i); }
+        else { const pos = selezione.indexOf(i); if (pos > -1) selezione.splice(pos, 1); }
         aggiornaSelezione();
       });
       const tdChk = row.insertCell(0);
@@ -644,25 +665,38 @@ function renderTabella() {
     return;
   }
 
+  // Renderizzazione per le modalità "IN_CONSEGNA" e "CONSEGNATO"
   pagina.forEach((obj) => {
     const row = tbody.insertRow();
+    // 🔥 Aggiunta checkbox per selezione massiva
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'row-checkbox-consegna';
+    chk.dataset.id = obj.id;
+    chk.addEventListener('change', function() {
+      const id = parseInt(this.dataset.id);
+      if (this.checked) { if (!selezioneConsegna.includes(id)) selezioneConsegna.push(id); }
+      else { const pos = selezioneConsegna.indexOf(id); if (pos > -1) selezioneConsegna.splice(pos, 1); }
+      aggiornaSelezioneConsegna();
+    });
+    const tdChk = row.insertCell(0);
+    tdChk.className = 'checkbox-col';
+    tdChk.appendChild(chk);
+
     const badge = obj.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
-    row.insertCell(0).innerText = obj.id;
-    row.insertCell(1).innerText = formatDate(obj.data);
-    row.insertCell(2).innerText = obj.cliente;
-    row.insertCell(3).innerText = obj.descrizione;
-    row.insertCell(4).innerHTML = '<span class="badge ' + badge + '">' + (obj.tipo || '') + '</span>';
-    row.insertCell(5).innerText = obj.quantita || 0;
-    row.insertCell(6).innerText = obj.importo || '';
-    row.insertCell(7).innerText = obj.note || '';
+    row.insertCell(1).innerText = obj.id;
+    row.insertCell(2).innerText = formatDate(obj.data);
+    row.insertCell(3).innerText = obj.cliente;
+    row.insertCell(4).innerText = obj.descrizione;
+    row.insertCell(5).innerHTML = '<span class="badge ' + badge + '">' + (obj.tipo || '') + '</span>';
+    row.insertCell(6).innerText = obj.quantita || 0;
+    row.insertCell(7).innerText = obj.importo || '';
+    row.insertCell(8).innerText = obj.note || '';
     const statoBadge = obj.stato_consegna === 'CONSEGNATO' ? 'badge-consegnato' : 'badge-attesa';
-    row.insertCell(8).innerHTML = '<span class="badge ' + statoBadge + '">' + (obj.stato_consegna || '-') + '</span>';
-    const actionCell = row.insertCell(9);
-    if (obj.stato_consegna === 'IN_CONSEGNA') {
-      actionCell.innerHTML = `<button class="btn btn-success btn-sm" onclick="segnaConsegnatoDaMain(${obj.id})">✅ Segna consegnato</button>`;
-    } else {
-      actionCell.innerHTML = `<button class="btn btn-warning btn-sm" onclick="apriModificaVendita(${obj.id})">✏️ Modifica</button>`;
-    }
+    row.insertCell(9).innerHTML = '<span class="badge ' + statoBadge + '">' + (obj.stato_consegna || '-') + '</span>';
+    const actionCell = row.insertCell(10);
+    // 🔥 Rimosso il pulsante singolo "Segna consegnato". Sostituito con pulsante "Modifica" se necessario.
+    actionCell.innerHTML = `<button class="btn btn-warning btn-sm" onclick="apriModificaVendita(${obj.id})">✏️ Modifica</button>`;
   });
 }
 
@@ -676,62 +710,37 @@ function updatePagination(totali, start, end) {
   document.getElementById('gotoPageInput').max = totPag || 1;
 }
 
-function cambiaRighePerPagina() {
-  righePerPagina = parseInt(document.getElementById('rowsPerPage').value);
-  paginaCorrente = 1;
-  renderTabella();
-}
+function cambiaRighePerPagina() { righePerPagina = parseInt(document.getElementById('rowsPerPage').value); paginaCorrente = 1; renderTabella(); }
+function paginaPrecedente() { if (paginaCorrente > 1) { paginaCorrente--; renderTabella(); } }
+function paginaSuccessiva() { const max = Math.ceil(oggettiFiltrati.length / righePerPagina); if (paginaCorrente < max) { paginaCorrente++; renderTabella(); } }
+function vaiAPagina(v) { const p = parseInt(v); if (p && p > 0) { const max = Math.ceil(oggettiFiltrati.length / righePerPagina); if (p <= max) { paginaCorrente = p; renderTabella(); } } }
 
-function paginaPrecedente() {
-  if (paginaCorrente > 1) { paginaCorrente--; renderTabella(); }
-}
-
-function paginaSuccessiva() {
-  const max = Math.ceil(oggettiFiltrati.length / righePerPagina);
-  if (paginaCorrente < max) { paginaCorrente++; renderTabella(); }
-}
-
-function vaiAPagina(v) {
-  const p = parseInt(v);
-  if (p && p > 0) {
-    const max = Math.ceil(oggettiFiltrati.length / righePerPagina);
-    if (p <= max) { paginaCorrente = p; renderTabella(); }
-  }
-}
-
-/** Gestisce la selezione/deselezione di massa tramite la checkbox nell'header */
+/** Gestisce la selezione/deselezione di massa per la vendita */
 function toggleSelectAll() {
   const c = document.getElementById('selectAll').checked;
   const cbs = document.querySelectorAll('.row-checkbox');
-  if (c) {
-    selezione = [];
-    cbs.forEach(cb => {
-      cb.checked = true;
-      const idx = parseInt(cb.dataset.index);
-      if (!isNaN(idx) && !selezione.includes(idx)) selezione.push(idx);
-    });
-  } else {
-    cbs.forEach(cb => cb.checked = false);
-    selezione = [];
-  }
+  if (c) { selezione = []; cbs.forEach(cb => { cb.checked = true; const idx = parseInt(cb.dataset.index); if (!isNaN(idx) && !selezione.includes(idx)) selezione.push(idx); }); }
+  else { cbs.forEach(cb => cb.checked = false); selezione = []; }
   aggiornaSelezione();
 }
 
-function deselezionaTutti() {
-  document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-  selezione = [];
-  aggiornaSelezione();
+/** 🔥 Gestisce la selezione/deselezione di massa per le consegne */
+function toggleSelectAllConsegne() {
+  const c = document.getElementById('selectAllConsegne').checked;
+  const cbs = document.querySelectorAll('.row-checkbox-consegna');
+  if (c) { selezioneConsegna = []; cbs.forEach(cb => { cb.checked = true; const id = parseInt(cb.dataset.id); if (!isNaN(id) && !selezioneConsegna.includes(id)) selezioneConsegna.push(id); }); }
+  else { cbs.forEach(cb => cb.checked = false); selezioneConsegna = []; }
+  aggiornaSelezioneConsegna();
 }
+
+function deselezionaTutti() { document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false); selezione = []; aggiornaSelezione(); }
 
 /** Aggiorna il riepilogo degli oggetti selezionati per la vendita */
 function aggiornaSelezione() {
   const container = document.getElementById('selectedContainer');
   const tbody = document.getElementById('selectedBody');
   tbody.innerHTML = '';
-  if (selezione.length === 0) {
-    container.style.display = 'none';
-    return;
-  }
+  if (selezione.length === 0) { container.style.display = 'none'; return; }
   container.style.display = 'block';
   let totali = 0;
   const unique = [...new Set(selezione)];
@@ -748,17 +757,18 @@ function aggiornaSelezione() {
   document.getElementById('selectedLabel').innerHTML = '📦 Oggetti selezionati (' + unique.length + ' oggetti, totale ' + totali + ' unità):';
 }
 
-/** Resetta i campi di testo e i filtri della barra di ricerca */
-function resetFiltri() {
-  filtroDescrizione.value = '';
-  filtroSigla.value = '';
-  filtroTipo.value = 'TUTTI';
-  if (magazzini.length > 0) {
-    const race = magazzini.find(m => m.nome.toLowerCase() === 'race');
-    filtroMagazzino.value = race ? race.id : magazzini[0].id;
+/** 🔥 Aggiorna la visibilità del pulsante di consegna massiva in base alla selezione */
+function aggiornaSelezioneConsegna() {
+  const btn = document.getElementById('btnConsegnaMassiva');
+  if (selezioneConsegna.length > 0 && modalitaVista === 'IN_CONSEGNA') {
+    btn.style.display = 'inline-block';
+  } else {
+    btn.style.display = 'none';
   }
-  caricaOggetti();
 }
+
+/** Resetta i campi di testo e i filtri della barra di ricerca */
+function resetFiltri() { filtroDescrizione.value = ''; filtroSigla.value = ''; filtroTipo.value = 'TUTTI'; if (magazzini.length > 0) { const race = magazzini.find(m => m.nome.toLowerCase() === 'race'); filtroMagazzino.value = race ? race.id : magazzini[0].id; } caricaOggetti(); }
 
 /** Mostra/nasconde i filtri per il soggetto e il magazzino in base al radiobutton selezionato e alla Modalità */
 function toggleSorgente() {
@@ -778,249 +788,69 @@ sourceMag.addEventListener('change', toggleSorgente);
 sourceSog.addEventListener('change', toggleSorgente);
 
 /** Mostra/nasconde i campi per la Fattura o Bolla nella modale di vendita */
-function toggleDocumentiVendita() {
-  const tipo = document.getElementById('tipoDocumentoVendita').value;
-  const section = document.getElementById('documentiVenditaSection');
-  const labelData = document.getElementById('labelDataDocumento');
-  const labelNum = document.getElementById('labelNumeroDocumento');
-  if (tipo) { section.style.display = 'block'; labelData.innerText = 'Data ' + tipo; labelNum.innerText = 'Numero ' + tipo; }
-  else { section.style.display = 'none'; }
-}
-function toggleModificaDocumenti() {
-  const tipo = document.getElementById('modificaTipoDocumento').value;
-  const section = document.getElementById('modificaDocumentiSection');
-  const labelData = document.getElementById('modificaLabelData');
-  const labelNum = document.getElementById('modificaLabelNumero');
-  if (tipo) { section.style.display = 'block'; labelData.innerText = 'Data ' + tipo; labelNum.innerText = 'Numero ' + tipo; }
-  else { section.style.display = 'none'; }
-}
+function toggleDocumentiVendita() { const tipo = document.getElementById('tipoDocumentoVendita').value; const section = document.getElementById('documentiVenditaSection'); const labelData = document.getElementById('labelDataDocumento'); const labelNum = document.getElementById('labelNumeroDocumento'); if (tipo) { section.style.display = 'block'; labelData.innerText = 'Data ' + tipo; labelNum.innerText = 'Numero ' + tipo; } else { section.style.display = 'none'; } }
+function toggleModificaDocumenti() { const tipo = document.getElementById('modificaTipoDocumento').value; const section = document.getElementById('modificaDocumentiSection'); const labelData = document.getElementById('modificaLabelData'); const labelNum = document.getElementById('modificaLabelNumero'); if (tipo) { section.style.display = 'block'; labelData.innerText = 'Data ' + tipo; labelNum.innerText = 'Numero ' + tipo; } else { section.style.display = 'none'; } }
 
 /** Apre la modale di vendita mostrando il riepilogo degli oggetti selezionati */
-function apriModaleVendita() {
-  if (selezione.length === 0) { showMessage('Seleziona almeno un oggetto', 'error'); return; }
-  let rip = '<strong>📦 Riepilogo vendita:</strong><ul>';
-  let tot = 0;
-  const unique = [...new Set(selezione)];
-  unique.forEach(idx => {
-    const obj = oggettiFiltrati[idx];
-    if (!obj) return;
-    rip += '<li>' + obj.tipo + ' - ' + obj.descrizione + ' (q.' + obj.quantita + ')</li>';
-    tot += obj.quantita;
-  });
-  rip += '</ul><p><strong>Totale unità:</strong> ' + tot + '</p><p><i class="badge badge-attesa">⚠️ Sarà messo IN CONSEGNA e scaricato subito dal magazzino</i></p>';
-  document.getElementById('venditaRiepilogo').innerHTML = rip;
-
-  const now = new Date();
-  const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-  document.getElementById('dataVenditaInput').value = iso;
-  document.getElementById('importoVenditaInput').value = '';
-  document.getElementById('noteVenditaInput').value = '';
-  document.getElementById('tipoDocumentoVendita').value = '';
-  document.getElementById('dataDocumentoVendita').value = '';
-  document.getElementById('numeroDocumentoVendita').value = '';
-  toggleDocumentiVendita();
-  caricaClienti();
-  document.getElementById('modalVendita').style.display = 'flex';
-}
-
+function apriModaleVendita() { if (selezione.length === 0) { showMessage('Seleziona almeno un oggetto', 'error'); return; } let rip = '<strong>📦 Riepilogo vendita:</strong><ul>'; let tot = 0; const unique = [...new Set(selezione)]; unique.forEach(idx => { const obj = oggettiFiltrati[idx]; if (!obj) return; rip += '<li>' + obj.tipo + ' - ' + obj.descrizione + ' (q.' + obj.quantita + ')</li>'; tot += obj.quantita; }); rip += '</ul><p><strong>Totale unità:</strong> ' + tot + '</p><p><i class="badge badge-attesa">⚠️ Sarà messo IN CONSEGNA e scaricato subito dal magazzino</i></p>'; document.getElementById('venditaRiepilogo').innerHTML = rip; const now = new Date(); const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'); document.getElementById('dataVenditaInput').value = iso; document.getElementById('importoVenditaInput').value = ''; document.getElementById('noteVenditaInput').value = ''; document.getElementById('tipoDocumentoVendita').value = ''; document.getElementById('dataDocumentoVendita').value = ''; document.getElementById('numeroDocumentoVendita').value = ''; toggleDocumentiVendita(); caricaClienti(); document.getElementById('modalVendita').style.display = 'flex'; }
 function chiudiModaleVendita() { document.getElementById('modalVendita').style.display = 'none'; }
 
 /** Esegue la chiamata API per registrare la vendita con i dati inseriti nella modale */
-async function confermaVendita() {
-  const clienteId = document.getElementById('clienteSelect').value;
-  if (!clienteId) { showMessage('Seleziona un cliente', 'error'); return; }
-  const data = document.getElementById('dataVenditaInput').value;
-  const importo = document.getElementById('importoVenditaInput').value;
-  const note = document.getElementById('noteVenditaInput').value.trim();
-  const tipoDocumento = document.getElementById('tipoDocumentoVendita').value;
-  const dataDocumento = document.getElementById('dataDocumentoVendita').value;
-  const numeroDocumento = document.getElementById('numeroDocumentoVendita').value.trim();
-
-  const oggettiVendita = [];
-  const unique = [...new Set(selezione)];
-  let sorgenteTipo = null, sorgenteId = null, magazzinoId = null;
-
-  unique.forEach(idx => {
-    const obj = oggettiFiltrati[idx];
-    if (!obj) return;
-    oggettiVendita.push({ tipoOggetto: obj.tipo, oggettoId: obj.id, siglaId: obj.siglaId || null, quantita: obj.quantita });
-    if (!sorgenteTipo) { sorgenteTipo = obj.sorgenteTipo; sorgenteId = obj.sorgenteId; if (sorgenteTipo === 'MAGAZZINO') magazzinoId = obj.sorgenteId; }
-  });
-
-  const payload = {
-    oggetti: oggettiVendita,
-    clienteId: parseInt(clienteId),
-    importo: importo ? parseFloat(importo) : null,
-    data: data || null,
-    note: note || null,
-    sorgenteTipo,
-    sorgenteId,
-    magazzinoId,
-    tipoDocumento: tipoDocumento || null,
-    dataDocumento: dataDocumento || null,
-    numeroDocumento: numeroDocumento || null
-  };
-
-  const btn = document.getElementById('btnConfermaVendita');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
-
-  try {
-    const res = await apiFetch('/vendite', { method: 'POST', body: JSON.stringify(payload) });
-    if (res.success) { showMessage('Vendita registrata con successo! In attesa di consegna.', 'success'); chiudiModaleVendita(); deselezionaTutti(); caricaOggetti(); }
-    else showMessage(res.message, 'error');
-  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = '💰 Vendi (In Consegna)'; }
-}
+async function confermaVendita() { const clienteId = document.getElementById('clienteSelect').value; if (!clienteId) { showMessage('Seleziona un cliente', 'error'); return; } const data = document.getElementById('dataVenditaInput').value; const importo = document.getElementById('importoVenditaInput').value; const note = document.getElementById('noteVenditaInput').value.trim(); const tipoDocumento = document.getElementById('tipoDocumentoVendita').value; const dataDocumento = document.getElementById('dataDocumentoVendita').value; const numeroDocumento = document.getElementById('numeroDocumentoVendita').value.trim(); const oggettiVendita = []; const unique = [...new Set(selezione)]; let sorgenteTipo = null, sorgenteId = null, magazzinoId = null; unique.forEach(idx => { const obj = oggettiFiltrati[idx]; if (!obj) return; oggettiVendita.push({ tipoOggetto: obj.tipo, oggettoId: obj.id, siglaId: obj.siglaId || null, quantita: obj.quantita }); if (!sorgenteTipo) { sorgenteTipo = obj.sorgenteTipo; sorgenteId = obj.sorgenteId; if (sorgenteTipo === 'MAGAZZINO') magazzinoId = obj.sorgenteId; } }); const payload = { oggetti: oggettiVendita, clienteId: parseInt(clienteId), importo: importo ? parseFloat(importo) : null, data: data || null, note: note || null, sorgenteTipo, sorgenteId, magazzinoId, tipoDocumento: tipoDocumento || null, dataDocumento: dataDocumento || null, numeroDocumento: numeroDocumento || null }; const btn = document.getElementById('btnConfermaVendita'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; try { const res = await apiFetch('/vendite', { method: 'POST', body: JSON.stringify(payload) }); if (res.success) { showMessage('Vendita registrata con successo! In attesa di consegna.', 'success'); chiudiModaleVendita(); deselezionaTutti(); caricaOggetti(); } else showMessage(res.message, 'error'); } catch(e) { showMessage('Errore: ' + e.message, 'error'); } finally { btn.disabled = false; btn.innerHTML = '💰 Vendi (In Consegna)'; } }
 
 /** Gestisce la modale per la creazione di un nuovo cliente */
 function apriNuovoCliente() { document.getElementById('modalNuovoCliente').style.display = 'flex'; }
 function chiudiModaleNuovoCliente() { document.getElementById('modalNuovoCliente').style.display = 'none'; }
-async function salvaNuovoCliente() {
-  const nome = document.getElementById('nuovoClienteNome').value.trim();
-  const cognome = document.getElementById('nuovoClienteCognome').value.trim();
-  const email = document.getElementById('nuovoClienteEmail').value.trim();
-  const telefono = document.getElementById('nuovoClienteTelefono').value.trim();
-  const tipo = document.getElementById('nuovoClienteTipo').value;
-  if (!nome) { showMessage('Il nome è obbligatorio', 'error'); return; }
-  try {
-    const payload = { nome, cognome: cognome || null, email: email || null, telefono: telefono || null, tipo, attivo: 1 };
-    const r = await apiFetch('/soggetti', { method: 'POST', body: JSON.stringify(payload) });
-    if (r.success) { showMessage('Cliente creato con successo', 'success'); chiudiModaleNuovoCliente(); await caricaClienti(); const sel = document.getElementById('clienteSelect'); for (let i=0; i<sel.options.length; i++) { if (sel.options[i].value == r.id) { sel.value = r.id; break; } } }
-    else showMessage(r.message, 'error');
-  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
-}
+async function salvaNuovoCliente() { const nome = document.getElementById('nuovoClienteNome').value.trim(); const cognome = document.getElementById('nuovoClienteCognome').value.trim(); const email = document.getElementById('nuovoClienteEmail').value.trim(); const telefono = document.getElementById('nuovoClienteTelefono').value.trim(); const tipo = document.getElementById('nuovoClienteTipo').value; if (!nome) { showMessage('Il nome è obbligatorio', 'error'); return; } try { const payload = { nome, cognome: cognome || null, email: email || null, telefono: telefono || null, tipo, attivo: 1 }; const r = await apiFetch('/soggetti', { method: 'POST', body: JSON.stringify(payload) }); if (r.success) { showMessage('Cliente creato con successo', 'success'); chiudiModaleNuovoCliente(); await caricaClienti(); const sel = document.getElementById('clienteSelect'); for (let i=0; i<sel.options.length; i++) { if (sel.options[i].value == r.id) { sel.value = r.id; break; } } } else showMessage(r.message, 'error'); } catch(e) { showMessage('Errore: ' + e.message, 'error'); } }
 
 /** Modale storico: carica e filtra le vendite */
 async function apriModalStorico() { document.getElementById('modalStorico').style.display = 'flex'; await caricaStorico(); }
 function chiudiModalStorico() { document.getElementById('modalStorico').style.display = 'none'; }
-async function caricaStorico() {
-  const tbody = document.getElementById('storicoBody');
-  tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>';
+async function caricaStorico() { const tbody = document.getElementById('storicoBody'); tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>'; try { const res = await apiFetch('/vendite'); if (res.success) { storicoVendite = res.data || []; storicoFiltrato = [...storicoVendite]; renderStorico(); } else { showMessage('Errore caricamento storico', 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); } } catch(e) { showMessage('Errore: ' + e.message, 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); } }
+function renderStorico() { const tbody = document.getElementById('storicoBody'); tbody.innerHTML = ''; if (!storicoFiltrato.length) { tbody.innerHTML = '<tr><td colspan="12" class="text-center">Nessuna vendita registrata</td></tr>'; return; } storicoFiltrato.forEach(v => { const row = tbody.insertRow(); const badge = v.tipo_oggetto === 'KIT' ? 'badge-kit' : 'badge-articolo'; const statoBadge = v.stato_consegna === 'CONSEGNATO' ? 'badge-consegnato' : 'badge-attesa'; row.insertCell(0).innerText = v.id; row.insertCell(1).innerText = formatDate(v.data); const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto'; row.insertCell(2).innerText = clienteNome; row.insertCell(3).innerText = v.oggetto_descrizione || v.oggetto_codice || '-'; row.insertCell(4).innerHTML = '<span class="badge ' + badge + '">' + (v.tipo_oggetto || '') + '</span>'; row.insertCell(5).innerText = v.quantita || 0; row.insertCell(6).innerText = v.importo ? '€ ' + parseFloat(v.importo).toFixed(2) : ''; row.insertCell(7).innerText = v.vendita_note || ''; row.insertCell(8).innerHTML = '<span class="badge ' + statoBadge + '">' + (v.stato_consegna || '-') + '</span>'; row.insertCell(9).innerText = (v.tipo_documento || '') + ' ' + (v.numero_documento || ''); row.insertCell(10).innerText = v.operatore || '-'; row.insertCell(11).innerHTML = `<button class="btn btn-warning btn-sm" onclick="apriModificaVendita(${v.id})">✏️ Modifica</button>`; }); }
+function filtraStorico() { const txt = document.getElementById('filtroStorico').value.toLowerCase(); if (!txt) storicoFiltrato = [...storicoVendite]; else storicoFiltrato = storicoVendite.filter(v => { const cliente = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).toLowerCase(); const oggetto = (v.oggetto_descrizione || v.oggetto_codice || '').toLowerCase(); const operatore = (v.operatore || '').toLowerCase(); return cliente.includes(txt) || oggetto.includes(txt) || operatore.includes(txt); }); renderStorico(); }
+
+/** 🔥 Apre la modale per la consegna massiva delle vendite selezionate */
+function apriModaleConsegnaMassiva() {
+  if (selezioneConsegna.length === 0) { showMessage('Seleziona almeno una vendita da consegnare', 'error'); return; }
+  const unique = [...new Set(selezioneConsegna)];
+  document.getElementById('consegnaMassivaRiepilogo').innerHTML = `<strong>Vendite selezionate:</strong> ${unique.length} ID da consegnare.`;
+  document.getElementById('noteConsegnaMassiva').value = '';
+  document.getElementById('modalConsegnaMassiva').style.display = 'flex';
+}
+function chiudiModaleConsegnaMassiva() { document.getElementById('modalConsegnaMassiva').style.display = 'none'; }
+
+/** 🔥 Chiama l'API per effettuare la consegna di massa delle vendite selezionate */
+async function confermaConsegnaMassiva() {
+  const ids = [...new Set(selezioneConsegna)];
+  if (!ids.length) { showMessage('Nessuna vendita selezionata.', 'error'); return; }
+  const note = document.getElementById('noteConsegnaMassiva').value.trim();
+
+  const btn = document.getElementById('btnConfermaConsegnaMassiva');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
   try {
-    const res = await apiFetch('/vendite');
-    if (res.success) { storicoVendite = res.data || []; storicoFiltrato = [...storicoVendite]; renderStorico(); }
-    else { showMessage('Errore caricamento storico', 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); }
-  } catch(e) { showMessage('Errore: ' + e.message, 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); }
-}
-function renderStorico() {
-  const tbody = document.getElementById('storicoBody');
-  tbody.innerHTML = '';
-  if (!storicoFiltrato.length) { tbody.innerHTML = '<tr><td colspan="12" class="text-center">Nessuna vendita registrata</td></tr>'; return; }
-  storicoFiltrato.forEach(v => {
-    const row = tbody.insertRow();
-    const badge = v.tipo_oggetto === 'KIT' ? 'badge-kit' : 'badge-articolo';
-    const statoBadge = v.stato_consegna === 'CONSEGNATO' ? 'badge-consegnato' : 'badge-attesa';
-    row.insertCell(0).innerText = v.id;
-    row.insertCell(1).innerText = formatDate(v.data);
-    const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto';
-    row.insertCell(2).innerText = clienteNome;
-    row.insertCell(3).innerText = v.oggetto_descrizione || v.oggetto_codice || '-';
-    row.insertCell(4).innerHTML = '<span class="badge ' + badge + '">' + (v.tipo_oggetto || '') + '</span>';
-    row.insertCell(5).innerText = v.quantita || 0;
-    row.insertCell(6).innerText = v.importo ? '€ ' + parseFloat(v.importo).toFixed(2) : '';
-    row.insertCell(7).innerText = v.vendita_note || '';
-    row.insertCell(8).innerHTML = '<span class="badge ' + statoBadge + '">' + (v.stato_consegna || '-') + '</span>';
-    row.insertCell(9).innerText = (v.tipo_documento || '') + ' ' + (v.numero_documento || '');
-    row.insertCell(10).innerText = v.operatore || '-';
-    row.insertCell(11).innerHTML = `<button class="btn btn-warning btn-sm" onclick="apriModificaVendita(${v.id})">✏️ Modifica</button>`;
-  });
-}
-function filtraStorico() {
-  const txt = document.getElementById('filtroStorico').value.toLowerCase();
-  if (!txt) storicoFiltrato = [...storicoVendite];
-  else storicoFiltrato = storicoVendite.filter(v => {
-    const cliente = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).toLowerCase();
-    const oggetto = (v.oggetto_descrizione || v.oggetto_codice || '').toLowerCase();
-    const operatore = (v.operatore || '').toLowerCase();
-    return cliente.includes(txt) || oggetto.includes(txt) || operatore.includes(txt);
-  });
-  renderStorico();
+    const payload = { ids, note: note || null };
+    const res = await apiFetch('/vendite/consegna-massiva', { method: 'POST', body: JSON.stringify(payload) });
+    if (res.success) {
+      showMessage('✅ Consegna massiva effettuata con successo!', 'success');
+      chiudiModaleConsegnaMassiva();
+      caricaOggetti();
+    } else {
+      showMessage('Errore: ' + res.message, 'error');
+    }
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '✅ Conferma Consegna'; }
 }
 
 /** Gestisce la modale per la modifica dei dati di una vendita già registrata */
 let venditaDaModificareId = null;
-function apriModificaVendita(id) {
-  venditaDaModificareId = id;
-  const btn = document.getElementById('btnSalvaModifica');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
-
-  apiFetch('/vendite/' + id)
-    .then(res => {
-      if (res.success) {
-        const v = res.data;
-        document.getElementById('modificaVenditaId').innerText = v.id;
-        document.getElementById('modificaDataVendita').value = formatDate(v.data);
-        const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto';
-        document.getElementById('modificaClienteVendita').value = clienteNome;
-        document.getElementById('modificaImportoVendita').value = v.importo || '';
-        document.getElementById('modificaNotaVendita').value = v.note || '';
-        document.getElementById('modificaTipoDocumento').value = v.tipo_documento || '';
-        document.getElementById('modificaDataDocumento').value = v.data_documento || '';
-        document.getElementById('modificaNumeroDocumento').value = v.numero_documento || '';
-        toggleModificaDocumenti();
-        document.getElementById('modalModificaVendita').style.display = 'flex';
-      } else showMessage('Errore nel caricamento dei dati: ' + res.message, 'error');
-    })
-    .catch(e => showMessage('Errore: ' + e.message, 'error'))
-    .finally(() => {
-      btn.disabled = false;
-      btn.innerHTML = '💾 Salva Modifiche';
-    });
-}
+function apriModificaVendita(id) { venditaDaModificareId = id; const btn = document.getElementById('btnSalvaModifica'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; apiFetch('/vendite/' + id).then(res => { if (res.success) { const v = res.data; document.getElementById('modificaVenditaId').innerText = v.id; document.getElementById('modificaDataVendita').value = formatDate(v.data); const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto'; document.getElementById('modificaClienteVendita').value = clienteNome; document.getElementById('modificaImportoVendita').value = v.importo || ''; document.getElementById('modificaNotaVendita').value = v.note || ''; document.getElementById('modificaTipoDocumento').value = v.tipo_documento || ''; document.getElementById('modificaDataDocumento').value = v.data_documento || ''; document.getElementById('modificaNumeroDocumento').value = v.numero_documento || ''; toggleModificaDocumenti(); document.getElementById('modalModificaVendita').style.display = 'flex'; } else showMessage('Errore nel caricamento dei dati: ' + res.message, 'error'); }).catch(e => showMessage('Errore: ' + e.message, 'error')).finally(() => { btn.disabled = false; btn.innerHTML = '💾 Salva Modifiche'; }); }
 function chiudiModificaVendita() { document.getElementById('modalModificaVendita').style.display = 'none'; }
-async function salvaModificaVendita() {
-  if (!venditaDaModificareId) return;
-  const note = document.getElementById('modificaNotaVendita').value.trim();
-  const importo = document.getElementById('modificaImportoVendita').value;
-  const tipoDocumento = document.getElementById('modificaTipoDocumento').value;
-  const dataDocumento = document.getElementById('modificaDataDocumento').value;
-  const numeroDocumento = document.getElementById('modificaNumeroDocumento').value.trim();
-
-  const payload = { note: note || null, importo: importo ? parseFloat(importo) : null, tipoDocumento: tipoDocumento || null, dataDocumento: dataDocumento || null, numeroDocumento: numeroDocumento || null };
-  const btn = document.getElementById('btnSalvaModifica');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
-
-  try {
-    const res = await apiFetch('/vendite/' + venditaDaModificareId, { method: 'PUT', body: JSON.stringify(payload) });
-    if (res.success) { showMessage('Nota e dati aggiornati con successo!', 'success'); chiudiModificaVendita(); if (document.getElementById('modalStorico').style.display === 'flex') await caricaStorico(); caricaOggetti(); }
-    else showMessage('Errore: ' + res.message, 'error');
-  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = '💾 Salva Modifiche'; }
-}
+async function salvaModificaVendita() { if (!venditaDaModificareId) return; const note = document.getElementById('modificaNotaVendita').value.trim(); const importo = document.getElementById('modificaImportoVendita').value; const tipoDocumento = document.getElementById('modificaTipoDocumento').value; const dataDocumento = document.getElementById('modificaDataDocumento').value; const numeroDocumento = document.getElementById('modificaNumeroDocumento').value.trim(); const payload = { note: note || null, importo: importo ? parseFloat(importo) : null, tipoDocumento: tipoDocumento || null, dataDocumento: dataDocumento || null, numeroDocumento: numeroDocumento || null }; const btn = document.getElementById('btnSalvaModifica'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; try { const res = await apiFetch('/vendite/' + venditaDaModificareId, { method: 'PUT', body: JSON.stringify(payload) }); if (res.success) { showMessage('Nota e dati aggiornati con successo!', 'success'); chiudiModificaVendita(); if (document.getElementById('modalStorico').style.display === 'flex') await caricaStorico(); caricaOggetti(); } else showMessage('Errore: ' + res.message, 'error'); } catch(e) { showMessage('Errore: ' + e.message, 'error'); } finally { btn.disabled = false; btn.innerHTML = '💾 Salva Modifiche'; } }
 
 /** Funzione di inizializzazione eseguita al caricamento della pagina */
-window.onload = async function() {
-  const token = localStorage.getItem('token');
-  if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
-  try {
-    currentUser = JSON.parse(localStorage.getItem('user'));
-    if (!currentUser.riferimento_id && currentUser.RiferimentoID) currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
-  } catch(e) { logout(); return; }
-
-  if (currentUser.riferimento_id) {
-    try {
-      const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
-      userLevel = sog.livello || 0;
-      console.log('✅ userLevel caricato:', userLevel);
-    } catch(e) { console.warn('Impossibile ottenere il livello del soggetto:', e); userLevel = 0; }
-  }
-
-  document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
-
-  await caricaMagazzini();
-  await caricaSoggetti();
-  await caricaClienti();
-  await caricaOggetti();
-
-  const now = new Date();
-  const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-  document.getElementById('dataVenditaInput').value = iso;
-  toggleSorgente();
-  attachSortListeners();
-};
+window.onload = async function() { const token = localStorage.getItem('token'); if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; } try { currentUser = JSON.parse(localStorage.getItem('user')); if (!currentUser.riferimento_id && currentUser.RiferimentoID) currentUser.riferimento_id = parseInt(currentUser.RiferimentoID); } catch(e) { logout(); return; } if (currentUser.riferimento_id) { try { const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id); userLevel = sog.livello || 0; console.log('✅ userLevel caricato:', userLevel); } catch(e) { console.warn('Impossibile ottenere il livello del soggetto:', e); userLevel = 0; } } document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')'; await caricaMagazzini(); await caricaSoggetti(); await caricaClienti(); await caricaOggetti(); const now = new Date(); const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'); document.getElementById('dataVenditaInput').value = iso; toggleSorgente(); attachSortListeners(); };
 </script>
 </body>
 </html>
