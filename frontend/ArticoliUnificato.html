@@ -7,10 +7,10 @@
   <link rel="icon" type="image/png" href="/images/kastle-logo.png">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 0; height: 100vh; overflow: hidden; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 0; height: 100vh; overflow: hidden; }
     .compact-bar { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 0 0 12px 12px; padding: 4px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
     .btn-secondary { background: #6c757d; border: none; padding: 2px 8px; font-size: 0.7rem; border-radius: 4px; cursor: pointer; color: white; }
-    .container { flex: 1; display: flex; flex-direction: column; max-width: 1600px; width: 100%; margin: 0 auto; background: white; border-radius: 16px 16px 0 0; box-shadow: 0 8px 20px rgba(0,0,0,0.05); padding: 2px 20px 20px 20px; height: calc(100vh - 50px); overflow: hidden; }
+    .container { flex: 1; display: flex; flex-direction: column; max-width: 1600px; width: 100%; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); padding: 2px 20px 20px 20px; height: calc(100vh - 50px); overflow: hidden; }
     h2 { margin: 5px 0 8px 0; font-size: 1.3rem; border-left: 5px solid #1a73e8; padding-left: 12px; color: #1e2a3a; display: inline-block; }
     .search-section { margin-top: 8px; margin-bottom: 4px; }
     .search-section .section-label { font-size: 0.75rem; font-weight: 700; color: #1a73e8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
@@ -44,21 +44,19 @@
     .table-wrapper::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
     .table-wrapper::-webkit-scrollbar-thumb { background: #c1c7cd; border-radius: 3px; }
     .table-wrapper::-webkit-scrollbar-thumb:hover { background: #a8b0b8; }
-    table { width: 100%; min-width: 1900px; border-collapse: separate; border-spacing: 0; font-size: 0.65rem; }
+    table { width: 100%; min-width: 2000px; border-collapse: separate; border-spacing: 0; font-size: 0.65rem; } /* 🔥 Forzato scroll orizzontale */
     th, td { padding: 3px 5px; border-bottom: 1px solid #e2e8f0; text-align: left; line-height: 1.3; background: white; }
-    th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; z-index: 15; cursor: pointer; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.3px; }
+    th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; z-index: 25; cursor: pointer; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.3px; }
     tr:hover td { background: #f8fafc; }
     th:hover { background: #e2e8f0; }
-    .col-sticky-1, .col-sticky-2, .col-sticky-3 { position: sticky; background: white; z-index: 10; }
+    /* 🔒 Colonne sticky migliorate */
+    .col-sticky-1, .col-sticky-2, .col-sticky-3 { position: sticky; background: white; z-index: 11; border-right: 1px solid #e2e8f0; }
     .col-sticky-1 { left: 0; min-width: 85px; max-width: 85px; }
     .col-sticky-2 { left: 85px; min-width: 40px; max-width: 40px; }
     .col-sticky-3 { left: 125px; min-width: 180px; max-width: 180px; }
-    th.col-sticky-1, th.col-sticky-2, th.col-sticky-3 { background: #f1f5f9; z-index: 20; }
-    td:not(.col-sticky-1):not(.col-sticky-2):not(.col-sticky-3) { position: relative; z-index: 1; }
+    th.col-sticky-1, th.col-sticky-2, th.col-sticky-3 { background: #f1f5f9; z-index: 26; } /* Header sticky più alto dei dati */
     .sort-arrow { cursor: pointer; font-size: 0.5rem; margin-left: 2px; color: #aaa; user-select: none; display: inline-block; padding: 0 1px; }
     .sort-arrow.active { color: #1a73e8; font-weight: bold; font-size: 0.65rem; }
-    th { cursor: default; }
-    th .sort-arrow { cursor: pointer; }
     .action-buttons { display: flex; gap: 2px; justify-content: center; flex-wrap: nowrap; }
     .action-buttons .btn { padding: 1px 5px; font-size: 0.6rem; }
     .message { padding: 4px 8px; margin-bottom: 4px; border-radius: 6px; font-size: 0.7rem; }
@@ -76,21 +74,17 @@
     .modal-body { padding: 4px 0; }
     .modal-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
     .modal-grid-1 { display: grid; grid-template-columns: 1fr; gap: 10px; }
-    .modal-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; }
     .modal .form-group { margin-bottom: 0; }
     .modal .form-group label { display: block; font-weight: 600; font-size: 0.7rem; color: #2c3e50; margin-bottom: 2px; letter-spacing: 0.3px; }
     .modal .form-group .form-control { width: 100%; padding: 5px 8px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 0.75rem; background: #fafbfc; transition: border-color 0.2s; }
     .modal .form-group .form-control:focus { border-color: #1a73e8; outline: none; box-shadow: 0 0 0 3px rgba(26,115,232,0.15); background: white; }
     .modal .form-group .form-control:read-only { background: #f0f2f4; cursor: not-allowed; }
     .modal .form-group textarea.form-control { resize: vertical; min-height: 50px; }
-    .modal .form-group select.form-control { appearance: auto; }
     .modal-divider { border: none; border-top: 1px solid #e8edf2; margin: 16px 0; }
     .modal-divider-label { font-size: 0.7rem; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
     .modal-divider-label::after { content: ''; flex: 1; height: 1px; background: #e8edf2; }
     .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e8edf2; }
     .modal-footer .btn { padding: 6px 18px; font-size: 0.75rem; border-radius: 6px; font-weight: 600; }
-    .modal-footer .btn-danger { background: #dc3545; }
-    .modal-footer .btn-danger:hover { background: #c82333; }
     .modal-footer .btn-success { background: #28a745; }
     .modal-footer .btn-success:hover { background: #218838; }
     .modal-footer .btn-secondary { background: #6c757d; }
@@ -107,269 +101,77 @@
     .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
     .logo { display: flex; justify-content: center; flex: 1; }
     .logo img { height: 60px; width: auto; display: block; }
-    .required-error { border: 1px solid #ef4444 !important; background-color: #fee2e2 !important; }
     .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; background: #f8f9fa; border-top: 1px solid #e2e8f0; font-size: 0.65rem; flex-wrap: wrap; gap: 4px; }
     .pagination-bar select, .pagination-bar input { width: auto; padding: 1px 4px; border: 1px solid #cbd5e0; border-radius: 3px; font-size: 0.6rem; }
     .pagination-bar .btn { padding: 1px 6px; font-size: 0.6rem; }
     .pagination-info { display: flex; align-items: center; gap: 4px; }
     .text-center { text-align: center; }
-
-    @media (max-width: 1024px) {
-      .form-row-single { grid-template-columns: 1fr 1fr 1fr; }
-      .filter-row { flex-wrap: wrap; }
-      .filter-group { min-width: 70px; flex: 1 1 100px; }
-      .modal-grid-3 { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 768px) {
-      .container { padding: 2px 10px 10px 10px; }
-      .form-row-single { grid-template-columns: 1fr 1fr; }
-      .filter-group { min-width: 50px; flex: 1 1 70px; }
-      .filter-row .btn { align-self: flex-start; margin-top: 4px; }
-      .insertion-divider .section-label { font-size: 0.6rem; }
-      .compact-bar { flex-wrap: wrap; padding: 4px 10px; }
-      .logo img { height: 40px; }
-      .pagination-bar { flex-direction: column; align-items: stretch; }
-      .pagination-info { justify-content: center; }
-      .modal-content { width: 95%; padding: 15px; }
-      .modal-grid-2 { grid-template-columns: 1fr; }
-      .modal-grid-3 { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 480px) {
-      .form-row-single { grid-template-columns: 1fr; }
-      .filter-group { flex: 1 1 100%; }
-    }
+    @media (max-width: 1024px) { .form-row-single { grid-template-columns: 1fr 1fr 1fr; } .filter-row { flex-wrap: wrap; } .filter-group { min-width: 70px; flex: 1 1 100px; } .modal-grid-3 { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 768px) { .container { padding: 2px 10px 10px 10px; } .form-row-single { grid-template-columns: 1fr 1fr; } .filter-group { min-width: 50px; flex: 1 1 70px; } .filter-row .btn { align-self: flex-start; margin-top: 4px; } .insertion-divider .section-label { font-size: 0.6rem; } .compact-bar { flex-wrap: wrap; padding: 4px 10px; } .logo img { height: 40px; } .pagination-bar { flex-direction: column; align-items: stretch; } .pagination-info { justify-content: center; } .modal-content { width: 95%; padding: 15px; } .modal-grid-2 { grid-template-columns: 1fr; } .modal-grid-3 { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-
-<div class="compact-bar">
-  <div style="flex:1;"></div>
-  <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
-  <div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;">
-    <button class="btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button>
-    <button class="btn-secondary" onclick="logout()">🚪 Logout</button>
-  </div>
-</div>
-
-<div class="container">
-  <div class="header-bar"><h2>📦 Gestione Articoli</h2></div>
-  <div id="messageArea"></div>
-
-  <!-- 🔍 SEZIONE RICERCA -->
-  <div class="search-section">
-    <div class="section-label">🔍 Ricerca</div>
-    <div class="filter-row">
-      <div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-      <div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
-      <div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
-      <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
-      <div class="filter-group"><label>Anno</label><select id="filtroAnno" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-      <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-      <div class="filter-group"><label>Codice</label><input type="text" id="filtroCodice" placeholder="Cerca codice..." oninput="caricaArticoli()" class="form-control"></div>
-      <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
-    </div>
-  </div>
-
-  <!-- 📝 DIVIDER + INSERIMENTO -->
-  <div class="insertion-divider">
-    <span class="line"></span>
-    <span class="section-label">📝 Inserimento</span>
-    <span class="line"></span>
-  </div>
-
-  <form id="articleForm" onsubmit="return false;">
-    <div class="form-row-single">
-      <div class="form-group"><label>Codice Modello</label><input type="text" id="codice_modello" list="codice_modelloList" autocomplete="off"><datalist id="codice_modelloList"></datalist></div>
-      <div class="form-group"><label>Descrizione *</label><input type="text" id="descrizione" list="descrizioneList" required autocomplete="off"><datalist id="descrizioneList"></datalist></div>
-      <div class="form-group"><label>Lunghezza</label><input type="text" id="lunghezza" list="lunghezzaList" autocomplete="off"><datalist id="lunghezzaList"></datalist></div>
-      <div class="form-group"><label>Durezza</label><input type="text" id="durezza" list="durezzaList" autocomplete="off"><datalist id="durezzaList"></datalist></div>
-      <div class="form-group"><label>Variante</label><input type="text" id="variante" list="varianteList" autocomplete="off"><datalist id="varianteList"></datalist></div>
-      <div class="form-group"><label>Anno *</label><select id="anno" class="form-control"><option value="">Seleziona</option></select></div>
-      <div class="form-group"><label>Season Status</label><select id="seasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
-      <div class="form-group"><label>Qtà *</label><input type="number" id="quantita" value="1" min="1" step="1" required></div>
-      <div class="form-group"><label>Versione</label><input type="text" id="versione" value="1.0"></div>
-      <div class="form-group"><label>Note</label><textarea id="note" rows="1"></textarea></div>
-      <div class="form-group" style="display:flex; align-items:center; gap:2px; padding-top:10px;">
-        <div class="checkbox-inline">
-          <input type="checkbox" id="inventarioAustria" checked>
-          <label for="inventarioAustria">🇦🇹</label>
-        </div>
-      </div>
-      <div class="form-group" style="display:flex; gap:3px; align-items:center; padding-top:10px;">
-        <button type="button" class="btn" id="saveBtn" onclick="salvaArticolo()">💾</button>
-        <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄</button>
-      </div>
-    </div>
-  </form>
-
-  <!-- TABELLA -->
-  <div class="table-wrapper">
-    <table id="tabellaArticoli">
-      <thead>
-        <tr>
-          <th data-sort="codice_modello" class="col-sticky-1">Codice <span class="sort-arrow sort-asc" data-col="codice_modello">▲</span><span class="sort-arrow sort-desc" data-col="codice_modello">▼</span></th>
-          <th data-sort="articolo_id" class="col-sticky-2">ID <span class="sort-arrow sort-asc" data-col="articolo_id">▲</span><span class="sort-arrow sort-desc" data-col="articolo_id">▼</span></th>
-          <th data-sort="descrizione" class="col-sticky-3">Descrizione <span class="sort-arrow sort-asc" data-col="descrizione">▲</span><span class="sort-arrow sort-desc" data-col="descrizione">▼</span></th>
-          <th data-sort="descrizione_completa">Descrizione Completa <span class="sort-arrow sort-asc" data-col="descrizione_completa">▲</span><span class="sort-arrow sort-desc" data-col="descrizione_completa">▼</span></th>
-          <th data-sort="magazzino_nome">Magazzino <span class="sort-arrow sort-asc" data-col="magazzino_nome">▲</span><span class="sort-arrow sort-desc" data-col="magazzino_nome">▼</span></th>
-          <th data-sort="settore_nome">Settore <span class="sort-arrow sort-asc" data-col="settore_nome">▲</span><span class="sort-arrow sort-desc" data-col="settore_nome">▼</span></th>
-          <th data-sort="categoria_nome">Categoria <span class="sort-arrow sort-asc" data-col="categoria_nome">▲</span><span class="sort-arrow sort-desc" data-col="categoria_nome">▼</span></th>
-          <th data-sort="marca_nome">Marca <span class="sort-arrow sort-asc" data-col="marca_nome">▲</span><span class="sort-arrow sort-desc" data-col="marca_nome">▼</span></th>
-          <th data-sort="lunghezza">Lunghezza <span class="sort-arrow sort-asc" data-col="lunghezza">▲</span><span class="sort-arrow sort-desc" data-col="lunghezza">▼</span></th>
-          <th data-sort="durezza">Durezza <span class="sort-arrow sort-asc" data-col="durezza">▲</span><span class="sort-arrow sort-desc" data-col="durezza">▼</span></th>
-          <th data-sort="variante">Variante <span class="sort-arrow sort-asc" data-col="variante">▲</span><span class="sort-arrow sort-desc" data-col="variante">▼</span></th>
-          <th data-sort="anno_nome">Anno <span class="sort-arrow sort-asc" data-col="anno_nome">▲</span><span class="sort-arrow sort-desc" data-col="anno_nome">▼</span></th>
-          <th data-sort="season_status_nome">Season <span class="sort-arrow sort-asc" data-col="season_status_nome">▲</span><span class="sort-arrow sort-desc" data-col="season_status_nome">▼</span></th>
-          <th data-sort="quantita_totale">Qtà Tot <span class="sort-arrow sort-asc" data-col="quantita_totale">▲</span><span class="sort-arrow sort-desc" data-col="quantita_totale">▼</span></th>
-          <th data-sort="giacenza">Giacenza <span class="sort-arrow sort-asc" data-col="giacenza">▲</span><span class="sort-arrow sort-desc" data-col="giacenza">▼</span></th>
-          <th data-sort="quantita_obsoleta">Qtà Obs <span class="sort-arrow sort-asc" data-col="quantita_obsoleta">▲</span><span class="sort-arrow sort-desc" data-col="quantita_obsoleta">▼</span></th>
-          <th data-sort="stato">Stato <span class="sort-arrow sort-asc" data-col="stato">▲</span><span class="sort-arrow sort-desc" data-col="stato">▼</span></th>
-          <th data-sort="inventario_austria">🇦🇹 Austria <span class="sort-arrow sort-asc" data-col="inventario_austria">▲</span><span class="sort-arrow sort-desc" data-col="inventario_austria">▼</span></th>
-          <th>Sigle</th>
-          <th>Azioni</th>
-        </tr>
-      </thead>
-      <tbody id="tabellaBody"></tbody>
-    </table>
-    <div class="pagination-bar" id="paginationBar">
-      <div class="pagination-info">
-        <span>Righe per pagina:</span>
-        <select id="rowsPerPage" onchange="cambiaRighePerPagina()"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select>
-      </div>
-      <div class="pagination-info">
-        <span id="paginationStats">Mostrando 0-0 di 0</span>
-        <button class="btn btn-secondary" id="btnPrevPage" onclick="paginaPrecedente()">◀</button>
-        <span id="paginationCurrentPage">1</span>
-        <button class="btn btn-secondary" id="btnNextPage" onclick="paginaSuccessiva()">▶</button>
-        <input type="number" id="gotoPageInput" min="1" style="width:50px;" onchange="vaiAPagina(this.value)">
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODALE EDIT -->
-<div id="modalEdit" class="modal">
-  <div class="modal-content">
-    <div class="modal-header"><h3>✏️ Modifica Articolo</h3><span class="close" onclick="chiudiModale()">&times;</span></div>
-    <form id="editForm" onsubmit="return false;">
-      <input type="hidden" id="editId">
-      <div class="modal-body">
-        <div class="modal-grid-2">
-          <div class="form-group"><label>Magazzino *</label><select id="editMagazzino" class="form-control" required></select></div>
-          <div class="form-group"><label>Settore *</label><select id="editSettore" class="form-control" required></select></div>
-          <div class="form-group"><label>Categoria *</label><select id="editCategoria" class="form-control" required></select></div>
-          <div class="form-group"><label>Marca *</label><select id="editMarca" class="form-control" required></select></div>
-        </div>
-        <div class="modal-grid-1"><div class="form-group"><label>Descrizione *</label><input type="text" id="editDescrizione" class="form-control" list="editDescrizioneList" required><datalist id="editDescrizioneList"></datalist></div></div>
-        <div class="modal-grid-2">
-          <div class="form-group"><label>Codice Modello</label><input type="text" id="editCodiceModello" class="form-control" list="editModelloList"><datalist id="editModelloList"></datalist></div>
-          <div class="form-group"><label>Lunghezza (cm)</label><input type="text" id="editLunghezza" class="form-control" list="editLunghezzaList"><datalist id="editLunghezzaList"></datalist></div>
-        </div>
-        <div class="modal-grid-2">
-          <div class="form-group"><label>Durezza</label><input type="text" id="editDurezza" class="form-control" list="editDurezzaList"><datalist id="editDurezzaList"></datalist></div>
-          <div class="form-group"><label>Variante</label><input type="text" id="editVariante" class="form-control" list="editVarianteList"><datalist id="editVarianteList"></datalist></div>
-        </div>
-        <div class="modal-grid-2">
-          <div class="form-group"><label>Anno *</label><select id="editAnno" class="form-control"><option value="">Seleziona</option></select></div>
-          <div class="form-group"><label>Season Status</label><select id="editSeasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
-        </div>
-        <hr class="modal-divider">
-        <div class="modal-divider-label">📊 Quantità e Note</div>
-        <div class="modal-grid-2">
-          <div class="form-group"><label>Quantità Totale</label><div class="form-control" style="background:#f0f2f5; cursor:not-allowed; color:#6c757d;">La quantità si modifica nella gestione delle sigle</div></div>
-          <div class="form-group"><label>Inventario Austria</label><div class="checkbox-inline" style="margin-top:6px;"><input type="checkbox" id="editInventarioAustria" checked><label for="editInventarioAustria">🇦🇹 Austria</label></div></div>
-        </div>
-        <div class="modal-grid-1"><div class="form-group"><label>Note</label><textarea id="editNote" class="form-control" rows="2"></textarea></div></div>
-        <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="chiudiModale()">Annulla</button><button type="button" class="btn btn-success" onclick="salvaModifica()">💾 Salva modifiche</button></div>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- MODALE SIGLE -->
-<div id="modalSigle" class="modal">
-  <div class="modal-content">
-    <div class="modal-header"><h3>🔖 Gestione Sigle</h3><span class="close" onclick="chiudiModalSigle()">&times;</span></div>
-    <p><strong>Articolo:</strong> <span id="sigleArticoloDesc"></span></p>
-    <table class="sigle-table" id="sigleTableBodyContainer">
-      <thead><tr><th>Sigla</th><th>Durezza</th><th>Codice Modello</th><th>Note</th><th>Quantità</th><th>Impegnato</th><th>Qtà Austria</th><th>Azioni</th></tr></thead>
-      <tbody id="sigleTableBody"></tbody>
-    </table>
-    <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:12px;">
-      <h4 style="font-size:0.8rem;">➕ Aggiungi nuova sigla</h4>
-      <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr 1fr 0.5fr 0.5fr; gap:8px;">
-        <div class="form-group"><label>Sigla *</label><input type="text" id="nuovaSigla" class="form-control" placeholder="Sigla"></div>
-        <div class="form-group"><label>Durezza</label><input type="text" id="nuovaSiglaDurezza" class="form-control"></div>
-        <div class="form-group"><label>Codice Modello</label><input type="text" id="nuovaSiglaModello" class="form-control" list="modelliList"><datalist id="modelliList"></datalist></div>
-        <div class="form-group"><label>Note</label><input type="text" id="nuovaSiglaNote" class="form-control"></div>
-        <div class="form-group"><label>Quantità</label><input type="number" id="nuovaSiglaQuantita" class="form-control" value="0" min="0"></div>
-        <div class="form-group"><label>Qtà Austria</label><input type="number" id="nuovaSiglaQuantitaAustria" class="form-control" value="0" min="0"></div>
-      </div>
-      <button class="btn" onclick="aggiungiSigla()">➕ Aggiungi</button>
-    </div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="ricalcolaQuantita()">🔄 Ricalcola</button><button class="btn btn-secondary" onclick="chiudiModalSigle()">Chiudi</button></div>
-  </div>
-</div>
-
-<!-- MODALE MODIFICA SIGLA -->
-<div id="modalModificaSigla" class="modal">
-  <div class="modal-content" style="max-width:500px;">
-    <div class="modal-header"><h3>✏️ Modifica Sigla</h3><span class="close" onclick="chiudiModificaSigla()">&times;</span></div>
-    <div class="form-group"><label>Sigla *</label><input type="text" id="modSiglaInput" class="form-control"></div>
-    <div class="form-group"><label>Nota</label><input type="text" id="modNotaInput" class="form-control" placeholder="Nota (opzionale)"></div>
-    <div class="form-group"><label>Quantità Austria</label><input type="number" id="modQuantitaAustriaInput" class="form-control" min="0" placeholder="0"></div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModificaSigla()">Annulla</button><button class="btn btn-success" onclick="salvaModificaSigla()">💾 Salva</button></div>
-  </div>
-</div>
-
-<!-- MODALE OBSOLESCENZA -->
-<div id="modalObsoleto" class="modal">
-  <div class="modal-content" style="max-width:400px;">
-    <div class="modal-header"><h3>📦 Rendi Obsoleto</h3><span class="close" onclick="chiudiModalObsoleto()">&times;</span></div>
-    <p>Articolo: <span id="obsArticoloDesc"></span></p>
-    <div class="form-group"><label>Quantità da rendere obsoleta *</label><input type="number" id="obsQuantita" class="form-control" min="1"><small>Disponibile: <span id="obsDisponibile"></span></small></div>
-    <div class="form-group"><label>Note</label><input type="text" id="obsNote" class="form-control"></div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModalObsoleto()">Annulla</button><button class="btn btn-warning" onclick="confermaObsolescenza()">Conferma</button></div>
-  </div>
-</div>
-
-<!-- 🔥 NUOVO MODALE: AVVISO DUPLICATO PARZIALE -->
-<div id="modalWarningDuplicate" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>⚠️ Avviso: Articolo Simile Trovato</h3>
-      <span class="close" onclick="chiudiWarningModal()">&times;</span>
-    </div>
-    <div class="modal-body">
-      <p id="warningDuplicateMessage" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 15px;">Esiste già un articolo con caratteristiche simili.</p>
-      <div style="background: #f8f9fa; padding: 10px; border-radius: 6px; font-size: 0.8rem; border-left: 3px solid #f39c12;">
-        <strong>Cosa vuoi fare?</strong>
-        <ul style="margin-top: 8px; padding-left: 20px;">
-          <li><strong>Modifica</strong> l'articolo esistente per cambiare la stagione.</li>
-          <li><strong>Inserisci</strong> comunque il nuovo articolo (crea un nuovo ID).</li>
-        </ul>
-      </div>
-      <input type="hidden" id="warningSimilarId">
-    </div>
-    <div class="modal-warning-btn-container">
-      <button class="btn btn-secondary" onclick="chiudiWarningModal()">Annulla</button>
-      <button class="btn btn-warning" id="btnModificaSimile" onclick="modificaArticoloSimile()">✏️ Modifica Esistente</button>
-      <button class="btn btn-success" id="btnInserisciSimile" onclick="inserisciComunque()">✅ Inserisci Comunq.</button>
-    </div>
-  </div>
-</div>
-
+<div class="compact-bar"><div style="flex:1;"></div><div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div><div style="display:flex; gap:6px; align-items:center; flex:1; justify-content:flex-end;"><button class="btn-secondary" onclick="window.location.href='MenuPrincipale.html'">🏠 Menu</button><button class="btn-secondary" onclick="logout()">🚪 Logout</button></div></div>
+<div class="container"><div class="header-bar"><h2>📦 Gestione Articoli</h2></div><div id="messageArea"></div>
+<div class="search-section"><div class="section-label">🔍 Ricerca</div><div class="filter-row">
+<div class="filter-group"><label>Magazzino</label><select id="filtroMagazzino" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+<div class="filter-group"><label>Settore</label><select id="filtroSettore" onchange="caricaArticoli()"><option value="">Tutti</option><option value="1" selected>Alpino</option><option value="2">Nordico</option><option value="3">Freeride</option></select></div>
+<div class="filter-group"><label>Categoria</label><select id="filtroCategoria" onchange="onCategoriaChanged()"><option value="">Tutte</option></select></div>
+<div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
+<div class="filter-group"><label>Anno</label><select id="filtroAnno" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+<div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
+<div class="filter-group"><label>Codice</label><input type="text" id="filtroCodice" placeholder="Cerca codice..." oninput="caricaArticoli()" class="form-control"></div>
+<button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
+</div></div>
+<div class="insertion-divider"><span class="line"></span><span class="section-label">📝 Inserimento</span><span class="line"></span></div>
+<form id="articleForm" onsubmit="return false;">
+<div class="form-row-single">
+<div class="form-group"><label>Codice Modello</label><input type="text" id="codice_modello" list="codice_modelloList" autocomplete="off"><datalist id="codice_modelloList"></datalist></div>
+<div class="form-group"><label>Descrizione *</label><input type="text" id="descrizione" list="descrizioneList" required autocomplete="off"><datalist id="descrizioneList"></datalist></div>
+<div class="form-group"><label>Lunghezza</label><input type="text" id="lunghezza" list="lunghezzaList" autocomplete="off"><datalist id="lunghezzaList"></datalist></div>
+<div class="form-group"><label>Durezza</label><input type="text" id="durezza" list="durezzaList" autocomplete="off"><datalist id="durezzaList"></datalist></div>
+<div class="form-group"><label>Variante</label><input type="text" id="variante" list="varianteList" autocomplete="off"><datalist id="varianteList"></datalist></div>
+<div class="form-group"><label>Anno *</label><select id="anno" class="form-control"><option value="">Seleziona</option></select></div>
+<div class="form-group"><label>Season Status</label><select id="seasonStatus" class="form-control"><option value="">Seleziona</option></select></div>
+<div class="form-group"><label>Qtà *</label><input type="number" id="quantita" value="1" min="1" step="1" required></div>
+<div class="form-group"><label>Versione</label><input type="text" id="versione" value="1.0"></div>
+<div class="form-group"><label>Note</label><textarea id="note" rows="1"></textarea></div>
+<div class="form-group" style="display:flex; align-items:center; gap:2px; padding-top:10px;"><div class="checkbox-inline"><input type="checkbox" id="inventarioAustria" checked><label for="inventarioAustria">🇦🇹</label></div></div>
+<div class="form-group" style="display:flex; gap:3px; align-items:center; padding-top:10px;"><button type="button" class="btn" id="saveBtn" onclick="salvaArticolo()">💾</button><button type="button" class="btn btn-secondary" onclick="resetForm()">🔄</button></div>
+</div></form>
+<div class="table-wrapper"><table id="tabellaArticoli"><thead><tr>
+<th data-sort="codice_modello" class="col-sticky-1">Codice <span class="sort-arrow sort-asc" data-col="codice_modello">▲</span><span class="sort-arrow sort-desc" data-col="codice_modello">▼</span></th>
+<th data-sort="articolo_id" class="col-sticky-2">ID <span class="sort-arrow sort-asc" data-col="articolo_id">▲</span><span class="sort-arrow sort-desc" data-col="articolo_id">▼</span></th>
+<th data-sort="descrizione" class="col-sticky-3">Descrizione <span class="sort-arrow sort-asc" data-col="descrizione">▲</span><span class="sort-arrow sort-desc" data-col="descrizione">▼</span></th>
+<th data-sort="descrizione_completa">Descrizione Completa <span class="sort-arrow sort-asc" data-col="descrizione_completa">▲</span><span class="sort-arrow sort-desc" data-col="descrizione_completa">▼</span></th>
+<th data-sort="magazzino_nome">Magazzino <span class="sort-arrow sort-asc" data-col="magazzino_nome">▲</span><span class="sort-arrow sort-desc" data-col="magazzino_nome">▼</span></th>
+<th data-sort="settore_nome">Settore <span class="sort-arrow sort-asc" data-col="settore_nome">▲</span><span class="sort-arrow sort-desc" data-col="settore_nome">▼</span></th>
+<th data-sort="categoria_nome">Categoria <span class="sort-arrow sort-asc" data-col="categoria_nome">▲</span><span class="sort-arrow sort-desc" data-col="categoria_nome">▼</span></th>
+<th data-sort="marca_nome">Marca <span class="sort-arrow sort-asc" data-col="marca_nome">▲</span><span class="sort-arrow sort-desc" data-col="marca_nome">▼</span></th>
+<th data-sort="lunghezza">Lunghezza <span class="sort-arrow sort-asc" data-col="lunghezza">▲</span><span class="sort-arrow sort-desc" data-col="lunghezza">▼</span></th>
+<th data-sort="durezza">Durezza <span class="sort-arrow sort-asc" data-col="durezza">▲</span><span class="sort-arrow sort-desc" data-col="durezza">▼</span></th>
+<th data-sort="variante">Variante <span class="sort-arrow sort-asc" data-col="variante">▲</span><span class="sort-arrow sort-desc" data-col="variante">▼</span></th>
+<th data-sort="anno_nome">Anno <span class="sort-arrow sort-asc" data-col="anno_nome">▲</span><span class="sort-arrow sort-desc" data-col="anno_nome">▼</span></th>
+<th data-sort="season_status_nome">Season <span class="sort-arrow sort-asc" data-col="season_status_nome">▲</span><span class="sort-arrow sort-desc" data-col="season_status_nome">▼</span></th>
+<th data-sort="quantita_totale">Qtà Tot <span class="sort-arrow sort-asc" data-col="quantita_totale">▲</span><span class="sort-arrow sort-desc" data-col="quantita_totale">▼</span></th>
+<th data-sort="giacenza">Giacenza <span class="sort-arrow sort-asc" data-col="giacenza">▲</span><span class="sort-arrow sort-desc" data-col="giacenza">▼</span></th>
+<th data-sort="quantita_obsoleta">Qtà Obs <span class="sort-arrow sort-asc" data-col="quantita_obsoleta">▲</span><span class="sort-arrow sort-desc" data-col="quantita_obsoleta">▼</span></th>
+<th data-sort="stato">Stato <span class="sort-arrow sort-asc" data-col="stato">▲</span><span class="sort-arrow sort-desc" data-col="stato">▼</span></th>
+<th data-sort="inventario_austria">🇦🇹 Austria <span class="sort-arrow sort-asc" data-col="inventario_austria">▲</span><span class="sort-arrow sort-desc" data-col="inventario_austria">▼</span></th>
+<th>Sigle</th><th>Azioni</th></tr></thead><tbody id="tabellaBody"></tbody></table>
+<div class="pagination-bar" id="paginationBar"><div class="pagination-info"><span>Righe per pagina:</span><select id="rowsPerPage" onchange="cambiaRighePerPagina()"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select></div><div class="pagination-info"><span id="paginationStats">Mostrando 0-0 di 0</span><button class="btn btn-secondary" id="btnPrevPage" onclick="paginaPrecedente()">◀</button><span id="paginationCurrentPage">1</span><button class="btn btn-secondary" id="btnNextPage" onclick="paginaSuccessiva()">▶</button><input type="number" id="gotoPageInput" min="1" style="width:50px;" onchange="vaiAPagina(this.value)"></div></div></div></div>
+<div id="modalEdit" class="modal"><div class="modal-content"><div class="modal-header"><h3>✏️ Modifica Articolo</h3><span class="close" onclick="chiudiModale()">&times;</span></div><form id="editForm" onsubmit="return false;"><input type="hidden" id="editId"><div class="modal-body"><div class="modal-grid-2"><div class="form-group"><label>Magazzino *</label><select id="editMagazzino" class="form-control" required></select></div><div class="form-group"><label>Settore *</label><select id="editSettore" class="form-control" required></select></div><div class="form-group"><label>Categoria *</label><select id="editCategoria" class="form-control" required></select></div><div class="form-group"><label>Marca *</label><select id="editMarca" class="form-control" required></select></div></div><div class="modal-grid-1"><div class="form-group"><label>Descrizione *</label><input type="text" id="editDescrizione" class="form-control" list="editDescrizioneList" required><datalist id="editDescrizioneList"></datalist></div></div><div class="modal-grid-2"><div class="form-group"><label>Codice Modello</label><input type="text" id="editCodiceModello" class="form-control" list="editModelloList"><datalist id="editModelloList"></datalist></div><div class="form-group"><label>Lunghezza (cm)</label><input type="text" id="editLunghezza" class="form-control" list="editLunghezzaList"><datalist id="editLunghezzaList"></datalist></div></div><div class="modal-grid-2"><div class="form-group"><label>Durezza</label><input type="text" id="editDurezza" class="form-control" list="editDurezzaList"><datalist id="editDurezzaList"></datalist></div><div class="form-group"><label>Variante</label><input type="text" id="editVariante" class="form-control" list="editVarianteList"><datalist id="editVarianteList"></datalist></div></div><div class="modal-grid-2"><div class="form-group"><label>Anno *</label><select id="editAnno" class="form-control"><option value="">Seleziona</option></select></div><div class="form-group"><label>Season Status</label><select id="editSeasonStatus" class="form-control"><option value="">Seleziona</option></select></div></div><hr class="modal-divider"><div class="modal-divider-label">📊 Quantità e Note</div><div class="modal-grid-2"><div class="form-group"><label>Quantità Totale</label><div class="form-control" style="background:#f0f2f5; cursor:not-allowed; color:#6c757d;">La quantità si modifica nella gestione delle sigle</div></div><div class="form-group"><label>Inventario Austria</label><div class="checkbox-inline" style="margin-top:6px;"><input type="checkbox" id="editInventarioAustria" checked><label for="editInventarioAustria">🇦🇹 Austria</label></div></div></div><div class="modal-grid-1"><div class="form-group"><label>Note</label><textarea id="editNote" class="form-control" rows="2"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="chiudiModale()">Annulla</button><button type="button" class="btn btn-success" id="btnSalvaModifica" onclick="salvaModifica()">💾 Salva modifiche</button></div></div></form></div></div>
+<div id="modalSigle" class="modal"><div class="modal-content"><div class="modal-header"><h3>🔖 Gestione Sigle</h3><span class="close" onclick="chiudiModalSigle()">&times;</span></div><p><strong>Articolo:</strong> <span id="sigleArticoloDesc"></span></p><table class="sigle-table" id="sigleTableBodyContainer"><thead><tr><th>Sigla</th><th>Durezza</th><th>Codice Modello</th><th>Note</th><th>Quantità</th><th>Impegnato</th><th>Qtà Austria</th><th>Azioni</th></tr></thead><tbody id="sigleTableBody"></tbody></table><div style="margin-top:16px; border-top:1px solid #ddd; padding-top:12px;"><h4 style="font-size:0.8rem;">➕ Aggiungi nuova sigla</h4><div class="form-row" style="grid-template-columns: 1fr 1fr 1fr 1fr 0.5fr 0.5fr; gap:8px;"><div class="form-group"><label>Sigla *</label><input type="text" id="nuovaSigla" class="form-control" placeholder="Sigla"></div><div class="form-group"><label>Durezza</label><input type="text" id="nuovaSiglaDurezza" class="form-control"></div><div class="form-group"><label>Codice Modello</label><input type="text" id="nuovaSiglaModello" class="form-control" list="modelliList"><datalist id="modelliList"></datalist></div><div class="form-group"><label>Note</label><input type="text" id="nuovaSiglaNote" class="form-control"></div><div class="form-group"><label>Quantità</label><input type="number" id="nuovaSiglaQuantita" class="form-control" value="0" min="0"></div><div class="form-group"><label>Qtà Austria</label><input type="number" id="nuovaSiglaQuantitaAustria" class="form-control" value="0" min="0"></div></div><button class="btn" onclick="aggiungiSigla()">➕ Aggiungi</button></div><div class="modal-footer"><button class="btn btn-secondary" onclick="ricalcolaQuantita()">🔄 Ricalcola</button><button class="btn btn-secondary" onclick="chiudiModalSigle()">Chiudi</button></div></div></div>
+<div id="modalModificaSigla" class="modal"><div class="modal-content" style="max-width:500px;"><div class="modal-header"><h3>✏️ Modifica Sigla</h3><span class="close" onclick="chiudiModificaSigla()">&times;</span></div><div class="form-group"><label>Sigla *</label><input type="text" id="modSiglaInput" class="form-control"></div><div class="form-group"><label>Nota</label><input type="text" id="modNotaInput" class="form-control" placeholder="Nota (opzionale)"></div><div class="form-group"><label>Quantità Austria</label><input type="number" id="modQuantitaAustriaInput" class="form-control" min="0" placeholder="0"></div><div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModificaSigla()">Annulla</button><button class="btn btn-success" onclick="salvaModificaSigla()">💾 Salva</button></div></div></div>
+<div id="modalObsoleto" class="modal"><div class="modal-content" style="max-width:400px;"><div class="modal-header"><h3>📦 Rendi Obsoleto</h3><span class="close" onclick="chiudiModalObsoleto()">&times;</span></div><p>Articolo: <span id="obsArticoloDesc"></span></p><div class="form-group"><label>Quantità da rendere obsoleta *</label><input type="number" id="obsQuantita" class="form-control" min="1"><small>Disponibile: <span id="obsDisponibile"></span></small></div><div class="form-group"><label>Note</label><input type="text" id="obsNote" class="form-control"></div><div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModalObsoleto()">Annulla</button><button class="btn btn-warning" onclick="confermaObsolescenza()">Conferma</button></div></div></div>
+<div id="modalWarningDuplicate" class="modal"><div class="modal-content"><div class="modal-header"><h3>⚠️ Avviso: Articolo Simile Trovato</h3><span class="close" onclick="chiudiWarningModal()">&times;</span></div><div class="modal-body"><p id="warningDuplicateMessage" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 15px;">Esiste già un articolo con caratteristiche simili.</p><div style="background: #f8f9fa; padding: 10px; border-radius: 6px; font-size: 0.8rem; border-left: 3px solid #f39c12;"><strong>Cosa vuoi fare?</strong><ul style="margin-top: 8px; padding-left: 20px;"><li><strong>Modifica</strong> l'articolo esistente per cambiare la stagione.</li><li><strong>Inserisci</strong> comunque il nuovo articolo (crea un nuovo ID).</li></ul></div><input type="hidden" id="warningSimilarId"></div><div class="modal-warning-btn-container"><button class="btn btn-secondary" onclick="chiudiWarningModal()">Annulla</button><button class="btn btn-warning" id="btnModificaSimile" onclick="modificaArticoloSimile()">✏️ Modifica Esistente</button><button class="btn btn-success" id="btnInserisciSimile" onclick="inserisciComunque()">✅ Inserisci Comunq.</button></div></div></div>
 <script>
-// ============================================================
-// UTILITY
-// ============================================================
 function getAuthHeader() { const token = localStorage.getItem('token'); return token ? { 'Authorization': 'Bearer ' + token } : {}; }
 function showMessage(msg, type) { const div = document.getElementById('messageArea'); div.innerHTML = '<div class="message ' + type + '">' + msg + '</div>'; setTimeout(() => div.innerHTML = '', 5000); }
 async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}), ...options.headers };
-  const separator = endpoint.includes('?') ? '&' : '?';
-  const url = `/api${endpoint}${separator}_=${Date.now()}`;
+  const separator = endpoint.includes('?') ? '&' : '?'; const url = `/api${endpoint}${separator}_=${Date.now()}`;
   try {
     const response = await fetch(url, { ...options, headers, cache: 'no-cache' });
     if (response.status === 304 || response.status === 204) return null;
@@ -381,52 +183,16 @@ async function apiFetch(endpoint, options = {}) {
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) return await response.json();
     return await response.text();
-  } catch (error) {
-    console.error('❌ apiFetch error:', error);
-    throw error;
-  }
+  } catch (error) { console.error('❌ apiFetch error:', error); throw error; }
 }
 function restoreSession() { return !!localStorage.getItem('token'); }
 function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; }
-
-// ============================================================
-// VARIABILI GLOBALI
-// ============================================================
 let magazzini = [], settori = [], categorie = [], marche = [], seasonStatusList = [], anniList = [];
-let articoliCorrente = [];
-let articoliFiltrati = [];
-let sortColumn = 'descrizione';
-let sortAsc = true;
-let paginaCorrente = 1, righePerPagina = 25;
-let currentObsId = null;
-let currentSigleArticoloId = null;
-let currentModificaSiglaId = null;
-let pendingArticleData = null; // 🔥 Salva i dati dell'articolo in attesa di conferma
-
-const filtroMag = document.getElementById('filtroMagazzino');
-const filtroSettore = document.getElementById('filtroSettore');
-const filtroCat = document.getElementById('filtroCategoria');
-const filtroMar = document.getElementById('filtroMarca');
-const filtroAnno = document.getElementById('filtroAnno');
-const filtroSeason = document.getElementById('filtroSeasonStatus');
-const filtroCodice = document.getElementById('filtroCodice');
-
-const descrizioneInput = document.getElementById('descrizione');
-const codiceModelloInput = document.getElementById('codice_modello');
-const lunghezzaInput = document.getElementById('lunghezza');
-const durezzaInput = document.getElementById('durezza');
-const varianteInput = document.getElementById('variante');
-const annoSelect = document.getElementById('anno');
-const seasonStatusSelect = document.getElementById('seasonStatus');
-const quantitaInput = document.getElementById('quantita');
-const noteInput = document.getElementById('note');
-const versioneInput = document.getElementById('versione');
-const inventarioAustriaCheck = document.getElementById('inventarioAustria');
-const saveBtn = document.getElementById('saveBtn');
-
-// ============================================================
-// ANAGRAFICHE E DATALIST
-// ============================================================
+let articoliCorrente = [], articoliFiltrati = [];
+let sortColumn = 'descrizione', sortAsc = true, paginaCorrente = 1, righePerPagina = 25;
+let currentObsId = null, currentSigleArticoloId = null, currentModificaSiglaId = null, pendingArticleData = null;
+const filtroMag = document.getElementById('filtroMagazzino'), filtroSettore = document.getElementById('filtroSettore'), filtroCat = document.getElementById('filtroCategoria'), filtroMar = document.getElementById('filtroMarca'), filtroAnno = document.getElementById('filtroAnno'), filtroSeason = document.getElementById('filtroSeasonStatus'), filtroCodice = document.getElementById('filtroCodice');
+const descrizioneInput = document.getElementById('descrizione'), codiceModelloInput = document.getElementById('codice_modello'), lunghezzaInput = document.getElementById('lunghezza'), durezzaInput = document.getElementById('durezza'), varianteInput = document.getElementById('variante'), annoSelect = document.getElementById('anno'), seasonStatusSelect = document.getElementById('seasonStatus'), quantitaInput = document.getElementById('quantita'), noteInput = document.getElementById('note'), versioneInput = document.getElementById('versione'), inventarioAustriaCheck = document.getElementById('inventarioAustria'), saveBtn = document.getElementById('saveBtn');
 async function caricaMarchePerCategoria(categoriaId, selectElement, defaultValue = null) {
   if (!categoriaId) { const data = await apiFetch('/anagrafiche/marche'); popolaSelect(selectElement, data, 'id', 'nome'); if (defaultValue !== null) selectElement.value = defaultValue; return; }
   try {
@@ -435,22 +201,16 @@ async function caricaMarchePerCategoria(categoriaId, selectElement, defaultValue
     if (defaultValue !== null) selectElement.value = defaultValue;
   } catch(e) { const data = await apiFetch('/anagrafiche/marche'); popolaSelect(selectElement, data, 'id', 'nome'); if (defaultValue !== null) selectElement.value = defaultValue; }
 }
-
-function popolaSelect(sel, items, valKey, textKey, placeholder = 'Seleziona') {
-  sel.innerHTML = `<option value="">${placeholder}</option>`;
-  if (!items || !items.length) return;
-  items.forEach(i => sel.appendChild(new Option(i[textKey], i[valKey])));
-}
+function popolaSelect(sel, items, valKey, textKey, placeholder = 'Seleziona') { sel.innerHTML = `<option value="">${placeholder}</option>`; if (!items || !items.length) return; items.forEach(i => sel.appendChild(new Option(i[textKey], i[valKey]))); }
 async function caricaAnagrafiche() {
   try {
     [magazzini, settori, categorie, marche, seasonStatusList, anniList] = await Promise.all([
       apiFetch('/anagrafiche/magazzini'), apiFetch('/anagrafiche/settori'), apiFetch('/anagrafiche/categorie'),
       apiFetch('/anagrafiche/marche'), apiFetch('/anagrafiche/season-status'), apiFetch('/anagrafiche/anni')
     ]);
-  popolaSelect(filtroMag, magazzini, 'id', 'nome', 'Tutti');
-popolaSelect(filtroCat, categorie, 'id', 'nome', 'Tutte');
-popolaSelect(filtroAnno, anniList, 'id', 'anno', 'Tutti');
-popolaSelect(filtroSeason, seasonStatusList, 'id', 'nome', 'Tutti');
+    popolaSelect(filtroMag, magazzini, 'id', 'nome', 'Tutti'); popolaSelect(filtroCat, categorie, 'id', 'nome', 'Tutte');
+    popolaSelect(filtroAnno, anniList, 'id', 'anno', 'Tutti'); popolaSelect(filtroSeason, seasonStatusList, 'id', 'nome', 'Tutti');
+    popolaSelect(annoSelect, anniList, 'id', 'anno'); popolaSelect(seasonStatusSelect, seasonStatusList, 'id', 'nome');
     if (anniList.length > 0) { const defaultAnno = anniList.find(a => a.anno === 2026) || anniList[0]; annoSelect.value = defaultAnno.id; }
     const categoriaDefault = filtroCat.value || '';
     await caricaMarchePerCategoria(categoriaDefault, filtroMar);
@@ -461,13 +221,11 @@ popolaSelect(filtroSeason, seasonStatusList, 'id', 'nome', 'Tutti');
       caricaArticoli();
     });
     document.getElementById('editCategoria').addEventListener('change', async function() {
-      const categoriaId = this.value;
-      const marcaSelect = document.getElementById('editMarca');
+      const categoriaId = this.value; const marcaSelect = document.getElementById('editMarca');
       if (categoriaId) { await caricaMarchePerCategoria(categoriaId, marcaSelect); }
       else { const data = await apiFetch('/anagrafiche/marche'); popolaSelect(marcaSelect, data, 'id', 'nome'); }
     });
-    await refreshAllDatalists();
-    await caricaArticoli();
+    await refreshAllDatalists(); await caricaArticoli();
   } catch(err) { console.error('Errore caricaAnagrafiche:', err); showMessage('Errore caricamento anagrafiche', 'error'); }
 }
 async function onCategoriaChanged() {
@@ -486,10 +244,8 @@ function getCurrentFilters() {
   };
 }
 async function aggiornaDatalist(campo) {
-  const endpoint = endpointMap[campo];
-  if (!endpoint) return;
-  const filters = getCurrentFilters();
-  delete filters[campo];
+  const endpoint = endpointMap[campo]; if (!endpoint) return;
+  const filters = getCurrentFilters(); delete filters[campo];
   const params = new URLSearchParams();
   for (let [k,v] of Object.entries(filters)) if (v) params.append(k, v);
   const url = endpoint + '?' + params.toString();
@@ -500,15 +256,10 @@ async function aggiornaDatalist(campo) {
   } catch(e) { console.error(e); }
 }
 async function refreshAllDatalists() { for (let campo of Object.keys(endpointMap)) await aggiornaDatalist(campo); }
-
-// ============================================================
-// CRUD ARTICOLI
-// ============================================================
 async function caricaArticoli() {
   try {
     await refreshAllDatalists();
-    const params = new URLSearchParams();
-    const f = getCurrentFilters();
+    const params = new URLSearchParams(); const f = getCurrentFilters();
     if (f.magazzino) params.append('magazzino', f.magazzino);
     if (f.settore) params.append('settore', f.settore);
     if (f.categoria) params.append('categoria', f.categoria);
@@ -521,24 +272,13 @@ async function caricaArticoli() {
     if (f.anno_id) params.append('anno_id', f.anno_id);
     if (f.season_status_id) params.append('season_status_id', f.season_status_id);
     if (f.codice) params.append('codice', f.codice);
-
     const res = await apiFetch('/articoli?' + params.toString());
-    if (res.success) {
-      articoliCorrente = res.data; articoliFiltrati = [...articoliCorrente];
-      paginaCorrente = 1; ordinaArticoli(); renderTabellaPaginata();
-    } else { showMessage(res.message || 'Errore caricamento articoli', 'error'); }
+    if (res.success) { articoliCorrente = res.data; articoliFiltrati = [...articoliCorrente]; paginaCorrente = 1; ordinaArticoli(); renderTabellaPaginata(); }
+    else { showMessage(res.message || 'Errore caricamento articoli', 'error'); }
   } catch(err) { showMessage(err.message, 'error'); console.error('❌ caricaArticoli error:', err); }
 }
-
-// ============================================================
-// SALVA ARTICOLO (con gestione warning e force)
-// ============================================================
 async function salvaArticolo(force = false) {
-  const descrizione = descrizioneInput.value.trim();
-  const magazzino = filtroMag.value;
-  const settore = filtroSettore.value;
-  const categoria = filtroCat.value;
-  const marca = filtroMar.value;
+  const descrizione = descrizioneInput.value.trim(); const magazzino = filtroMag.value, settore = filtroSettore.value, categoria = filtroCat.value, marca = filtroMar.value;
   const quantita = parseInt(quantitaInput.value);
   if (!descrizione) { showMessage('La descrizione è obbligatoria', 'error'); return; }
   if (!magazzino) { showMessage('Seleziona un magazzino nei filtri', 'error'); return; }
@@ -546,74 +286,24 @@ async function salvaArticolo(force = false) {
   if (!categoria) { showMessage('Seleziona una categoria nei filtri', 'error'); return; }
   if (!marca) { showMessage('Seleziona una marca nei filtri', 'error'); return; }
   if (!quantita || quantita < 1) { showMessage('Quantità non valida', 'error'); return; }
-
-  const payload = {
-    descrizione, magazzino: parseInt(magazzino), settore: parseInt(settore), categoria: parseInt(categoria), marca: parseInt(marca),
-    lunghezza: lunghezzaInput.value.trim(), durezza: durezzaInput.value.trim(), variante: varianteInput.value.trim(),
-    anno_id: parseInt(annoSelect.value) || 5, season_status_id: seasonStatusSelect.value || null,
-    quantita, versione: versioneInput.value.trim(), note: noteInput.value.trim(), codiceModello: codiceModelloInput.value.trim(),
-    inventario_austria: inventarioAustriaCheck.checked, force: force
-  };
+  const payload = { descrizione, magazzino: parseInt(magazzino), settore: parseInt(settore), categoria: parseInt(categoria), marca: parseInt(marca), lunghezza: lunghezzaInput.value.trim(), durezza: durezzaInput.value.trim(), variante: varianteInput.value.trim(), anno_id: parseInt(annoSelect.value) || 5, season_status_id: seasonStatusSelect.value || null, quantita, versione: versioneInput.value.trim(), note: noteInput.value.trim(), codiceModello: codiceModelloInput.value.trim(), inventario_austria: inventarioAustriaCheck.checked, force: force };
   saveBtn.disabled = true; saveBtn.innerHTML = '<span class="spinner"></span>';
   try {
     const res = await apiFetch('/articoli', { method: 'POST', body: JSON.stringify(payload) });
-    if (res.success) {
-      showMessage(res.message, 'success');
-      resetForm(); refreshAllDatalists(); caricaArticoli();
-    } else {
-      // 🔥 Gestione warning per duplicato parziale
+    if (res.success) { showMessage(res.message, 'success'); resetForm(); refreshAllDatalists(); caricaArticoli(); }
+    else {
       if (res.warning === true && res.similarArticleId) {
-        pendingArticleData = payload;
-        document.getElementById('warningDuplicateMessage').innerText = res.message;
-        document.getElementById('warningSimilarId').value = res.similarArticleId;
-        document.getElementById('modalWarningDuplicate').style.display = 'flex';
-        showMessage('Attenzione: articolo simile trovato', 'info');
-      } else {
-        throw new Error(res.message);
-      }
+        pendingArticleData = payload; document.getElementById('warningDuplicateMessage').innerText = res.message; document.getElementById('warningSimilarId').value = res.similarArticleId; document.getElementById('modalWarningDuplicate').style.display = 'flex'; showMessage('Attenzione: articolo simile trovato', 'info');
+      } else { throw new Error(res.message); }
     }
-  } catch(err) {
-    if (!err.message.includes('simile trovato')) {
-      showMessage(err.message, 'error');
-    }
-  }
+  } catch(err) { if (!err.message.includes('simile trovato')) { showMessage(err.message, 'error'); } }
   finally { saveBtn.disabled = false; saveBtn.innerHTML = '💾 Salva'; }
 }
-
-// 🔥 Gestione del modale di avviso
-function chiudiWarningModal() {
-  document.getElementById('modalWarningDuplicate').style.display = 'none';
-  pendingArticleData = null;
-}
-function modificaArticoloSimile() {
-  const id = document.getElementById('warningSimilarId').value;
-  chiudiWarningModal();
-  pendingArticleData = null;
-  modificaArticolo(parseInt(id));
-}
-function inserisciComunque() {
-  chiudiWarningModal();
-  if (pendingArticleData) {
-    salvaArticolo(true); // 🔥 Forza l'inserimento bypassando il controllo
-    pendingArticleData = null;
-  }
-}
-
-function resetForm() {
-  descrizioneInput.value = ''; codiceModelloInput.value = ''; lunghezzaInput.value = ''; durezzaInput.value = ''; varianteInput.value = '';
-  if (anniList.length > 0) annoSelect.value = anniList.find(a => a.anno === 2026)?.id || anniList[0]?.id || '';
-  seasonStatusSelect.value = ''; quantitaInput.value = 1; noteInput.value = ''; inventarioAustriaCheck.checked = true;
-}
-
-function resetFiltri() {
-  filtroMag.value = ''; filtroSettore.value = ''; filtroCat.value = ''; filtroMar.value = ''; filtroAnno.value = ''; filtroSeason.value = '';
-  filtroCodice.value = ''; descrizioneInput.value = ''; varianteInput.value = ''; seasonStatusSelect.value = '';
-  caricaMarchePerCategoria(null, filtroMar); caricaArticoli();
-}
-
-// ============================================================
-// ORDINAMENTO E PAGINAZIONE
-// ============================================================
+function chiudiWarningModal() { document.getElementById('modalWarningDuplicate').style.display = 'none'; pendingArticleData = null; }
+function modificaArticoloSimile() { const id = document.getElementById('warningSimilarId').value; chiudiWarningModal(); pendingArticleData = null; modificaArticolo(parseInt(id)); }
+function inserisciComunque() { chiudiWarningModal(); if (pendingArticleData) { salvaArticolo(true); pendingArticleData = null; } }
+function resetForm() { descrizioneInput.value = ''; codiceModelloInput.value = ''; lunghezzaInput.value = ''; durezzaInput.value = ''; varianteInput.value = ''; if (anniList.length > 0) annoSelect.value = anniList.find(a => a.anno === 2026)?.id || anniList[0]?.id || ''; seasonStatusSelect.value = ''; quantitaInput.value = 1; noteInput.value = ''; inventarioAustriaCheck.checked = true; }
+function resetFiltri() { filtroMag.value = ''; filtroSettore.value = ''; filtroCat.value = ''; filtroMar.value = ''; filtroAnno.value = ''; filtroSeason.value = ''; filtroCodice.value = ''; descrizioneInput.value = ''; varianteInput.value = ''; seasonStatusSelect.value = ''; caricaMarchePerCategoria(null, filtroMar); caricaArticoli(); }
 function compare(a,b,col) {
   if (col === 'descrizione') {
     const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
@@ -637,58 +327,37 @@ function compare(a,b,col) {
   else { va = (va||'').toString().toLowerCase(); vb = (vb||'').toString().toLowerCase(); }
   if (va < vb) return -1; if (va > vb) return 1; return 0;
 }
-function ordinaArticoli() {
-  articoliFiltrati.sort((a,b) => { let r = compare(a,b,sortColumn); if (!sortAsc) r = -r; if (r===0 && sortColumn!=='codice_modello') r = compare(a,b,'codice_modello'); return r; });
-}
+function ordinaArticoli() { articoliFiltrati.sort((a,b) => { let r = compare(a,b,sortColumn); if (!sortAsc) r = -r; if (r===0 && sortColumn!=='codice_modello') r = compare(a,b,'codice_modello'); return r; }); }
 function handleSort(col, direction) {
   if (direction === 'asc') sortAsc = true;
   else if (direction === 'desc') sortAsc = false;
   else { if (sortColumn === col) sortAsc = !sortAsc; else { sortColumn = col; sortAsc = true; } }
   sortColumn = col; ordinaArticoli(); paginaCorrente = 1; renderTabellaPaginata(); aggiornaIndicatoriOrdine();
 }
-function aggiornaIndicatoriOrdine() {
-  document.querySelectorAll('.sort-arrow').forEach(el => el.classList.remove('active'));
-  const colonnaCorrente = sortColumn;
-  const selettoreAsc = `.sort-arrow.sort-asc[data-col="${colonnaCorrente}"]`;
-  const selettoreDesc = `.sort-arrow.sort-desc[data-col="${colonnaCorrente}"]`;
-  const frecciaAsc = document.querySelector(selettoreAsc);
-  const frecciaDesc = document.querySelector(selettoreDesc);
-  if (sortAsc) { if (frecciaAsc) frecciaAsc.classList.add('active'); }
-  else { if (frecciaDesc) frecciaDesc.classList.add('active'); }
-}
+function aggiornaIndicatoriOrdine() { document.querySelectorAll('.sort-arrow').forEach(el => el.classList.remove('active')); const colonnaCorrente = sortColumn; const selettoreAsc = `.sort-arrow.sort-asc[data-col="${colonnaCorrente}"]`; const selettoreDesc = `.sort-arrow.sort-desc[data-col="${colonnaCorrente}"]`; const frecciaAsc = document.querySelector(selettoreAsc); const frecciaDesc = document.querySelector(selettoreDesc); if (sortAsc) { if (frecciaAsc) frecciaAsc.classList.add('active'); } else { if (frecciaDesc) frecciaDesc.classList.add('active'); } }
 function renderTabellaPaginata() {
   const tbody = document.getElementById('tabellaBody'); tbody.innerHTML = '';
   const totali = articoliFiltrati.length;
   if (totali === 0) { tbody.innerHTML = '<tr><td colspan="20" class="text-center">Nessun articolo trovato</td></tr>'; document.getElementById('paginationStats').innerText = 'Mostrando 0-0 di 0'; document.getElementById('paginationCurrentPage').innerText = '1'; document.getElementById('btnPrevPage').disabled = true; document.getElementById('btnNextPage').disabled = true; return; }
   const totalePagine = Math.ceil(totali / righePerPagina);
   if (paginaCorrente > totalePagine) paginaCorrente = totalePagine; if (paginaCorrente < 1) paginaCorrente = 1;
-  const start = (paginaCorrente - 1) * righePerPagina; const end = Math.min(start + righePerPagina, totali);
-  const pagina = articoliFiltrati.slice(start, end); updatePagination(totali, start, end);
+  const start = (paginaCorrente - 1) * righePerPagina; const end = Math.min(start + righePerPagina, totali); const pagina = articoliFiltrati.slice(start, end); updatePagination(totali, start, end);
   pagina.forEach(a => {
     if (!a.articolo_id) return;
-    const mag = magazzini.find(m => m.id == a.magazzino)?.nome || a.magazzino;
-    const cat = categorie.find(c => c.id == a.categoria)?.nome || a.categoria;
-    const mar = marche.find(m => m.id == a.marca)?.nome || a.marca;
-    const giac = a.GIACENZA_REALE || 0; const row = tbody.insertRow();
+    const mag = magazzini.find(m => m.id == a.magazzino)?.nome || a.magazzino; const cat = categorie.find(c => c.id == a.categoria)?.nome || a.categoria; const mar = marche.find(m => m.id == a.marca)?.nome || a.marca; const giac = a.GIACENZA_REALE || 0; const row = tbody.insertRow();
     const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
     const td1 = row.insertCell(0); td1.className = 'col-sticky-1'; td1.innerText = codiceMostrato;
     const td2 = row.insertCell(1); td2.className = 'col-sticky-2'; td2.innerText = a.articolo_id;
     const td3 = row.insertCell(2); td3.className = 'col-sticky-3'; td3.innerText = a.descrizione;
     const td4 = row.insertCell(3); td4.innerText = a.descrizione_completa;
-    const td5 = row.insertCell(4); td5.innerText = mag;
-    const td6 = row.insertCell(5); td6.innerText = settori.find(s => s.id == a.settore)?.nome || '';
-    const td7 = row.insertCell(6); td7.innerText = cat;
-    const td8 = row.insertCell(7); td8.innerText = mar;
-    const td9 = row.insertCell(8); td9.innerText = a.lunghezza || '';
-    const td10 = row.insertCell(9); td10.innerText = a.durezza || '';
-    const td11 = row.insertCell(10); td11.innerText = a.variante || '';
-    const td12 = row.insertCell(11); td12.innerText = a.anno_nome || '';
+    const td5 = row.insertCell(4); td5.innerText = mag; const td6 = row.insertCell(5); td6.innerText = settori.find(s => s.id == a.settore)?.nome || '';
+    const td7 = row.insertCell(6); td7.innerText = cat; const td8 = row.insertCell(7); td8.innerText = mar;
+    const td9 = row.insertCell(8); td9.innerText = a.lunghezza || ''; const td10 = row.insertCell(9); td10.innerText = a.durezza || '';
+    const td11 = row.insertCell(10); td11.innerText = a.variante || ''; const td12 = row.insertCell(11); td12.innerText = a.anno_nome || '';
     const td13 = row.insertCell(12); td13.innerText = a.season_status_nome || '';
     const td14 = row.insertCell(13); td14.innerText = a.quantita_totale;
-    const td15 = row.insertCell(14); td15.innerText = giac;
-    const td16 = row.insertCell(15); td16.innerText = a.quantita_obsoleta || 0;
-    const td17 = row.insertCell(16); td17.innerText = a.stato || '';
-    const td18 = row.insertCell(17); td18.innerText = a.inventario_austria ? '✅' : '❌';
+    const td15 = row.insertCell(14); td15.innerText = giac; const td16 = row.insertCell(15); td16.innerText = a.quantita_obsoleta || 0;
+    const td17 = row.insertCell(16); td17.innerText = a.stato || ''; const td18 = row.insertCell(17); td18.innerText = a.inventario_austria ? '✅' : '❌';
     const tdSigle = row.insertCell(18); const btnSigle = document.createElement('button'); btnSigle.textContent = '🔖'; btnSigle.className = 'btn'; btnSigle.style.background = '#6c757d'; btnSigle.style.padding = '2px 6px'; btnSigle.onclick = () => apriGestioneSigle(a.articolo_id, a.descrizione, a.lunghezza); tdSigle.appendChild(btnSigle);
     const actions = row.insertCell(19); actions.className = 'action-buttons';
     const btnMod = document.createElement('button'); btnMod.textContent = '✏️'; btnMod.className = 'btn'; btnMod.dataset.id = a.articolo_id; btnMod.onclick = function() { modificaArticolo(this.dataset.id); }; actions.appendChild(btnMod);
@@ -702,10 +371,6 @@ function paginaPrecedente() { if (paginaCorrente > 1) { paginaCorrente--; render
 function paginaSuccessiva() { const max = Math.ceil(articoliFiltrati.length / righePerPagina); if (paginaCorrente < max) { paginaCorrente++; renderTabellaPaginata(); } }
 function vaiAPagina(val) { const p = parseInt(val); if (p && p > 0) { const max = Math.ceil(articoliFiltrati.length / righePerPagina); if (p <= max) { paginaCorrente = p; renderTabellaPaginata(); } } }
 function attachSortListeners() { document.querySelectorAll('#tabellaArticoli th[data-sort]').forEach(th => { th.addEventListener('click', (e) => { if (e.target.classList.contains('sort-arrow')) return; const col = th.getAttribute('data-sort'); handleSort(col); }); }); document.querySelectorAll('.sort-arrow').forEach(el => { el.addEventListener('click', (e) => { e.stopPropagation(); const col = el.getAttribute('data-col'); const direction = el.classList.contains('sort-asc') ? 'asc' : 'desc'; handleSort(col, direction); }); }); }
-
-// ============================================================
-// MODIFICA / ELIMINA
-// ============================================================
 async function caricaSelectsModale() {
   const [mag,set,cat,mar,ss,anni] = await Promise.all([
     apiFetch('/anagrafiche/magazzini'), apiFetch('/anagrafiche/settori'), apiFetch('/anagrafiche/categorie'),
@@ -727,27 +392,40 @@ async function refreshEditDatalists() {
   }
 }
 async function modificaArticolo(id) {
-  const art = articoliCorrente.find(a => a.articolo_id == id);
-  if (!art) return;
-  document.getElementById('editId').value = art.articolo_id;
-  await caricaSelectsModale();
-  document.getElementById('editMagazzino').value = art.magazzino;
-  document.getElementById('editSettore').value = art.settore;
-  document.getElementById('editCategoria').value = art.categoria;
-  const marcaSelect = document.getElementById('editMarca');
-  await caricaMarchePerCategoria(art.categoria, marcaSelect, art.marca);
-  document.getElementById('editDescrizione').value = art.descrizione;
-  document.getElementById('editLunghezza').value = art.lunghezza || '';
-  document.getElementById('editDurezza').value = art.durezza || '';
-  document.getElementById('editVariante').value = art.variante || '';
-  document.getElementById('editAnno').value = art.anno_id || '';
-  document.getElementById('editSeasonStatus').value = art.season_status_id || '';
-  document.getElementById('editCodiceModello').value = art.codice_modello || '';
-  document.getElementById('editQuantita').value = art.quantita_totale;
-  document.getElementById('editNote').value = art.note || '';
-  document.getElementById('editInventarioAustria').checked = art.inventario_austria == 1;
-  await refreshEditDatalists();
-  document.getElementById('modalEdit').style.display = 'flex';
+  try {
+    const btn = document.getElementById('btnSalvaModifica');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+
+    const art = articoliCorrente.find(a => a.articolo_id == id);
+    if (!art) { showMessage('Articolo non trovato', 'error'); return; }
+    document.getElementById('editId').value = art.articolo_id;
+    await caricaSelectsModale();
+    document.getElementById('editMagazzino').value = art.magazzino;
+    document.getElementById('editSettore').value = art.settore;
+    document.getElementById('editCategoria').value = art.categoria;
+    const marcaSelect = document.getElementById('editMarca');
+    await caricaMarchePerCategoria(art.categoria, marcaSelect, art.marca);
+    document.getElementById('editDescrizione').value = art.descrizione;
+    document.getElementById('editLunghezza').value = art.lunghezza || '';
+    document.getElementById('editDurezza').value = art.durezza || '';
+    document.getElementById('editVariante').value = art.variante || '';
+    document.getElementById('editAnno').value = art.anno_id || '';
+    document.getElementById('editSeasonStatus').value = art.season_status_id || '';
+    document.getElementById('editCodiceModello').value = art.codice_modello || '';
+    document.getElementById('editQuantita').value = art.quantita_totale;
+    document.getElementById('editNote').value = art.note || '';
+    document.getElementById('editInventarioAustria').checked = art.inventario_austria == 1;
+    await refreshEditDatalists();
+    document.getElementById('modalEdit').style.display = 'flex';
+  } catch (err) {
+    showMessage('Errore nel caricamento della modifica: ' + err.message, 'error');
+    console.error(err);
+  } finally {
+    const btn = document.getElementById('btnSalvaModifica');
+    btn.disabled = false;
+    btn.innerHTML = '💾 Salva modifiche';
+  }
 }
 async function salvaModifica() {
   const id = document.getElementById('editId').value;
@@ -778,10 +456,6 @@ async function eliminaArticolo(id) {
     else showMessage(res.message, 'error');
   } catch(err) { showMessage(err.message, 'error'); }
 }
-
-// ============================================================
-// GESTIONE SIGLE
-// ============================================================
 async function apriGestioneSigle(articoloId, descrizione, lunghezza) {
   currentSigleArticoloId = articoloId; const displayText = descrizione + (lunghezza ? ' (' + lunghezza + ' cm)' : '');
   document.getElementById('sigleArticoloDesc').innerText = displayText; await caricaSigleArticolo(articoloId); document.getElementById('modalSigle').style.display = 'flex';
@@ -855,10 +529,6 @@ async function salvaModificaSigla() {
 async function eliminaSigla(id) { if (!confirm('Eliminare sigla?')) return; try { await apiFetch('/articoli/sigle/' + id, { method: 'DELETE' }); await caricaSigleArticolo(currentSigleArticoloId); await caricaArticoli(); } catch(err) { showMessage(err.message, 'error'); } }
 async function ricalcolaQuantita() { if (!currentSigleArticoloId) return; try { const res = await apiFetch('/articoli/' + currentSigleArticoloId + '/ricalcola', { method: 'POST' }); if (res.success) { showMessage('Quantità totale ricalcolata: ' + res.nuovaQuantita, 'success'); await caricaSigleArticolo(currentSigleArticoloId); await caricaArticoli(); } else { showMessage(res.message, 'error'); } } catch(err) { showMessage('Errore: ' + err.message, 'error'); } }
 function chiudiModalSigle() { document.getElementById('modalSigle').style.display = 'none'; currentSigleArticoloId = null; caricaArticoli(); }
-
-// ============================================================
-// OBSOLESCENZA
-// ============================================================
 function apriModaleObsoleto(id, descrizione, disponibile) { currentObsId = id; document.getElementById('obsArticoloDesc').innerText = descrizione; document.getElementById('obsDisponibile').innerText = disponibile; document.getElementById('obsQuantita').max = disponibile; document.getElementById('obsQuantita').value = 1; document.getElementById('obsNote').value = ''; document.getElementById('modalObsoleto').style.display = 'flex'; }
 function chiudiModalObsoleto() { document.getElementById('modalObsoleto').style.display = 'none'; currentObsId = null; }
 async function confermaObsolescenza() {
@@ -870,10 +540,6 @@ async function confermaObsolescenza() {
     else showMessage(res.message, 'error');
   } catch(err) { showMessage(err.message, 'error'); }
 }
-
-// ============================================================
-// INIT
-// ============================================================
 function attachFormEvents() {
   const inputs = ['descrizione', 'lunghezza', 'durezza', 'codice_modello', 'variante'];
   inputs.forEach(id => { const el = document.getElementById(id); if (el) { el.addEventListener('input', () => { refreshAllDatalists(); caricaArticoli(); }); } });
