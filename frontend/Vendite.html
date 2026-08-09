@@ -21,142 +21,54 @@
     .btn-secondary { background: #6c757d; }
     .btn-warning { background: #f39c12; color: white; }
     .btn-sm { padding: 3px 8px; font-size: 0.7rem; }
-
-    .filter-bar {
-      background: #f8f9fa;
-      border-radius: 10px;
-      padding: 10px 15px;
-      margin-bottom: 15px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: flex-end;
-      border: 1px solid #e2e8f0;
-    }
+    .filter-bar { background: #f8f9fa; border-radius: 10px; padding: 10px 15px; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; border: 1px solid #e2e8f0; }
     .filter-group { flex: 1; min-width: 140px; }
     .filter-group label { display: block; font-weight: 600; font-size: 0.65rem; text-transform: uppercase; color: #2c3e50; margin-bottom: 2px; }
     .filter-group input, .filter-group select { width: 100%; padding: 5px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: white; }
     .radio-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
     .radio-group label { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; font-weight: normal; cursor: pointer; }
     .radio-group input[type="radio"] { cursor: pointer; }
-
-    .table-wrapper {
-      overflow-x: auto;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      max-height: 65vh;
-      overflow-y: auto;
-      position: relative;
-    }
+    .table-wrapper { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; max-height: 65vh; overflow-y: auto; position: relative; }
     table { width: 100%; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; }
     th, td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
     th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; cursor: pointer; user-select: none; }
     th:hover { background: #e2e8f0; }
-    .sort-arrow {
-      font-size: 0.7rem;
-      margin-left: 4px;
-      color: #aaa;
-      display: inline-block;
-    }
+    .sort-arrow { font-size: 0.7rem; margin-left: 4px; color: #aaa; display: inline-block; }
     .sort-arrow.active { color: #1a73e8; font-weight: bold; }
     .checkbox-col { width: 30px; text-align: center; }
-
-    .pagination-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      background: #f8f9fa;
-      border-top: 1px solid #e2e8f0;
-      font-size: 0.7rem;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
+    .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; background: #f8f9fa; border-top: 1px solid #e2e8f0; font-size: 0.7rem; flex-wrap: wrap; gap: 8px; }
     .pagination-info { display: flex; align-items: center; gap: 8px; }
     .pagination-bar input, .pagination-bar select { width: auto; padding: 2px 6px; border: 1px solid #cbd5e0; border-radius: 4px; }
-
     .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; }
     .badge-articolo { background: #e3f2fd; color: #0d47a1; }
     .badge-kit { background: #fff3e0; color: #e65100; }
-
+    .badge-attesa { background: #fff8e1; color: #f57f17; border: 1px solid #f57f17; }
+    .badge-consegnato { background: #d4edda; color: #155724; border: 1px solid #28a745; }
     .message { padding: 6px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
     .success { background: #d4edda; color: #155724; border-left: 3px solid #38a169; }
     .error { background: #f8d7da; color: #721c24; border-left: 3px solid #e53e3e; }
     .info { background: #e8f0fe; color: #1a73e8; border-left: 3px solid #1a73e8; }
     .text-center { text-align: center; }
-
-    .modal {
-      display: none;
-      position: fixed;
-      top:0; left:0;
-      width:100%; height:100%;
-      background: rgba(0,0,0,0.5);
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    .modal-content {
-      background: white;
-      border-radius: 16px;
-      width: 90%;
-      max-width: 1000px;
-      max-height: 85vh;
-      overflow-y: auto;
-      padding: 20px;
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 10px;
-      margin-bottom: 15px;
-    }
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 1000px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
     .modal-header h3 { margin: 0; }
     .close { font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #aaa; }
     .close:hover { color: black; }
-    .modal-footer {
-      border-top: 1px solid #e2e8f0;
-      padding-top: 12px;
-      margin-top: 15px;
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-    }
+    .modal-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-weight: 600; font-size: 0.7rem; margin-bottom: 2px; color: #2c3e50; }
     .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.75rem; background: white; }
-
-    .selected-items {
-      background: #f8f9fa;
-      border-radius: 6px;
-      padding: 8px 12px;
-      margin: 10px 0;
-      max-height: 150px;
-      overflow-y: auto;
-      border: 1px solid #e2e8f0;
-    }
+    .selected-items { background: #f8f9fa; border-radius: 6px; padding: 8px 12px; margin: 10px 0; max-height: 150px; overflow-y: auto; border: 1px solid #e2e8f0; }
     .selected-items table { font-size: 0.7rem; }
     .selected-items th { background: #e9ecef; position: static; }
-
-    .spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid #e2e8f0;
-      border-top-color: #1a73e8;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-    }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #e2e8f0; border-top-color: #1a73e8; border-radius: 50%; animation: spin 0.6s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
     @media (max-width: 768px) { .filter-bar { flex-direction: column; align-items: stretch; } }
   </style>
 </head>
 <body>
 <div class="container">
-
-  <!-- COMPACT BAR -->
   <div class="compact-bar">
     <div style="flex:1;"></div>
     <div class="logo"><img src="/images/kastle-logo.png" alt="Kastle"></div>
@@ -167,17 +79,9 @@
       <button class="btn btn-secondary" onclick="caricaOggetti()">🔄 Ricarica</button>
     </div>
   </div>
-
   <h2>💰 Vendite</h2>
   <div id="messageArea"></div>
-
-  <!-- FILTRI -->
   <div class="filter-bar">
-    <div class="radio-group" style="flex:1; gap:20px;">
-      <label><input type="radio" name="source" id="sourceMagazzino" value="magazzino" checked> 🏭 Dal magazzino</label>
-      <label><input type="radio" name="source" id="sourceSoggetto" value="soggetto"> 👤 Da soggetto</label>
-    </div>
-    <div class="filter-bar">
     <div class="radio-group" style="flex:1; gap:20px;">
       <label><input type="radio" name="source" id="sourceMagazzino" value="magazzino" checked> 🏭 Dal magazzino</label>
       <label><input type="radio" name="source" id="sourceSoggetto" value="soggetto"> 👤 Da soggetto</label>
@@ -199,7 +103,6 @@
         </select>
       </div>
     </div>
-    <!-- 🔥 AGGIUNTO FILTRO SETTORE -->
     <div class="filter-group" style="min-width:100px;">
       <label>Settore</label>
       <select id="filtroSettore" onchange="caricaOggetti()">
@@ -234,54 +137,9 @@
     <div class="btn-group" style="display:flex; gap:6px; align-items:flex-end;">
       <button class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
       <button class="btn btn-warning" onclick="apriModalStorico()">📜 Storico</button>
+      <button class="btn btn-success" onclick="apriModalConsegne()">📦 Consegne</button>
     </div>
   </div>
-    <div id="soggettoSection" style="display:none; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-      <div class="filter-group" style="min-width:120px;">
-        <label>Tipo</label>
-        <select id="sourceTipo" onchange="caricaSoggetti()">
-          <option value="PROMOTER">Promoter</option>
-          <option value="NEGOZIO">Negozio</option>
-          <option value="CLIENTE">Cliente</option>
-          <option value="AGENTE">Agente</option>
-        </select>
-      </div>
-      <div class="filter-group" style="min-width:150px;">
-        <label>Soggetto</label>
-        <select id="sourceId" onchange="caricaOggetti()">
-          <option value="">Seleziona...</option>
-        </select>
-      </div>
-    </div>
-    <div class="filter-group" style="min-width:120px;">
-      <label>Magazzino</label>
-      <select id="filtroMagazzino" onchange="caricaOggetti()">
-        <option value="">Tutti</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label>Tipo oggetto</label>
-      <select id="filtroTipo" onchange="caricaOggetti()">
-        <option value="TUTTI">Tutti</option>
-        <option value="ARTICOLO">Articoli</option>
-        <option value="KIT">Kit</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label>Descrizione</label>
-      <input type="text" id="filtroDescrizione" placeholder="Cerca..." oninput="caricaOggetti()">
-    </div>
-    <div class="filter-group">
-      <label>Sigla</label>
-      <input type="text" id="filtroSigla" placeholder="Sigla..." oninput="caricaOggetti()">
-    </div>
-    <div class="btn-group" style="display:flex; gap:6px; align-items:flex-end;">
-      <button class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
-      <button class="btn btn-warning" onclick="apriModalStorico()">📜 Storico</button>
-    </div>
-  </div>
-
-  <!-- TABELLA OGGETTI -->
   <div class="table-wrapper">
     <table id="tabellaOggetti">
       <thead>
@@ -319,8 +177,6 @@
       </div>
     </div>
   </div>
-
-  <!-- RIEPILOGO SELEZIONATI -->
   <div id="selectedContainer" style="display:none; margin-top:10px;">
     <div class="selected-items">
       <strong id="selectedLabel">📦 Oggetti selezionati:</strong>
@@ -334,12 +190,7 @@
       <button class="btn btn-secondary" onclick="deselezionaTutti()">✖️ Deseleziona</button>
     </div>
   </div>
-
 </div>
-
-<!-- ============================================================ -->
-<!-- MODALE VENDITA -->
-<!-- ============================================================ -->
 <div id="modalVendita" class="modal">
   <div class="modal-content" style="max-width:700px;">
     <div class="modal-header">
@@ -366,16 +217,30 @@
       <label>Note</label>
       <input type="text" id="noteVenditaInput" class="form-control" placeholder="Note sulla vendita">
     </div>
+    <div class="form-group">
+      <label>Tipo Documento (Opzionale)</label>
+      <select id="tipoDocumentoVendita" class="form-control" onchange="toggleDocumentiVendita()">
+        <option value="">Nessuno</option>
+        <option value="FATTURA">Fattura</option>
+        <option value="BOLLA">Bolla</option>
+      </select>
+    </div>
+    <div id="documentiVenditaSection" style="display:none; border:1px solid #e2e8f0; padding:10px; border-radius:6px; margin-bottom:12px;">
+      <div class="form-group">
+        <label id="labelDataDocumento">Data Documento</label>
+        <input type="date" id="dataDocumentoVendita" class="form-control">
+      </div>
+      <div class="form-group">
+        <label id="labelNumeroDocumento">Numero Documento</label>
+        <input type="text" id="numeroDocumentoVendita" class="form-control" placeholder="Numero...">
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="chiudiModaleVendita()">Annulla</button>
-      <button class="btn btn-success" id="btnConfermaVendita" onclick="confermaVendita()">💰 Conferma Vendita</button>
+      <button class="btn btn-success" id="btnConfermaVendita" onclick="confermaVendita()">💰 Vendi (In Consegna)</button>
     </div>
   </div>
 </div>
-
-<!-- ============================================================ -->
-<!-- MODALE NUOVO CLIENTE -->
-<!-- ============================================================ -->
 <div id="modalNuovoCliente" class="modal">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header">
@@ -399,10 +264,6 @@
     </div>
   </div>
 </div>
-
-<!-- ============================================================ -->
-<!-- MODALE STORICO VENDITE -->
-<!-- ============================================================ -->
 <div id="modalStorico" class="modal">
   <div class="modal-content" style="max-width:1100px;">
     <div class="modal-header">
@@ -424,10 +285,13 @@
             <th>Qtà</th>
             <th>Importo</th>
             <th>Note</th>
+            <th>Stato Consegna</th>
+            <th>Doc.</th>
             <th>Operatore</th>
+            <th>Azioni</th>
           </tr>
         </thead>
-        <tbody id="storicoBody"><tr><td colspan="9" class="text-center">Caricamento...</td></tr></tbody>
+        <tbody id="storicoBody"><tr><td colspan="12" class="text-center">Caricamento...</td></tr></tbody>
       </table>
     </div>
     <div class="modal-footer">
@@ -435,11 +299,84 @@
     </div>
   </div>
 </div>
-
+<div id="modalConsegne" class="modal">
+  <div class="modal-content" style="max-width:1100px;">
+    <div class="modal-header">
+      <h3>📦 Consegne in sospeso</h3>
+      <span class="close" onclick="chiudiModalConsegne()">&times;</span>
+    </div>
+    <div style="margin-bottom:10px;">
+      <input type="text" id="filtroConsegne" placeholder="Filtra per cliente..." style="width:100%; padding:6px 8px; border:1px solid #cbd5e0; border-radius:6px; font-size:0.75rem;" oninput="filtraConsegne()">
+    </div>
+    <div class="table-wrapper" style="max-height:60vh;">
+      <table id="tabellaConsegne">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Data Vendita</th>
+            <th>Cliente</th>
+            <th>Oggetto</th>
+            <th>Tipo</th>
+            <th>Qtà</th>
+            <th>Note</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody id="consegneBody"><tr><td colspan="8" class="text-center">Caricamento...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="chiudiModalConsegne()">Chiudi</button>
+    </div>
+  </div>
+</div>
+<div id="modalModificaVendita" class="modal">
+  <div class="modal-content" style="max-width:600px;">
+    <div class="modal-header">
+      <h3>✏️ Modifica Vendita #<span id="modificaVenditaId">-</span></h3>
+      <span class="close" onclick="chiudiModificaVendita()">&times;</span>
+    </div>
+    <div class="form-group">
+      <label>Data</label>
+      <input type="text" id="modificaDataVendita" class="form-control" disabled style="background:#f0f2f5;">
+    </div>
+    <div class="form-group">
+      <label>Cliente</label>
+      <input type="text" id="modificaClienteVendita" class="form-control" disabled style="background:#f0f2f5;">
+    </div>
+    <div class="form-group">
+      <label>Importo (€)</label>
+      <input type="number" id="modificaImportoVendita" class="form-control" step="0.01">
+    </div>
+    <div class="form-group">
+      <label>Nota</label>
+      <textarea id="modificaNotaVendita" class="form-control" rows="3" placeholder="Modifica la nota..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Tipo Documento</label>
+      <select id="modificaTipoDocumento" class="form-control" onchange="toggleModificaDocumenti()">
+        <option value="">Nessuno</option>
+        <option value="FATTURA">Fattura</option>
+        <option value="BOLLA">Bolla</option>
+      </select>
+    </div>
+    <div id="modificaDocumentiSection" style="display:none; border:1px solid #e2e8f0; padding:10px; border-radius:6px; margin-bottom:12px;">
+      <div class="form-group">
+        <label id="modificaLabelData">Data Documento</label>
+        <input type="date" id="modificaDataDocumento" class="form-control">
+      </div>
+      <div class="form-group">
+        <label id="modificaLabelNumero">Numero Documento</label>
+        <input type="text" id="modificaNumeroDocumento" class="form-control">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="chiudiModificaVendita()">Annulla</button>
+      <button class="btn btn-warning" id="btnSalvaModifica" onclick="salvaModificaVendita()">💾 Salva Modifiche</button>
+    </div>
+  </div>
+</div>
 <script>
-// ============================================================
-// UTILITY
-// ============================================================
 function getAuthHeader() {
   const token = localStorage.getItem('token');
   return token ? { 'Authorization': 'Bearer ' + token } : {};
@@ -477,42 +414,24 @@ function formatDate(d) {
          String(dt.getHours()).padStart(2,'0') + ':' +
          String(dt.getMinutes()).padStart(2,'0');
 }
-
-// ============================================================
-// ORDINAMENTO
-// ============================================================
+function formatDateShort(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear();
+}
 let sortColumn = 'numero';
 let sortAsc = true;
-
 function sortTable(col) {
-  if (sortColumn === col) {
-    sortAsc = !sortAsc;
-  } else {
-    sortColumn = col;
-    sortAsc = true;
-  }
-  // Aggiorna le frecce
+  if (sortColumn === col) { sortAsc = !sortAsc; } else { sortColumn = col; sortAsc = true; }
   document.querySelectorAll('#tabellaOggetti thead th .sort-arrow').forEach(el => el.classList.remove('active'));
   const arrow = document.querySelector(`#tabellaOggetti thead th[data-sort="${col}"] .sort-arrow`);
-  if (arrow) {
-    arrow.classList.add('active');
-    arrow.textContent = sortAsc ? '▲' : '▼';
-  }
-
-  // Ordina i dati
+  if (arrow) { arrow.classList.add('active'); arrow.textContent = sortAsc ? '▲' : '▼'; }
   oggettiFiltrati.sort((a, b) => {
     let va = a[col] !== undefined ? a[col] : '';
     let vb = b[col] !== undefined ? b[col] : '';
-    if (col === 'numero') {
-      va = parseInt(va) || 0;
-      vb = parseInt(vb) || 0;
-    } else if (col === 'quantita') {
-      va = parseFloat(va) || 0;
-      vb = parseFloat(vb) || 0;
-    } else {
-      va = va.toString().toLowerCase();
-      vb = vb.toString().toLowerCase();
-    }
+    if (col === 'numero') { va = parseInt(va) || 0; vb = parseInt(vb) || 0; }
+    else if (col === 'quantita') { va = parseFloat(va) || 0; vb = parseFloat(vb) || 0; }
+    else { va = va.toString().toLowerCase(); vb = vb.toString().toLowerCase(); }
     if (va < vb) return sortAsc ? -1 : 1;
     if (va > vb) return sortAsc ? 1 : -1;
     return 0;
@@ -520,7 +439,6 @@ function sortTable(col) {
   paginaCorrente = 1;
   renderTabella();
 }
-
 function attachSortListeners() {
   document.querySelectorAll('#tabellaOggetti thead th[data-sort]').forEach(th => {
     th.addEventListener('click', function(e) {
@@ -530,10 +448,6 @@ function attachSortListeners() {
     });
   });
 }
-
-// ============================================================
-// VARIABILI GLOBALI
-// ============================================================
 let currentUser = null;
 let magazzini = [];
 let clienti = [];
@@ -542,9 +456,10 @@ let oggettiFiltrati = [];
 let selezione = [];
 let storicoVendite = [];
 let storicoFiltrato = [];
+let consegneList = [];
+let consegneFiltrate = [];
 let paginaCorrente = 1, righePerPagina = 25;
 let userLevel = 0;
-
 const sourceMag = document.getElementById('sourceMagazzino');
 const sourceSog = document.getElementById('sourceSoggetto');
 const soggettoSection = document.getElementById('soggettoSection');
@@ -554,10 +469,6 @@ const filtroMagazzino = document.getElementById('filtroMagazzino');
 const filtroTipo = document.getElementById('filtroTipo');
 const filtroDescrizione = document.getElementById('filtroDescrizione');
 const filtroSigla = document.getElementById('filtroSigla');
-
-// ============================================================
-// CARICAMENTO DATI INIZIALI
-// ============================================================
 async function caricaMagazzini() {
   try {
     magazzini = await apiFetch('/anagrafiche/magazzini');
@@ -573,20 +484,14 @@ async function caricaMagazzini() {
       sel.disabled = true;
       showMessage('⚠️ Non hai magazzini associati. Usa la modalità "Da soggetto".', 'info');
     }
-  } catch(e) {
-    console.error('Errore magazzini:', e);
-    showMessage('Impossibile caricare i magazzini', 'error');
-  }
+  } catch(e) { console.error('Errore magazzini:', e); showMessage('Impossibile caricare i magazzini', 'error'); }
 }
-
 async function caricaSoggetti() {
   const tipo = sourceTipo.value;
   try {
     const data = await apiFetch('/soggetti/tipo/' + tipo);
     const sel = sourceId;
     sel.innerHTML = '<option value="">Seleziona...</option>';
-    
-    // Aggiungi "Tutti" solo se admin o promoter livello 1
     const canSeeAll = currentUser.ruolo === 'admin' || (currentUser.ruolo === 'promoter' && userLevel === 1);
     if (canSeeAll) {
       const optAll = document.createElement('option');
@@ -594,55 +499,27 @@ async function caricaSoggetti() {
       optAll.textContent = '👥 Tutti i soggetti';
       sel.appendChild(optAll);
     }
-    
     data.forEach(s => {
       const nome = s.tipo === 'PROMOTER' ? (s.nome + ' ' + (s.cognome||'')).trim() : s.nome;
       sel.appendChild(new Option(nome + ' (' + s.tipo + ')', s.id));
     });
-
-    // Determina se disabilitare il dropdown in base al ruolo e livello
-    let disabled = false;
-    let defaultValue = '';
-
+    let disabled = false; let defaultValue = '';
     if (currentUser.ruolo !== 'admin') {
       if (currentUser.ruolo === 'promoter') {
-        if (userLevel !== 1) {
-          disabled = true;
-          defaultValue = currentUser.riferimento_id || '';
-        } else {
-          // Livello 1: abilitato, pre-seleziona se stesso se non c'è altra scelta
-          if (currentUser.riferimento_id && !sel.value) {
-            sel.value = currentUser.riferimento_id;
-          }
-        }
-      } else {
-        disabled = true;
-        defaultValue = currentUser.riferimento_id || '';
-      }
-    } else {
-      sel.disabled = false;
-      return;
-    }
-
+        if (userLevel !== 1) { disabled = true; defaultValue = currentUser.riferimento_id || ''; }
+        else { if (currentUser.riferimento_id && !sel.value) { sel.value = currentUser.riferimento_id; } }
+      } else { disabled = true; defaultValue = currentUser.riferimento_id || ''; }
+    } else { sel.disabled = false; return; }
     if (disabled) {
       sel.disabled = true;
       if (defaultValue) {
         const optionExists = Array.from(sel.options).some(opt => opt.value == defaultValue);
-        if (optionExists) {
-          sel.value = defaultValue;
-        } else if (sel.options.length > 1) {
-          sel.selectedIndex = 1;
-        }
+        if (optionExists) sel.value = defaultValue;
+        else if (sel.options.length > 1) sel.selectedIndex = 1;
       }
-    } else {
-      sel.disabled = false;
-    }
-  } catch(e) {
-    console.error('Errore caricamento soggetti:', e);
-    showMessage('Errore nel caricamento dei soggetti', 'error');
-  }
+    } else { sel.disabled = false; }
+  } catch(e) { console.error('Errore caricamento soggetti:', e); showMessage('Errore nel caricamento dei soggetti', 'error'); }
 }
-
 async function caricaClienti() {
   try {
     const data = await apiFetch('/soggetti');
@@ -655,65 +532,31 @@ async function caricaClienti() {
     });
   } catch(e) { console.error(e); }
 }
-
-// ============================================================
-// CARICAMENTO OGGETTI (tabella principale)
-// ============================================================
 async function caricaOggetti() {
   const isMag = sourceMag.checked;
   const magId = filtroMagazzino.value;
   const tipo = filtroTipo.value;
   const desc = filtroDescrizione.value.toLowerCase().trim();
   const sigla = filtroSigla.value.toLowerCase().trim();
-
   let lista = [];
-
   try {
     if (isMag) {
-      // DA MAGAZZINO
       if (!magId || magId === '') {
-        if (magazzini.length === 0) {
-          showMessage('Nessun magazzino disponibile per il tuo profilo', 'info');
-          oggetti = [];
-          oggettiFiltrati = [];
-          renderTabella();
-          return;
-        } else {
-          filtroMagazzino.value = magazzini[0].id;
-          return caricaOggetti();
-        }
+        if (magazzini.length === 0) { showMessage('Nessun magazzino disponibile per il tuo profilo', 'info'); oggetti = []; oggettiFiltrati = []; renderTabella(); return; }
+        else { filtroMagazzino.value = magazzini[0].id; return caricaOggetti(); }
       }
-
       const params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
       if (desc) params.append('descrizione', desc);
       if (sigla) params.append('codice_modello', sigla);
       if (tipo !== 'TUTTI') params.append('tipo', tipo);
-
       const res = await apiFetch('/articoli?' + params.toString());
       const articoli = res.success ? res.data : [];
       articoli.forEach(a => {
         const disp = a.GIACENZA_REALE || 0;
         if (disp <= 0) return;
         const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
-        lista.push({
-          numero: lista.length + 1,
-          id: a.articolo_id,
-          tipo: 'ARTICOLO',
-          codice: codiceMostrato,
-          descrizione: a.descrizione || '',
-          sigla: codiceMostrato,
-          lunghezza: a.lunghezza || '',
-          quantita: disp,
-          stato: a.stato || 'Disponibile',
-          magazzino: a.magazzino,
-          magazzinoNome: magazzini.find(m => m.id == a.magazzino)?.nome || 'Magazzino ' + a.magazzino,
-          sorgenteTipo: 'MAGAZZINO',
-          sorgenteId: a.magazzino,
-          siglaId: null
-        });
+        lista.push({ numero: lista.length + 1, id: a.articolo_id, tipo: 'ARTICOLO', codice: codiceMostrato, descrizione: a.descrizione || '', sigla: codiceMostrato, lunghezza: a.lunghezza || '', quantita: disp, stato: a.stato || 'Disponibile', magazzino: a.magazzino, magazzinoNome: magazzini.find(m => m.id == a.magazzino)?.nome || 'Magazzino ' + a.magazzino, sorgenteTipo: 'MAGAZZINO', sorgenteId: a.magazzino, siglaId: null });
       });
-
-      // KIT
       if (tipo === 'TUTTI' || tipo === 'KIT') {
         const kits = await apiFetch('/kit');
         const kitArray = Array.isArray(kits) ? kits : (kits.success ? kits.data : []);
@@ -728,80 +571,33 @@ async function caricaOggetti() {
           if (desc && !k.descrizione.toLowerCase().includes(desc)) continue;
           const siglaKit = k.sigla_sci || '';
           if (sigla && !siglaKit.toLowerCase().includes(sigla)) continue;
-          lista.push({
-            numero: lista.length + 1,
-            id: k.id,
-            tipo: 'KIT',
-            codice: k.codice_kit || '',
-            descrizione: k.descrizione || '',
-            sigla: siglaKit,
-            lunghezza: k.lunghezza_sci || '',
-            quantita: dispKit,
-            stato: 'Disponibile',
-            magazzino: k.magazzino,
-            magazzinoNome: magazzini.find(m => m.id == k.magazzino)?.nome || 'Magazzino ' + k.magazzino,
-            sorgenteTipo: 'MAGAZZINO',
-            sorgenteId: k.magazzino,
-            siglaId: null
-          });
+          lista.push({ numero: lista.length + 1, id: k.id, tipo: 'KIT', codice: k.codice_kit || '', descrizione: k.descrizione || '', sigla: siglaKit, lunghezza: k.lunghezza_sci || '', quantita: dispKit, stato: 'Disponibile', magazzino: k.magazzino, magazzinoNome: magazzini.find(m => m.id == k.magazzino)?.nome || 'Magazzino ' + k.magazzino, sorgenteTipo: 'MAGAZZINO', sorgenteId: k.magazzino, siglaId: null });
         }
       }
     } else {
-      // DA SOGGETTO
       const tipoS = sourceTipo.value;
       const idS = sourceId.value;
-
-      if (!idS) {
-        showMessage('Seleziona un soggetto o "Tutti"', 'info');
-        oggetti = [];
-        oggettiFiltrati = [];
-        renderTabella();
-        return;
-      }
-
+      if (!idS) { showMessage('Seleziona un soggetto o "Tutti"', 'info'); oggetti = []; oggettiFiltrati = []; renderTabella(); return; }
       let oggettiCarico = [];
       if (idS === 'tutti') {
-        // 🔥 Nuova rotta per tutti i soggetti visibili
         const r = await apiFetch('/assegnazioni/oggetti/tutti');
-        if (r.success) {
-          oggettiCarico = r.oggetti || [];
-        } else {
-          throw new Error(r.message);
-        }
+        if (r.success) oggettiCarico = r.oggetti || [];
+        else throw new Error(r.message);
       } else {
         const body = { targetTipo: tipoS, targetId: parseInt(idS) };
         const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) });
         if (!r.success) throw new Error(r.message);
         oggettiCarico = r.oggetti || [];
       }
-
       oggettiCarico.forEach(o => {
         if (o.quantita <= 0) return;
         if (tipo !== 'TUTTI' && o.tipo !== tipo) return;
         if (desc && !o.descrizione.toLowerCase().includes(desc)) return;
         const siglaObj = o.SIGLA_CORRENTE || '';
         if (sigla && !siglaObj.toLowerCase().includes(sigla)) return;
-        lista.push({
-          numero: lista.length + 1,
-          id: o.ID,
-          tipo: o.tipo,
-          codice: o.codice || '',
-          descrizione: o.descrizione || '',
-          sigla: siglaObj,
-          lunghezza: o.LUNGHEZZA || '',
-          quantita: o.quantita,
-          stato: 'In carico',
-          magazzino: null,
-          magazzinoNome: o.destinatarioNome || 'Soggetto',
-          sorgenteTipo: tipoS,
-          sorgenteId: idS === 'tutti' ? null : parseInt(idS),
-          siglaId: o.siglaId || null,
-          destinazioneTipo: o.destinazioneTipo,
-          destinazioneId: o.destinazioneId
-        });
+        lista.push({ numero: lista.length + 1, id: o.ID, tipo: o.tipo, codice: o.codice || '', descrizione: o.descrizione || '', sigla: siglaObj, lunghezza: o.LUNGHEZZA || '', quantita: o.quantita, stato: 'In carico', magazzino: null, magazzinoNome: o.destinatarioNome || 'Soggetto', sorgenteTipo: tipoS, sorgenteId: idS === 'tutti' ? null : parseInt(idS), siglaId: o.siglaId || null, destinazioneTipo: o.destinazioneTipo, destinazioneId: o.destinazioneId });
       });
     }
-
     oggetti = lista;
     oggettiFiltrati = [...oggetti];
     paginaCorrente = 1;
@@ -809,33 +605,16 @@ async function caricaOggetti() {
     sortAsc = true;
     oggettiFiltrati.sort((a, b) => (a.numero || 0) - (b.numero || 0));
     renderTabella();
-    // Aggiorna freccia attiva
     document.querySelectorAll('#tabellaOggetti thead th .sort-arrow').forEach(el => el.classList.remove('active'));
     const defaultArrow = document.querySelector('#tabellaOggetti thead th[data-sort="numero"] .sort-arrow');
-    if (defaultArrow) {
-      defaultArrow.classList.add('active');
-      defaultArrow.textContent = '▲';
-    }
-  } catch(e) {
-    showMessage('Errore caricamento oggetti: ' + e.message, 'error');
-    oggetti = [];
-    oggettiFiltrati = [];
-    renderTabella();
-  }
+    if (defaultArrow) { defaultArrow.classList.add('active'); defaultArrow.textContent = '▲'; }
+  } catch(e) { showMessage('Errore caricamento oggetti: ' + e.message, 'error'); oggetti = []; oggettiFiltrati = []; renderTabella(); }
 }
-
-// ============================================================
-// RENDER TABELLA E PAGINAZIONE
-// ============================================================
 function renderTabella() {
   const tbody = document.getElementById('tabellaBody');
   tbody.innerHTML = '';
   const totali = oggettiFiltrati.length;
-  if (totali === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun oggetto disponibile</td></tr>';
-    updatePagination(0,0,0);
-    return;
-  }
+  if (totali === 0) { tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun oggetto disponibile</td></tr>'; updatePagination(0,0,0); return; }
   const totPag = Math.ceil(totali / righePerPagina);
   if (paginaCorrente > totPag) paginaCorrente = totPag;
   if (paginaCorrente < 1) paginaCorrente = 1;
@@ -843,32 +622,17 @@ function renderTabella() {
   const end = Math.min(start + righePerPagina, totali);
   const pagina = oggettiFiltrati.slice(start, end);
   updatePagination(totali, start, end);
-
-  // Reset selezione
-  selezione = [];
-  document.getElementById('selectedContainer').style.display = 'none';
-  document.getElementById('selectAll').checked = false;
-
+  selezione = []; document.getElementById('selectedContainer').style.display = 'none'; document.getElementById('selectAll').checked = false;
   pagina.forEach((obj, idx) => {
     const row = tbody.insertRow();
-    const chk = document.createElement('input');
-    chk.type = 'checkbox';
-    chk.className = 'row-checkbox';
-    chk.dataset.index = start + idx;
+    const chk = document.createElement('input'); chk.type = 'checkbox'; chk.className = 'row-checkbox'; chk.dataset.index = start + idx;
     chk.addEventListener('change', function() {
       const i = parseInt(this.dataset.index);
-      if (this.checked) {
-        if (!selezione.includes(i)) selezione.push(i);
-      } else {
-        const pos = selezione.indexOf(i);
-        if (pos > -1) selezione.splice(pos, 1);
-      }
+      if (this.checked) { if (!selezione.includes(i)) selezione.push(i); }
+      else { const pos = selezione.indexOf(i); if (pos > -1) selezione.splice(pos, 1); }
       aggiornaSelezione();
     });
-    const tdChk = row.insertCell(0);
-    tdChk.className = 'checkbox-col';
-    tdChk.appendChild(chk);
-
+    const tdChk = row.insertCell(0); tdChk.className = 'checkbox-col'; tdChk.appendChild(chk);
     const badge = obj.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
     row.insertCell(1).innerText = obj.numero || (start + idx + 1);
     row.insertCell(2).innerHTML = '<span class="badge ' + badge + '">' + obj.tipo + '</span>';
@@ -880,10 +644,8 @@ function renderTabella() {
     row.insertCell(8).innerText = obj.stato || '-';
     row.insertCell(9).innerText = obj.magazzinoNome || '-';
   });
-
   aggiornaSelezione();
 }
-
 function updatePagination(totali, start, end) {
   document.getElementById('paginationStats').innerText = totali ? 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali : 'Mostrando 0-0 di 0';
   document.getElementById('paginationCurrentPage').innerText = paginaCorrente;
@@ -892,47 +654,23 @@ function updatePagination(totali, start, end) {
   document.getElementById('btnNextPage').disabled = (paginaCorrente >= totPag);
   document.getElementById('gotoPageInput').max = totPag || 1;
 }
-
-function cambiaRighePerPagina() {
-  righePerPagina = parseInt(document.getElementById('rowsPerPage').value);
-  paginaCorrente = 1;
-  renderTabella();
-}
+function cambiaRighePerPagina() { righePerPagina = parseInt(document.getElementById('rowsPerPage').value); paginaCorrente = 1; renderTabella(); }
 function paginaPrecedente() { if (paginaCorrente > 1) { paginaCorrente--; renderTabella(); } }
 function paginaSuccessiva() { const max = Math.ceil(oggettiFiltrati.length / righePerPagina); if (paginaCorrente < max) { paginaCorrente++; renderTabella(); } }
 function vaiAPagina(v) { const p = parseInt(v); if (p && p > 0) { const max = Math.ceil(oggettiFiltrati.length / righePerPagina); if (p <= max) { paginaCorrente = p; renderTabella(); } } }
-
 function toggleSelectAll() {
   const c = document.getElementById('selectAll').checked;
   const cbs = document.querySelectorAll('.row-checkbox');
-  if (c) {
-    selezione = [];
-    cbs.forEach(cb => {
-      cb.checked = true;
-      const idx = parseInt(cb.dataset.index);
-      if (!isNaN(idx) && !selezione.includes(idx)) selezione.push(idx);
-    });
-  } else {
-    cbs.forEach(cb => cb.checked = false);
-    selezione = [];
-  }
+  if (c) { selezione = []; cbs.forEach(cb => { cb.checked = true; const idx = parseInt(cb.dataset.index); if (!isNaN(idx) && !selezione.includes(idx)) selezione.push(idx); }); }
+  else { cbs.forEach(cb => cb.checked = false); selezione = []; }
   aggiornaSelezione();
 }
-
-function deselezionaTutti() {
-  document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-  selezione = [];
-  aggiornaSelezione();
-}
-
+function deselezionaTutti() { document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false); selezione = []; aggiornaSelezione(); }
 function aggiornaSelezione() {
   const container = document.getElementById('selectedContainer');
   const tbody = document.getElementById('selectedBody');
   tbody.innerHTML = '';
-  if (selezione.length === 0) {
-    container.style.display = 'none';
-    return;
-  }
+  if (selezione.length === 0) { container.style.display = 'none'; return; }
   container.style.display = 'block';
   let totali = 0;
   const unique = [...new Set(selezione)];
@@ -948,21 +686,11 @@ function aggiornaSelezione() {
   });
   document.getElementById('selectedLabel').innerHTML = '📦 Oggetti selezionati (' + unique.length + ' oggetti, totale ' + totali + ' unità):';
 }
-
 function resetFiltri() {
-  filtroDescrizione.value = '';
-  filtroSigla.value = '';
-  filtroTipo.value = 'TUTTI';
-  if (magazzini.length > 0) {
-    const race = magazzini.find(m => m.nome.toLowerCase() === 'race');
-    filtroMagazzino.value = race ? race.id : magazzini[0].id;
-  }
+  filtroDescrizione.value = ''; filtroSigla.value = ''; filtroTipo.value = 'TUTTI';
+  if (magazzini.length > 0) { const race = magazzini.find(m => m.nome.toLowerCase() === 'race'); filtroMagazzino.value = race ? race.id : magazzini[0].id; }
   caricaOggetti();
 }
-
-// ============================================================
-// TOGGLE SORGENTE
-// ============================================================
 function toggleSorgente() {
   const isMag = sourceMag.checked;
   soggettoSection.style.display = isMag ? 'none' : 'flex';
@@ -970,16 +698,30 @@ function toggleSorgente() {
 }
 sourceMag.addEventListener('change', toggleSorgente);
 sourceSog.addEventListener('change', toggleSorgente);
-
-// ============================================================
-// MODALE VENDITA
-// ============================================================
+function toggleDocumentiVendita() {
+  const tipo = document.getElementById('tipoDocumentoVendita').value;
+  const section = document.getElementById('documentiVenditaSection');
+  const labelData = document.getElementById('labelDataDocumento');
+  const labelNum = document.getElementById('labelNumeroDocumento');
+  if (tipo) {
+    section.style.display = 'block';
+    labelData.innerText = `Data ${tipo}`;
+    labelNum.innerText = `Numero ${tipo}`;
+  } else { section.style.display = 'none'; }
+}
+function toggleModificaDocumenti() {
+  const tipo = document.getElementById('modificaTipoDocumento').value;
+  const section = document.getElementById('modificaDocumentiSection');
+  const labelData = document.getElementById('modificaLabelData');
+  const labelNum = document.getElementById('modificaLabelNumero');
+  if (tipo) {
+    section.style.display = 'block';
+    labelData.innerText = `Data ${tipo}`;
+    labelNum.innerText = `Numero ${tipo}`;
+  } else { section.style.display = 'none'; }
+}
 function apriModaleVendita() {
-  if (selezione.length === 0) {
-    showMessage('Seleziona almeno un oggetto', 'error');
-    return;
-  }
-
+  if (selezione.length === 0) { showMessage('Seleziona almeno un oggetto', 'error'); return; }
   let rip = '<strong>📦 Riepilogo vendita:</strong><ul>';
   let tot = 0;
   const unique = [...new Set(selezione)];
@@ -989,98 +731,51 @@ function apriModaleVendita() {
     rip += '<li>' + obj.tipo + ' - ' + obj.descrizione + ' (q.' + obj.quantita + ')</li>';
     tot += obj.quantita;
   });
-  rip += '</ul><p><strong>Totale unità:</strong> ' + tot + '</p>';
+  rip += '</ul><p><strong>Totale unità:</strong> ' + tot + '</p><p><i class="badge badge-attesa">⚠️ Sarà messo IN CONSEGNA e scaricato subito dal magazzino</i></p>';
   document.getElementById('venditaRiepilogo').innerHTML = rip;
-
-  // Data corrente
   const now = new Date();
   const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   document.getElementById('dataVenditaInput').value = iso;
   document.getElementById('importoVenditaInput').value = '';
   document.getElementById('noteVenditaInput').value = '';
-
+  document.getElementById('tipoDocumentoVendita').value = '';
+  document.getElementById('dataDocumentoVendita').value = '';
+  document.getElementById('numeroDocumentoVendita').value = '';
+  toggleDocumentiVendita();
   caricaClienti();
   document.getElementById('modalVendita').style.display = 'flex';
 }
-
-function chiudiModaleVendita() {
-  document.getElementById('modalVendita').style.display = 'none';
-}
-
+function chiudiModaleVendita() { document.getElementById('modalVendita').style.display = 'none'; }
 async function confermaVendita() {
   const clienteId = document.getElementById('clienteSelect').value;
-  if (!clienteId) {
-    showMessage('Seleziona un cliente', 'error');
-    return;
-  }
+  if (!clienteId) { showMessage('Seleziona un cliente', 'error'); return; }
   const data = document.getElementById('dataVenditaInput').value;
   const importo = document.getElementById('importoVenditaInput').value;
   const note = document.getElementById('noteVenditaInput').value.trim();
-
+  const tipoDocumento = document.getElementById('tipoDocumentoVendita').value;
+  const dataDocumento = document.getElementById('dataDocumentoVendita').value;
+  const numeroDocumento = document.getElementById('numeroDocumentoVendita').value.trim();
   const oggettiVendita = [];
   const unique = [...new Set(selezione)];
-  let sorgenteTipo = null;
-  let sorgenteId = null;
-  let magazzinoId = null;
-
+  let sorgenteTipo = null, sorgenteId = null, magazzinoId = null;
   unique.forEach(idx => {
     const obj = oggettiFiltrati[idx];
     if (!obj) return;
-    oggettiVendita.push({
-      tipoOggetto: obj.tipo,
-      oggettoId: obj.id,
-      siglaId: obj.siglaId || null,
-      quantita: obj.quantita
-    });
-    if (!sorgenteTipo) {
-      sorgenteTipo = obj.sorgenteTipo;
-      sorgenteId = obj.sorgenteId;
-      if (sorgenteTipo === 'MAGAZZINO') magazzinoId = obj.sorgenteId;
-    }
+    oggettiVendita.push({ tipoOggetto: obj.tipo, oggettoId: obj.id, siglaId: obj.siglaId || null, quantita: obj.quantita });
+    if (!sorgenteTipo) { sorgenteTipo = obj.sorgenteTipo; sorgenteId = obj.sorgenteId; if (sorgenteTipo === 'MAGAZZINO') magazzinoId = obj.sorgenteId; }
   });
-
-  const payload = {
-    oggetti: oggettiVendita,
-    clienteId: parseInt(clienteId),
-    importo: importo ? parseFloat(importo) : null,
-    data: data || null,
-    note: note || null,
-    sorgenteTipo: sorgenteTipo,
-    sorgenteId: sorgenteId,
-    magazzinoId: magazzinoId
-  };
-
+  const payload = { oggetti: oggettiVendita, clienteId: parseInt(clienteId), importo: importo ? parseFloat(importo) : null, data: data || null, note: note || null, sorgenteTipo, sorgenteId, magazzinoId, tipoDocumento: tipoDocumento || null, dataDocumento: dataDocumento || null, numeroDocumento: numeroDocumento || null };
   const btn = document.getElementById('btnConfermaVendita');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
-
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
     const res = await apiFetch('/vendite', { method: 'POST', body: JSON.stringify(payload) });
-    if (res.success) {
-      showMessage('Vendita registrata con successo!', 'success');
-      chiudiModaleVendita();
-      deselezionaTutti();
-      caricaOggetti();
-    } else {
-      showMessage(res.message, 'error');
-    }
-  } catch(e) {
-    showMessage('Errore: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '💰 Conferma Vendita';
-  }
+    if (res.success) { showMessage('Vendita registrata con successo! In attesa di consegna.', 'success'); chiudiModaleVendita(); deselezionaTutti(); caricaOggetti(); }
+    else showMessage(res.message, 'error');
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '💰 Vendi (In Consegna)'; }
 }
-
-// ============================================================
-// MODALE NUOVO CLIENTE
-// ============================================================
-function apriNuovoCliente() {
-  document.getElementById('modalNuovoCliente').style.display = 'flex';
-}
-function chiudiModaleNuovoCliente() {
-  document.getElementById('modalNuovoCliente').style.display = 'none';
-}
+function apriNuovoCliente() { document.getElementById('modalNuovoCliente').style.display = 'flex'; }
+function chiudiModaleNuovoCliente() { document.getElementById('modalNuovoCliente').style.display = 'none'; }
 async function salvaNuovoCliente() {
   const nome = document.getElementById('nuovoClienteNome').value.trim();
   const cognome = document.getElementById('nuovoClienteCognome').value.trim();
@@ -1091,63 +786,29 @@ async function salvaNuovoCliente() {
   try {
     const payload = { nome, cognome: cognome || null, email: email || null, telefono: telefono || null, tipo, attivo: 1 };
     const r = await apiFetch('/soggetti', { method: 'POST', body: JSON.stringify(payload) });
-    if (r.success) {
-      showMessage('Cliente creato con successo', 'success');
-      chiudiModaleNuovoCliente();
-      await caricaClienti();
-      const sel = document.getElementById('clienteSelect');
-      for (let i=0; i<sel.options.length; i++) {
-        if (sel.options[i].value == r.id) { sel.value = r.id; break; }
-      }
-    } else showMessage(r.message, 'error');
+    if (r.success) { showMessage('Cliente creato con successo', 'success'); chiudiModaleNuovoCliente(); await caricaClienti(); const sel = document.getElementById('clienteSelect'); for (let i=0; i<sel.options.length; i++) { if (sel.options[i].value == r.id) { sel.value = r.id; break; } } }
+    else showMessage(r.message, 'error');
   } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
 }
-
-// ============================================================
-// MODALE STORICO VENDITE
-// ============================================================
-async function apriModalStorico() {
-  document.getElementById('modalStorico').style.display = 'flex';
-  await caricaStorico();
-}
-
-function chiudiModalStorico() {
-  document.getElementById('modalStorico').style.display = 'none';
-}
-
+async function apriModalStorico() { document.getElementById('modalStorico').style.display = 'flex'; await caricaStorico(); }
+function chiudiModalStorico() { document.getElementById('modalStorico').style.display = 'none'; }
 async function caricaStorico() {
   const tbody = document.getElementById('storicoBody');
-  tbody.innerHTML = '<tr><td colspan="9" class="text-center">⏳ Caricamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>';
   try {
     const res = await apiFetch('/vendite');
-    if (res.success) {
-      storicoVendite = res.data || [];
-      storicoFiltrato = [...storicoVendite];
-      renderStorico();
-    } else {
-      showMessage('Errore caricamento storico', 'error');
-      storicoVendite = [];
-      storicoFiltrato = [];
-      renderStorico();
-    }
-  } catch(e) {
-    showMessage('Errore: ' + e.message, 'error');
-    storicoVendite = [];
-    storicoFiltrato = [];
-    renderStorico();
-  }
+    if (res.success) { storicoVendite = res.data || []; storicoFiltrato = [...storicoVendite]; renderStorico(); }
+    else { showMessage('Errore caricamento storico', 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); }
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); }
 }
-
 function renderStorico() {
   const tbody = document.getElementById('storicoBody');
   tbody.innerHTML = '';
-  if (!storicoFiltrato.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nessuna vendita registrata</td></tr>';
-    return;
-  }
+  if (!storicoFiltrato.length) { tbody.innerHTML = '<tr><td colspan="12" class="text-center">Nessuna vendita registrata</td></tr>'; return; }
   storicoFiltrato.forEach(v => {
     const row = tbody.insertRow();
     const badge = v.tipo_oggetto === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    const statoBadge = v.stato_consegna === 'CONSEGNATO' ? 'badge-consegnato' : 'badge-attesa';
     row.insertCell(0).innerText = v.id;
     row.insertCell(1).innerText = formatDate(v.data);
     const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto';
@@ -1157,65 +818,131 @@ function renderStorico() {
     row.insertCell(5).innerText = v.quantita || 0;
     row.insertCell(6).innerText = v.importo ? '€ ' + parseFloat(v.importo).toFixed(2) : '';
     row.insertCell(7).innerText = v.vendita_note || '';
-    row.insertCell(8).innerText = v.operatore || '-';
+    row.insertCell(8).innerHTML = '<span class="badge ' + statoBadge + '">' + (v.stato_consegna || '-') + '</span>';
+    row.insertCell(9).innerText = (v.tipo_documento || '') + ' ' + (v.numero_documento || '');
+    row.insertCell(10).innerText = v.operatore || '-';
+    row.insertCell(11).innerHTML = `<button class="btn btn-warning btn-sm" onclick="apriModificaVendita(${v.id})">✏️ Modifica</button>`;
   });
 }
-
 function filtraStorico() {
   const txt = document.getElementById('filtroStorico').value.toLowerCase();
-  if (!txt) {
-    storicoFiltrato = [...storicoVendite];
-  } else {
-    storicoFiltrato = storicoVendite.filter(v => {
-      const cliente = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).toLowerCase();
-      const oggetto = (v.oggetto_descrizione || v.oggetto_codice || '').toLowerCase();
-      const operatore = (v.operatore || '').toLowerCase();
-      return cliente.includes(txt) || oggetto.includes(txt) || operatore.includes(txt);
-    });
-  }
+  if (!txt) storicoFiltrato = [...storicoVendite];
+  else storicoFiltrato = storicoVendite.filter(v => {
+    const cliente = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).toLowerCase();
+    const oggetto = (v.oggetto_descrizione || v.oggetto_codice || '').toLowerCase();
+    const operatore = (v.operatore || '').toLowerCase();
+    return cliente.includes(txt) || oggetto.includes(txt) || operatore.includes(txt);
+  });
   renderStorico();
 }
-
-// ============================================================
-// INIT
-// ============================================================
+async function apriModalConsegne() { document.getElementById('modalConsegne').style.display = 'flex'; await caricaConsegne(); }
+function chiudiModalConsegne() { document.getElementById('modalConsegne').style.display = 'none'; }
+async function caricaConsegne() {
+  const tbody = document.getElementById('consegneBody');
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center">⏳ Caricamento...</td></tr>';
+  try {
+    const res = await apiFetch('/vendite?stato_consegna=IN_CONSEGNA');
+    if (res.success) { consegneList = res.data || []; consegneFiltrate = [...consegneList]; renderConsegne(); }
+    else { showMessage('Errore caricamento consegne', 'error'); consegneList = []; consegneFiltrate = []; renderConsegne(); }
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); consegneList = []; consegneFiltrate = []; renderConsegne(); }
+}
+function renderConsegne() {
+  const tbody = document.getElementById('consegneBody');
+  tbody.innerHTML = '';
+  if (!consegneFiltrate.length) { tbody.innerHTML = '<tr><td colspan="8" class="text-center">🎉 Nessuna vendita in attesa di consegna</td></tr>'; return; }
+  consegneFiltrate.forEach(v => {
+    const row = tbody.insertRow();
+    const badge = v.tipo_oggetto === 'KIT' ? 'badge-kit' : 'badge-articolo';
+    row.insertCell(0).innerText = v.id;
+    row.insertCell(1).innerText = formatDate(v.data);
+    const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto';
+    row.insertCell(2).innerText = clienteNome;
+    row.insertCell(3).innerText = v.oggetto_descrizione || v.oggetto_codice || '-';
+    row.insertCell(4).innerHTML = '<span class="badge ' + badge + '">' + (v.tipo_oggetto || '') + '</span>';
+    row.insertCell(5).innerText = v.quantita || 0;
+    row.insertCell(6).innerText = v.vendita_note || '';
+    row.insertCell(7).innerHTML = `<button class="btn btn-success btn-sm" onclick="segnaConsegnato(${v.id})">✅ Segna Consegnato</button>`;
+  });
+}
+function filtraConsegne() {
+  const txt = document.getElementById('filtroConsegne').value.toLowerCase();
+  if (!txt) consegneFiltrate = [...consegneList];
+  else consegneFiltrate = consegneList.filter(v => {
+    const cliente = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).toLowerCase();
+    return cliente.includes(txt);
+  });
+  renderConsegne();
+}
+async function segnaConsegnato(id) {
+  if (!confirm('Confermi la consegna di questa vendita?')) return;
+  try {
+    const res = await apiFetch('/vendite/' + id, { method: 'PUT', body: JSON.stringify({ stato_consegna: 'CONSEGNATO' }) });
+    if (res.success) { showMessage('✅ Consegna registrata!', 'success'); await caricaConsegne(); }
+    else showMessage('Errore: ' + res.message, 'error');
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
+}
+let venditaDaModificareId = null;
+function apriModificaVendita(id) {
+  venditaDaModificareId = id;
+  const btn = document.getElementById('btnSalvaModifica');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  apiFetch('/vendite/' + id)
+    .then(res => {
+      if (res.success) {
+        const v = res.data;
+        document.getElementById('modificaVenditaId').innerText = v.id;
+        document.getElementById('modificaDataVendita').value = formatDate(v.data);
+        const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto';
+        document.getElementById('modificaClienteVendita').value = clienteNome;
+        document.getElementById('modificaImportoVendita').value = v.importo || '';
+        document.getElementById('modificaNotaVendita').value = v.note || '';
+        document.getElementById('modificaTipoDocumento').value = v.tipo_documento || '';
+        document.getElementById('modificaDataDocumento').value = v.data_documento || '';
+        document.getElementById('modificaNumeroDocumento').value = v.numero_documento || '';
+        toggleModificaDocumenti();
+        document.getElementById('modalModificaVendita').style.display = 'flex';
+      } else showMessage('Errore nel caricamento dei dati: ' + res.message, 'error');
+    })
+    .catch(e => showMessage('Errore: ' + e.message, 'error'))
+    .finally(() => { btn.disabled = false; btn.innerHTML = '💾 Salva Modifiche'; });
+}
+function chiudiModificaVendita() { document.getElementById('modalModificaVendita').style.display = 'none'; }
+async function salvaModificaVendita() {
+  if (!venditaDaModificareId) return;
+  const note = document.getElementById('modificaNotaVendita').value.trim();
+  const importo = document.getElementById('modificaImportoVendita').value;
+  const tipoDocumento = document.getElementById('modificaTipoDocumento').value;
+  const dataDocumento = document.getElementById('modificaDataDocumento').value;
+  const numeroDocumento = document.getElementById('modificaNumeroDocumento').value.trim();
+  const payload = { note: note || null, importo: importo ? parseFloat(importo) : null, tipoDocumento: tipoDocumento || null, dataDocumento: dataDocumento || null, numeroDocumento: numeroDocumento || null };
+  const btn = document.getElementById('btnSalvaModifica');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const res = await apiFetch('/vendite/' + venditaDaModificareId, { method: 'PUT', body: JSON.stringify(payload) });
+    if (res.success) { showMessage('Nota e dati aggiornati con successo!', 'success'); chiudiModificaVendita(); if (document.getElementById('modalStorico').style.display === 'flex') await caricaStorico(); }
+    else showMessage('Errore: ' + res.message, 'error');
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '💾 Salva Modifiche'; }
+}
 window.onload = async function() {
   const token = localStorage.getItem('token');
-  if (!token) {
-    document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>';
-    return;
-  }
+  if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
   try {
     currentUser = JSON.parse(localStorage.getItem('user'));
-    if (!currentUser.riferimento_id && currentUser.RiferimentoID) {
-      currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
-    }
+    if (!currentUser.riferimento_id && currentUser.RiferimentoID) currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
   } catch(e) { logout(); return; }
-
-  // 🔥 Carica il livello del soggetto PRIMA di chiamare caricaSoggetti()
   if (currentUser.riferimento_id) {
     try {
       const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
       userLevel = sog.livello || 0;
       console.log('✅ userLevel caricato:', userLevel);
-    } catch(e) {
-      console.warn('Impossibile ottenere il livello del soggetto:', e);
-      userLevel = 0;
-    }
+    } catch(e) { console.warn('Impossibile ottenere il livello del soggetto:', e); userLevel = 0; }
   }
-
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';
-
-  await caricaMagazzini();
-  await caricaSoggetti();   // ora userLevel è disponibile
-  await caricaClienti();
-  await caricaOggetti();
-
-  // Imposta la data nel modale vendita
+  await caricaMagazzini(); await caricaSoggetti(); await caricaClienti(); await caricaOggetti();
   const now = new Date();
   const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   document.getElementById('dataVenditaInput').value = iso;
-
   toggleSorgente();
   attachSortListeners();
 };
