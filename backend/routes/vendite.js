@@ -3,10 +3,7 @@ const { verifyToken } = require('../auth');
 const pool = require('../db');
 const { ricalcolaQuantitaTotale } = require('./articoli');
 const { rimuoviDaKit } = require('./kit');
-
 const router = express.Router();
-
-/** Helper per la registrazione degli audit log nel DB */
 async function registraAudit(connection, tabella, operazione, rigaId, datiPrima, datiDopo, utenteId) {
   await connection.query(
     `INSERT INTO audit_log (tabella, operazione, riga_id, dati_prima, dati_dopo, utente_id)
@@ -14,8 +11,6 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
     [tabella, operazione, rigaId, JSON.stringify(datiPrima), JSON.stringify(datiDopo), utenteId]
   );
 }
-
-/** Verifica se un promoter ha i permessi per vendere a un determinato cliente in base al livello gerarchico */
 async function canPromoterSellTo(connection, promoterId, clienteId) {
   const [p] = await connection.query('SELECT livello FROM soggetti WHERE id = ?', [promoterId]);
   if (!p.length) return false;
@@ -33,8 +28,6 @@ async function canPromoterSellTo(connection, promoterId, clienteId) {
   }
   return true;
 }
-
-/** Sottrae la quantità venduta dal carico di un soggetto (es. da un promoter) */
 async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, siglaId, quantita, sorgenteTipo, sorgenteId) {
   if (sorgenteTipo === 'MAGAZZINO') return;
   const [rows] = await connection.query(
@@ -51,28 +44,21 @@ async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, sigla
   if (nuovaQuantita === 0) await connection.query(`DELETE FROM carico_sintesi WHERE id = ?`, [row.id]);
   else await connection.query(`UPDATE carico_sintesi SET quantita = ? WHERE id = ?`, [nuovaQuantita, row.id]);
 }
-
-/** 🔥 MODIFICATO: Sottrae la quantità venduta dal magazzino E DA AUSTRIA contemporaneamente */
 async function decrementaArticoloConSigla(connection, articoloId, siglaId, quantita) {
   const [art] = await connection.query('SELECT quantita_totale, quantita_obsoleta FROM articoli WHERE articolo_id = ? FOR UPDATE', [articoloId]);
   const giacenza = art[0].quantita_totale - (art[0].quantita_obsoleta || 0);
   if (giacenza < quantita) throw new Error(`Quantità insufficiente per articolo ${articoloId}`);
-
   if (siglaId) {
     const [sigla] = await connection.query('SELECT quantita, quantita_austria FROM sigle_articoli WHERE id = ? AND articolo_id = ? AND attivo = 1 FOR UPDATE', [siglaId, articoloId]);
     if (!sigla.length || sigla[0].quantita < quantita) throw new Error(`Quantità insufficiente per la sigla ${siglaId}`);
-    // 🔥 Decrementa sia quantita che quantita_austria insieme
     await connection.query('UPDATE sigle_articoli SET quantita = quantita - ?, quantita_austria = quantita_austria - ? WHERE id = ?', [quantita, quantita, siglaId]);
   } else {
     const [sigla] = await connection.query('SELECT id FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1 AND quantita >= ? FOR UPDATE', [articoloId, quantita]);
     if (!sigla.length) throw new Error(`Nessuna sigla con quantità sufficiente per articolo ${articoloId}`);
-    // 🔥 Decrementa sia quantita che quantita_austria insieme
     await connection.query('UPDATE sigle_articoli SET quantita = quantita - ?, quantita_austria = quantita_austria - ? WHERE id = ?', [quantita, quantita, sigla[0].id]);
   }
   await ricalcolaQuantitaTotale(connection, articoloId);
 }
-
-/** POST /api/vendite - Crea una nuova vendita e imposta lo stato 'IN_CONSEGNA' di default */
 router.post('/', verifyToken, async (req, res) => {
   const { oggetti, clienteId, note, importo, data, sorgenteTipo, sorgenteId, magazzinoId, tipoDocumento, dataDocumento, numeroDocumento } = req.body;
   if (!oggetti || !oggetti.length) return res.status(400).json({ success: false, message: 'Nessun oggetto da vendere' });
@@ -134,8 +120,6 @@ router.post('/', verifyToken, async (req, res) => {
     res.status(500).json({ success: false, message: err.message, stack: err.stack });
   } finally { connection.release(); }
 });
-
-/** GET /api/vendite - Recupera lo storico, con filtro opzionale per stato_consegna */
 router.get('/', verifyToken, async (req, res) => {
   try {
     const { stato_consegna } = req.query;
@@ -143,12 +127,11 @@ router.get('/', verifyToken, async (req, res) => {
     let params = [];
     if (stato_consegna) { whereClause = 'WHERE v.stato_consegna = ?'; params.push(stato_consegna); }
     const sql = `
-      SELECT 
-        v.id, v.data, v.importo, v.note AS vendita_note, v.stato_consegna, v.tipo_documento, v.data_documento, v.numero_documento,
-        s.nome AS cliente_nome, s.cognome AS cliente_cognome,
-        m.tipo_oggetto, m.quantita, m.id_articolo_kit AS oggetto_id, m.operatore,
-        COALESCE(a.descrizione, k.descrizione) AS oggetto_descrizione,
-        COALESCE(a.codice, k.codice_kit) AS oggetto_codice
+      SELECT v.id, v.data, v.importo, v.note AS vendita_note, v.stato_consegna, v.tipo_documento, v.data_documento, v.numero_documento,
+      s.nome AS cliente_nome, s.cognome AS cliente_cognome,
+      m.tipo_oggetto, m.quantita, m.id_articolo_kit AS oggetto_id, m.operatore,
+      COALESCE(a.descrizione, k.descrizione) AS oggetto_descrizione,
+      COALESCE(a.codice, k.codice_kit) AS oggetto_codice
       FROM vendite v
       LEFT JOIN movimenti m ON v.movimento_id = m.id
       LEFT JOIN soggetti s ON v.cliente_id = s.id
@@ -161,8 +144,6 @@ router.get('/', verifyToken, async (req, res) => {
     res.json({ success: true, data: rows });
   } catch (err) { console.error('Errore GET /vendite:', err); res.status(500).json({ success: false, message: err.message }); }
 });
-
-/** GET /api/vendite/:id - Recupera i dettagli di una singola vendita */
 router.get('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   try {
@@ -176,8 +157,6 @@ router.get('/:id', verifyToken, async (req, res) => {
     res.json({ success: true, data: rows[0] });
   } catch (err) { console.error('Errore GET /vendite/:id:', err); res.status(500).json({ success: false, message: err.message }); }
 });
-
-/** PUT /api/vendite/:id - Aggiorna nota, importo, documenti e stato di consegna di una singola vendita */
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { stato_consegna, tipo_documento, data_documento, numero_documento, note, importo } = req.body;
@@ -207,8 +186,6 @@ router.put('/:id', verifyToken, async (req, res) => {
     res.status(500).json({ success: false, message: err.message, stack: err.stack });
   } finally { connection.release(); }
 });
-
-/** POST /api/vendite/consegna-massiva - Effettua la consegna di più vendite selezionate in un colpo solo */
 router.post('/consegna-massiva', verifyToken, async (req, res) => {
   const { ids, note } = req.body;
   if (!ids || !ids.length) return res.status(400).json({ success: false, message: 'Nessuna vendita selezionata per la consegna' });
@@ -239,5 +216,4 @@ router.post('/consegna-massiva', verifyToken, async (req, res) => {
     res.status(500).json({ success: false, message: err.message, stack: err.stack });
   } finally { connection.release(); }
 });
-
 module.exports = router;

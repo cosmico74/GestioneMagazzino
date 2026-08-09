@@ -65,6 +65,8 @@
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #e2e8f0; border-top-color: #1a73e8; border-radius: 50%; animation: spin 0.6s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 768px) { .filter-bar { flex-direction: column; align-items: stretch; } }
+    .hidden-filter { display: none !important; }
+    .btn-action-cell { display: flex; gap: 4px; }
   </style>
 </head>
 <body>
@@ -79,10 +81,8 @@
       <button class="btn btn-secondary" onclick="caricaOggetti()">🔄 Ricarica</button>
     </div>
   </div>
-
   <h2>💰 Vendite</h2>
   <div id="messageArea"></div>
-
   <div class="filter-bar" id="filterBar">
     <div class="filter-group" style="min-width:100px;">
       <label>Modalità</label>
@@ -112,11 +112,9 @@
     <div class="btn-group" style="display:flex; gap:6px; align-items:flex-end;">
       <button class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
       <button class="btn btn-warning" onclick="apriModalStorico()">📜 Storico</button>
-      <!-- 🔥 Nuovo pulsante per la consegna massiva (nascosto di default) -->
       <button class="btn btn-success" id="btnConsegnaMassiva" style="display:none;" onclick="apriModaleConsegnaMassiva()">📦 Effettua Consegna Selezionati</button>
     </div>
   </div>
-
   <div class="table-wrapper">
     <table id="tabellaOggetti">
       <thead id="tabellaHeader">
@@ -162,7 +160,6 @@
       </div>
     </div>
   </div>
-
   <div id="selectedContainer" style="display:none; margin-top:10px;">
     <div class="selected-items">
       <strong id="selectedLabel">📦 Oggetti selezionati:</strong>
@@ -174,8 +171,6 @@
     </div>
   </div>
 </div>
-
-<!-- Modale di Vendita (Già presente, con scelta soggetto, bolla/fattura) -->
 <div id="modalVendita" class="modal">
   <div class="modal-content" style="max-width:700px;">
     <div class="modal-header"><h3>💰 Conferma Vendita</h3><span class="close" onclick="chiudiModaleVendita()">&times;</span></div>
@@ -192,8 +187,6 @@
     <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModaleVendita()">Annulla</button><button class="btn btn-success" id="btnConfermaVendita" onclick="confermaVendita()">💰 Vendi (In Consegna)</button></div>
   </div>
 </div>
-
-<!-- Modale per Nuovo Cliente -->
 <div id="modalNuovoCliente" class="modal">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header"><h3>➕ Nuovo Cliente</h3><span class="close" onclick="chiudiModaleNuovoCliente()">&times;</span></div>
@@ -205,8 +198,6 @@
     <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModaleNuovoCliente()">Annulla</button><button class="btn btn-success" onclick="salvaNuovoCliente()">💾 Salva Cliente</button></div>
   </div>
 </div>
-
-<!-- Modale Storico Vendite -->
 <div id="modalStorico" class="modal">
   <div class="modal-content" style="max-width:1100px;">
     <div class="modal-header"><h3>📜 Storico Vendite</h3><span class="close" onclick="chiudiModalStorico()">&times;</span></div>
@@ -217,8 +208,6 @@
     <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModalStorico()">Chiudi</button></div>
   </div>
 </div>
-
-<!-- 🔥 NUOVA MODALE: Consegna Massiva con Note -->
 <div id="modalConsegnaMassiva" class="modal">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header"><h3>📦 Conferma Consegna Massiva</h3><span class="close" onclick="chiudiModaleConsegnaMassiva()">&times;</span></div>
@@ -234,8 +223,6 @@
     </div>
   </div>
 </div>
-
-<!-- Modale Modifica Vendita Singola -->
 <div id="modalModificaVendita" class="modal">
   <div class="modal-content" style="max-width:600px;">
     <div class="modal-header"><h3>✏️ Modifica Vendita #<span id="modificaVenditaId">-</span></h3><span class="close" onclick="chiudiModificaVendita()">&times;</span></div>
@@ -251,48 +238,14 @@
     <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModificaVendita()">Annulla</button><button class="btn btn-warning" id="btnSalvaModifica" onclick="salvaModificaVendita()">💾 Salva Modifiche</button></div>
   </div>
 </div>
-
 <script>
-/** Recupera l'header di autorizzazione con il token JWT salvato in localStorage */
 function getAuthHeader() { const token = localStorage.getItem('token'); return token ? { 'Authorization': 'Bearer ' + token } : {}; }
-
-/** Mostra un messaggio di alert temporaneo (success/error/info) in cima alla pagina */
 function showMessage(msg, type) { const d = document.getElementById('messageArea'); d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>'; setTimeout(() => d.innerHTML = '', 5000); }
-
-/** Wrapper per le chiamate API con gestione automatica del token e degli errori di autenticazione */
 async function apiFetch(endpoint, options = {}) { const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers }; const r = await fetch('/api' + endpoint, { ...options, headers }); if (r.status === 401 || r.status === 403) { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; throw new Error('Sessione scaduta'); } if (!r.ok) { let msg = 'Errore ' + r.status; try { const data = await r.json(); msg = data.message || msg; } catch(e) {} throw new Error(msg); } return r.json(); }
-
-/** Effettua il logout pulendo il localStorage e reindirizzando al login */
 function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; }
-
-/** Formatta una data ISO in una stringa leggibile (gg-mm-aaaa hh:mm) */
 function formatDate(d) { if (!d) return '-'; const dt = new Date(d); return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear() + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0'); }
-
-let sortColumn = 'numero';
-let sortAsc = true;
-let currentUser = null;
-let magazzini = [];
-let clienti = [];
-let oggetti = [];
-let oggettiFiltrati = [];
-let selezione = [];
-let selezioneConsegna = []; // 🔥 Nuovo array per gestire gli ID delle consegne selezionate
-let storicoVendite = [];
-let storicoFiltrato = [];
-let paginaCorrente = 1, righePerPagina = 25;
-let userLevel = 0;
-let modalitaVista = 'VENDITA';
-const sourceMag = document.getElementById('sourceMagazzino');
-const sourceSog = document.getElementById('sourceSoggetto');
-const soggettoSection = document.getElementById('soggettoSection');
-const sourceTipo = document.getElementById('sourceTipo');
-const sourceId = document.getElementById('sourceId');
-const filtroMagazzino = document.getElementById('filtroMagazzino');
-const filtroTipo = document.getElementById('filtroTipo');
-const filtroDescrizione = document.getElementById('filtroDescrizione');
-const filtroSigla = document.getElementById('filtroSigla');
-
-/** Cambia la modalità di visualizzazione (Vendita, In consegna, Consegnato) e adatta i campi filtro e la tabella */
+let sortColumn = 'numero'; let sortAsc = true; let currentUser = null; let magazzini = []; let clienti = []; let oggetti = []; let oggettiFiltrati = []; let selezione = []; let selezioneConsegna = []; let storicoVendite = []; let storicoFiltrato = []; let paginaCorrente = 1, righePerPagina = 25; let userLevel = 0; let modalitaVista = 'VENDITA';
+const sourceMag = document.getElementById('sourceMagazzino'); const sourceSog = document.getElementById('sourceSoggetto'); const soggettoSection = document.getElementById('soggettoSection'); const sourceTipo = document.getElementById('sourceTipo'); const sourceId = document.getElementById('sourceId'); const filtroMagazzino = document.getElementById('filtroMagazzino'); const filtroTipo = document.getElementById('filtroTipo'); const filtroDescrizione = document.getElementById('filtroDescrizione'); const filtroSigla = document.getElementById('filtroSigla');
 function cambiaModalitaVista() {
   modalitaVista = document.getElementById('modalitaVista').value;
   const isVendita = modalitaVista === 'VENDITA';
@@ -301,128 +254,46 @@ function cambiaModalitaVista() {
   document.getElementById('filtriGenerali').style.display = isVendita ? 'flex' : 'none';
   document.getElementById('selectedContainer').style.display = 'none';
   document.getElementById('btnConsegnaMassiva').style.display = 'none';
-  selezione = [];
-  selezioneConsegna = []; // 🔥 Resetta la selezione delle consegne
+  selezione = []; selezioneConsegna = [];
   document.getElementById('rigaHeaderVendita').style.display = isVendita ? 'table-row' : 'none';
   document.getElementById('rigaHeaderStato').style.display = isVendita ? 'none' : 'table-row';
   if (!isVendita) { sourceMag.checked = false; sourceSog.checked = true; }
   else { sourceMag.checked = true; sourceSog.checked = false; }
-  toggleSorgente();
-  caricaOggetti();
+  toggleSorgente(); caricaOggetti();
 }
-
-/** Ordina la tabella in base alla colonna selezionata (gestisce numeri e stringhe) */
 function sortTable(col) {
-  if (sortColumn === col) { sortAsc = !sortAsc; }
-  else { sortColumn = col; sortAsc = true; }
+  if (sortColumn === col) { sortAsc = !sortAsc; } else { sortColumn = col; sortAsc = true; }
   document.querySelectorAll('#tabellaOggetti thead th .sort-arrow').forEach(el => el.classList.remove('active'));
   const arrow = document.querySelector(`#tabellaOggetti thead th[data-sort="${col}"] .sort-arrow`);
-  if (arrow) {
-    arrow.classList.add('active');
-    arrow.textContent = sortAsc ? '▲' : '▼';
-  }
-  oggettiFiltrati.sort((a, b) => {
-    let va = a[col] !== undefined ? a[col] : '';
-    let vb = b[col] !== undefined ? b[col] : '';
-    if (col === 'numero') { va = parseInt(va) || 0; vb = parseInt(vb) || 0; }
-    else if (col === 'quantita') { va = parseFloat(va) || 0; vb = parseFloat(vb) || 0; }
-    else { va = va.toString().toLowerCase(); vb = vb.toString().toLowerCase(); }
-    if (va < vb) return sortAsc ? -1 : 1;
-    if (va > vb) return sortAsc ? 1 : -1;
-    return 0;
-  });
-  paginaCorrente = 1;
-  renderTabella();
+  if (arrow) { arrow.classList.add('active'); arrow.textContent = sortAsc ? '▲' : '▼'; }
+  oggettiFiltrati.sort((a, b) => { let va = a[col] !== undefined ? a[col] : ''; let vb = b[col] !== undefined ? b[col] : ''; if (col === 'numero') { va = parseInt(va) || 0; vb = parseInt(vb) || 0; } else if (col === 'quantita') { va = parseFloat(va) || 0; vb = parseFloat(vb) || 0; } else { va = va.toString().toLowerCase(); vb = vb.toString().toLowerCase(); } if (va < vb) return sortAsc ? -1 : 1; if (va > vb) return sortAsc ? 1 : -1; return 0; });
+  paginaCorrente = 1; renderTabella();
 }
-
-/** Aggiunge gli event listener di click sulle intestazioni della tabella per attivare l'ordinamento */
-function attachSortListeners() {
-  document.querySelectorAll('#tabellaOggetti thead th[data-sort]').forEach(th => {
-    th.addEventListener('click', function(e) {
-      if (e.target.closest('input[type="checkbox"]')) return;
-      const col = this.getAttribute('data-sort');
-      if (col) sortTable(col);
-    });
-  });
-}
-
-/** Carica l'elenco dei magazzini dal backend per popolare i filtri */
+function attachSortListeners() { document.querySelectorAll('#tabellaOggetti thead th[data-sort]').forEach(th => { th.addEventListener('click', function(e) { if (e.target.closest('input[type="checkbox"]')) return; const col = this.getAttribute('data-sort'); if (col) sortTable(col); }); }); }
 async function caricaMagazzini() {
-  try {
-    magazzini = await apiFetch('/anagrafiche/magazzini');
-    const sel = filtroMagazzino;
-    sel.innerHTML = '<option value="">Tutti</option>';
-    magazzini.forEach(m => sel.appendChild(new Option(m.nome, m.id)));
-    if (magazzini.length > 0) {
-      const race = magazzini.find(m => m.nome.toLowerCase() === 'race');
-      sel.value = race ? race.id : magazzini[0].id;
-      sel.disabled = false;
-    } else {
-      sel.innerHTML = '<option value="">Nessun magazzino</option>';
-      sel.disabled = true;
-      showMessage('⚠️ Non hai magazzini associati. Usa la modalità "Da soggetto".', 'info');
-    }
-  } catch(e) {
-    console.error('Errore magazzini:', e);
-    showMessage('Impossibile caricare i magazzini', 'error');
-  }
+  try { magazzini = await apiFetch('/anagrafiche/magazzini'); const sel = filtroMagazzino; sel.innerHTML = '<option value="">Tutti</option>'; magazzini.forEach(m => sel.appendChild(new Option(m.nome, m.id))); if (magazzini.length > 0) { const race = magazzini.find(m => m.nome.toLowerCase() === 'race'); sel.value = race ? race.id : magazzini[0].id; sel.disabled = false; } else { sel.innerHTML = '<option value="">Nessun magazzino</option>'; sel.disabled = true; showMessage('⚠️ Non hai magazzini associati. Usa la modalità "Da soggetto".', 'info'); } } catch(e) { console.error('Errore magazzini:', e); showMessage('Impossibile caricare i magazzini', 'error'); }
 }
-
-/** Carica i soggetti (promoter/negozi/clienti) in base al tipo selezionato nei filtri */
 async function caricaSoggetti() {
   const tipo = sourceTipo.value;
   try {
     const data = await apiFetch('/soggetti/tipo/' + tipo);
-    const sel = sourceId;
-    sel.innerHTML = '<option value="">Seleziona...</option>';
+    const sel = sourceId; sel.innerHTML = '<option value="">Seleziona...</option>';
     const canSeeAll = currentUser.ruolo === 'admin' || (currentUser.ruolo === 'promoter' && userLevel === 1);
-    if (canSeeAll) {
-      const optAll = document.createElement('option');
-      optAll.value = 'tutti';
-      optAll.textContent = '👥 Tutti i soggetti';
-      sel.appendChild(optAll);
-    }
-    data.forEach(s => {
-      const nome = s.tipo === 'PROMOTER' ? (s.nome + ' ' + (s.cognome||'')).trim() : s.nome;
-      sel.appendChild(new Option(nome + ' (' + s.tipo + ')', s.id));
-    });
-    let disabled = false;
-    let defaultValue = '';
+    if (canSeeAll) { const optAll = document.createElement('option'); optAll.value = 'tutti'; optAll.textContent = '👥 Tutti i soggetti'; sel.appendChild(optAll); }
+    data.forEach(s => { const nome = s.tipo === 'PROMOTER' ? (s.nome + ' ' + (s.cognome||'')).trim() : s.nome; sel.appendChild(new Option(nome + ' (' + s.tipo + ')', s.id)); });
+    let disabled = false; let defaultValue = '';
     if (currentUser.ruolo !== 'admin') {
       if (currentUser.ruolo === 'promoter') {
         if (userLevel !== 1) { disabled = true; defaultValue = currentUser.riferimento_id || ''; }
         else { if (currentUser.riferimento_id && !sel.value) { sel.value = currentUser.riferimento_id; } }
       } else { disabled = true; defaultValue = currentUser.riferimento_id || ''; }
     } else { sel.disabled = false; return; }
-    if (disabled) {
-      sel.disabled = true;
-      if (defaultValue) {
-        const optionExists = Array.from(sel.options).some(opt => opt.value == defaultValue);
-        if (optionExists) sel.value = defaultValue;
-        else if (sel.options.length > 1) sel.selectedIndex = 1;
-      }
-    } else { sel.disabled = false; }
-  } catch(e) {
-    console.error('Errore caricamento soggetti:', e);
-    showMessage('Errore nel caricamento dei soggetti', 'error');
-  }
+    if (disabled) { sel.disabled = true; if (defaultValue) { const optionExists = Array.from(sel.options).some(opt => opt.value == defaultValue); if (optionExists) sel.value = defaultValue; else if (sel.options.length > 1) sel.selectedIndex = 1; } } else { sel.disabled = false; }
+  } catch(e) { console.error('Errore caricamento soggetti:', e); showMessage('Errore nel caricamento dei soggetti', 'error'); }
 }
-
-/** Carica la lista dei clienti per popolare il menu a tendina nella modale di vendita */
 async function caricaClienti() {
-  try {
-    const data = await apiFetch('/soggetti');
-    clienti = data.filter(s => s.tipo === 'CLIENTE' || s.tipo === 'NEGOZIO' || s.tipo === 'AGENTE') || [];
-    const sel = document.getElementById('clienteSelect');
-    sel.innerHTML = '<option value="">Seleziona cliente...</option>';
-    clienti.forEach(c => {
-      const nome = (c.nome || '') + ' ' + (c.cognome || '');
-      sel.appendChild(new Option(nome.trim() || c.tipo + ' ' + c.id, c.id));
-    });
-  } catch(e) { console.error(e); }
+  try { const data = await apiFetch('/soggetti'); clienti = data.filter(s => s.tipo === 'CLIENTE' || s.tipo === 'NEGOZIO' || s.tipo === 'AGENTE') || []; const sel = document.getElementById('clienteSelect'); sel.innerHTML = '<option value="">Seleziona cliente...</option>'; clienti.forEach(c => { const nome = (c.nome || '') + ' ' + (c.cognome || ''); sel.appendChild(new Option(nome.trim() || c.tipo + ' ' + c.id, c.id)); }); } catch(e) { console.error(e); }
 }
-
-/** Carica gli oggetti. In modalità Vendita carica da magazzino/soggetto, altrimenti carica le vendite in base allo stato selezionato */
 async function caricaOggetti() {
   if (modalitaVista !== 'VENDITA') {
     const stato = modalitaVista;
@@ -431,425 +302,107 @@ async function caricaOggetti() {
       if (res.success) {
         const data = res.data || [];
         oggettiFiltrati = data.map((v, i) => ({
-          numero: i + 1,
-          id: v.id,
-          data: v.data,
-          cliente: ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto',
-          descrizione: v.oggetto_descrizione || v.oggetto_codice || '-',
-          tipo: v.tipo_oggetto,
-          quantita: v.quantita || 0,
-          importo: v.importo ? '€ ' + parseFloat(v.importo).toFixed(2) : '',
-          note: v.vendita_note || '',
-          stato_consegna: v.stato_consegna || '',
-          tipoDocumento: v.tipo_documento || '',
-          numeroDocumento: v.numero_documento || '',
-          operatore: v.operatore || '-',
-          raw: v
+          numero: i + 1, id: v.id, data: v.data, cliente: ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto',
+          descrizione: v.oggetto_descrizione || v.oggetto_codice || '-', tipo: v.tipo_oggetto, quantita: v.quantita || 0,
+          importo: v.importo ? '€ ' + parseFloat(v.importo).toFixed(2) : '', note: v.vendita_note || '',
+          stato_consegna: v.stato_consegna || '', tipoDocumento: v.tipo_documento || '', numeroDocumento: v.numero_documento || '',
+          operatore: v.operatore || '-', raw: v
         }));
       } else { oggettiFiltrati = []; }
     } catch(e) { showMessage('Errore: ' + e.message, 'error'); oggettiFiltrati = []; }
-    paginaCorrente = 1;
-    sortColumn = 'numero';
-    sortAsc = true;
-    renderTabella();
-    return;
+    paginaCorrente = 1; sortColumn = 'numero'; sortAsc = true; renderTabella(); return;
   }
-
-  const isMag = sourceMag.checked;
-  const magId = filtroMagazzino.value;
-  const tipo = filtroTipo.value;
-  const desc = filtroDescrizione.value.toLowerCase().trim();
-  const sigla = filtroSigla.value.toLowerCase().trim();
-  let lista = [];
-
+  const isMag = sourceMag.checked; const magId = filtroMagazzino.value; const tipo = filtroTipo.value; const desc = filtroDescrizione.value.toLowerCase().trim(); const sigla = filtroSigla.value.toLowerCase().trim(); let lista = [];
   try {
     if (isMag) {
-      if (!magId || magId === '') {
-        if (magazzini.length === 0) {
-          showMessage('Nessun magazzino disponibile per il tuo profilo', 'info');
-          oggetti = [];
-          oggettiFiltrati = [];
-          renderTabella();
-          return;
-        } else {
-          filtroMagazzino.value = magazzini[0].id;
-          return caricaOggetti();
-        }
-      }
-      const params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' });
-      if (desc) params.append('descrizione', desc);
-      if (sigla) params.append('codice_modello', sigla);
-      if (tipo !== 'TUTTI') params.append('tipo', tipo);
-      const res = await apiFetch('/articoli?' + params.toString());
-      const articoli = res.success ? res.data : [];
-
-      articoli.forEach(a => {
-        const disp = a.GIACENZA_REALE || 0;
-        if (disp <= 0) return;
-        const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || '');
-        lista.push({
-          numero: lista.length + 1,
-          id: a.articolo_id,
-          tipo: 'ARTICOLO',
-          codice: codiceMostrato,
-          descrizione: a.descrizione || '',
-          sigla: codiceMostrato,
-          lunghezza: a.lunghezza || '',
-          quantita: disp,
-          stato: a.stato || 'Disponibile',
-          magazzino: a.magazzino,
-          magazzinoNome: magazzini.find(m => m.id == a.magazzino)?.nome || 'Magazzino ' + a.magazzino,
-          sorgenteTipo: 'MAGAZZINO',
-          sorgenteId: a.magazzino,
-          siglaId: null
-        });
-      });
-
+      if (!magId || magId === '') { if (magazzini.length === 0) { showMessage('Nessun magazzino disponibile per il tuo profilo', 'info'); oggetti = []; oggettiFiltrati = []; renderTabella(); return; } else { filtroMagazzino.value = magazzini[0].id; return caricaOggetti(); } }
+      const params = new URLSearchParams({ magazzino: magId, min_giacenza: '1' }); if (desc) params.append('descrizione', desc); if (sigla) params.append('codice_modello', sigla); if (tipo !== 'TUTTI') params.append('tipo', tipo);
+      const res = await apiFetch('/articoli?' + params.toString()); const articoli = res.success ? res.data : [];
+      articoli.forEach(a => { const disp = a.GIACENZA_REALE || 0; if (disp <= 0) return; const codiceMostrato = (a.codice_modello && a.codice_modello.trim() !== '') ? a.codice_modello : (a.codice || ''); lista.push({ numero: lista.length + 1, id: a.articolo_id, tipo: 'ARTICOLO', codice: codiceMostrato, descrizione: a.descrizione || '', sigla: codiceMostrato, lunghezza: a.lunghezza || '', quantita: disp, stato: a.stato || 'Disponibile', magazzino: a.magazzino, magazzinoNome: magazzini.find(m => m.id == a.magazzino)?.nome || 'Magazzino ' + a.magazzino, sorgenteTipo: 'MAGAZZINO', sorgenteId: a.magazzino, siglaId: null }); });
       if (tipo === 'TUTTI' || tipo === 'KIT') {
-        const kits = await apiFetch('/kit');
-        const kitArray = Array.isArray(kits) ? kits : (kits.success ? kits.data : []);
-        for (const k of kitArray) {
-          if (k.magazzino != magId) continue;
-          let dispKit = k.quantita;
-          try {
-            const assegnato = await apiFetch('/assegnazioni/quantita-assegnata-kit?kit_id=' + k.id);
-            dispKit = k.quantita - (assegnato.quantita || 0);
-          } catch(e) {}
-          if (dispKit <= 0) continue;
-          if (desc && !k.descrizione.toLowerCase().includes(desc)) continue;
-          const siglaKit = k.sigla_sci || '';
-          if (sigla && !siglaKit.toLowerCase().includes(sigla)) continue;
-          lista.push({
-            numero: lista.length + 1,
-            id: k.id,
-            tipo: 'KIT',
-            codice: k.codice_kit || '',
-            descrizione: k.descrizione || '',
-            sigla: siglaKit,
-            lunghezza: k.lunghezza_sci || '',
-            quantita: dispKit,
-            stato: 'Disponibile',
-            magazzino: k.magazzino,
-            magazzinoNome: magazzini.find(m => m.id == k.magazzino)?.nome || 'Magazzino ' + k.magazzino,
-            sorgenteTipo: 'MAGAZZINO',
-            sorgenteId: k.magazzino,
-            siglaId: null
-          });
-        }
+        const kits = await apiFetch('/kit'); const kitArray = Array.isArray(kits) ? kits : (kits.success ? kits.data : []);
+        for (const k of kitArray) { if (k.magazzino != magId) continue; let dispKit = k.quantita; try { const assegnato = await apiFetch('/assegnazioni/quantita-assegnata-kit?kit_id=' + k.id); dispKit = k.quantita - (assegnato.quantita || 0); } catch(e) {} if (dispKit <= 0) continue; if (desc && !k.descrizione.toLowerCase().includes(desc)) continue; const siglaKit = k.sigla_sci || ''; if (sigla && !siglaKit.toLowerCase().includes(sigla)) continue; lista.push({ numero: lista.length + 1, id: k.id, tipo: 'KIT', codice: k.codice_kit || '', descrizione: k.descrizione || '', sigla: siglaKit, lunghezza: k.lunghezza_sci || '', quantita: dispKit, stato: 'Disponibile', magazzino: k.magazzino, magazzinoNome: magazzini.find(m => m.id == k.magazzino)?.nome || 'Magazzino ' + k.magazzino, sorgenteTipo: 'MAGAZZINO', sorgenteId: k.magazzino, siglaId: null }); }
       }
     } else {
-      const tipoS = sourceTipo.value;
-      const idS = sourceId.value;
-
-      if (!idS) {
-        showMessage('Seleziona un soggetto o "Tutti"', 'info');
-        oggetti = [];
-        oggettiFiltrati = [];
-        renderTabella();
-        return;
-      }
+      const tipoS = sourceTipo.value; const idS = sourceId.value;
+      if (!idS) { showMessage('Seleziona un soggetto o "Tutti"', 'info'); oggetti = []; oggettiFiltrati = []; renderTabella(); return; }
       let oggettiCarico = [];
-      if (idS === 'tutti') {
-        const r = await apiFetch('/assegnazioni/oggetti/tutti');
-        if (r.success) oggettiCarico = r.oggetti || [];
-        else throw new Error(r.message);
-      } else {
-        const body = { targetTipo: tipoS, targetId: parseInt(idS) };
-        const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) });
-        if (!r.success) throw new Error(r.message);
-        oggettiCarico = r.oggetti || [];
-      }
-
-      oggettiCarico.forEach(o => {
-        if (o.quantita <= 0) return;
-        if (tipo !== 'TUTTI' && o.tipo !== tipo) return;
-        if (desc && !o.descrizione.toLowerCase().includes(desc)) return;
-        const siglaObj = o.SIGLA_CORRENTE || '';
-        if (sigla && !siglaObj.toLowerCase().includes(sigla)) return;
-        lista.push({
-          numero: lista.length + 1,
-          id: o.ID,
-          tipo: o.tipo,
-          codice: o.codice || '',
-          descrizione: o.descrizione || '',
-          sigla: siglaObj,
-          lunghezza: o.LUNGHEZZA || '',
-          quantita: o.quantita,
-          stato: 'In carico',
-          magazzino: null,
-          magazzinoNome: o.destinatarioNome || 'Soggetto',
-          sorgenteTipo: tipoS,
-          sorgenteId: idS === 'tutti' ? null : parseInt(idS),
-          siglaId: o.siglaId || null,
-          destinazioneTipo: o.destinazioneTipo,
-          destinazioneId: o.destinazioneId
-        });
-      });
+      if (idS === 'tutti') { const r = await apiFetch('/assegnazioni/oggetti/tutti'); if (r.success) oggettiCarico = r.oggetti || []; else throw new Error(r.message); }
+      else { const body = { targetTipo: tipoS, targetId: parseInt(idS) }; const r = await apiFetch('/assegnazioni/oggetti', { method: 'POST', body: JSON.stringify(body) }); if (!r.success) throw new Error(r.message); oggettiCarico = r.oggetti || []; }
+      oggettiCarico.forEach(o => { if (o.quantita <= 0) return; if (tipo !== 'TUTTI' && o.tipo !== tipo) return; if (desc && !o.descrizione.toLowerCase().includes(desc)) return; const siglaObj = o.SIGLA_CORRENTE || ''; if (sigla && !siglaObj.toLowerCase().includes(sigla)) return; lista.push({ numero: lista.length + 1, id: o.ID, tipo: o.tipo, codice: o.codice || '', descrizione: o.descrizione || '', sigla: siglaObj, lunghezza: o.LUNGHEZZA || '', quantita: o.quantita, stato: 'In carico', magazzino: null, magazzinoNome: o.destinatarioNome || 'Soggetto', sorgenteTipo: tipoS, sorgenteId: idS === 'tutti' ? null : parseInt(idS), siglaId: o.siglaId || null, destinazioneTipo: o.destinazioneTipo, destinazioneId: o.destinazioneId }); });
     }
-
-    oggetti = lista;
-    oggettiFiltrati = [...oggetti];
-    paginaCorrente = 1;
-    sortColumn = 'numero';
-    sortAsc = true;
-    oggettiFiltrati.sort((a, b) => (a.numero || 0) - (b.numero || 0));
-    renderTabella();
-
+    oggetti = lista; oggettiFiltrati = [...oggetti]; paginaCorrente = 1; sortColumn = 'numero'; sortAsc = true; oggettiFiltrati.sort((a, b) => (a.numero || 0) - (b.numero || 0)); renderTabella();
     document.querySelectorAll('#tabellaOggetti thead th .sort-arrow').forEach(el => el.classList.remove('active'));
-    const defaultArrow = document.querySelector('#tabellaOggetti thead th[data-sort="numero"] .sort-arrow');
-    if (defaultArrow) {
-      defaultArrow.classList.add('active');
-      defaultArrow.textContent = '▲';
-    }
-  } catch(e) {
-    showMessage('Errore caricamento oggetti: ' + e.message, 'error');
-    oggetti = [];
-    oggettiFiltrati = [];
-    renderTabella();
-  }
+    const defaultArrow = document.querySelector('#tabellaOggetti thead th[data-sort="numero"] .sort-arrow'); if (defaultArrow) { defaultArrow.classList.add('active'); defaultArrow.textContent = '▲'; }
+  } catch(e) { showMessage('Errore caricamento oggetti: ' + e.message, 'error'); oggetti = []; oggettiFiltrati = []; renderTabella(); }
 }
-
-/** Renderizza la tabella. In modalità Vendita mostra checkbox per la selezione acquisto, in altre mostra checkbox per la selezione consegna */
 function renderTabella() {
-  const tbody = document.getElementById('tabellaBody');
-  tbody.innerHTML = '';
-  const totali = oggettiFiltrati.length;
-  if (totali === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun oggetto disponibile</td></tr>';
-    updatePagination(0,0,0);
-    return;
-  }
-  const totPag = Math.ceil(totali / righePerPagina);
-  if (paginaCorrente > totPag) paginaCorrente = totPag;
-  if (paginaCorrente < 1) paginaCorrente = 1;
-  const start = (paginaCorrente - 1) * righePerPagina;
-  const end = Math.min(start + righePerPagina, totali);
-  const pagina = oggettiFiltrati.slice(start, end);
-  updatePagination(totali, start, end);
-  selezione = [];
-  selezioneConsegna = [];
-  document.getElementById('selectedContainer').style.display = 'none';
-  document.getElementById('btnConsegnaMassiva').style.display = 'none';
-  document.getElementById('selectAll').checked = false;
-  document.getElementById('selectAllConsegne').checked = false;
-
+  const tbody = document.getElementById('tabellaBody'); tbody.innerHTML = ''; const totali = oggettiFiltrati.length;
+  if (totali === 0) { tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nessun oggetto disponibile</td></tr>'; updatePagination(0,0,0); return; }
+  const totPag = Math.ceil(totali / righePerPagina); if (paginaCorrente > totPag) paginaCorrente = totPag; if (paginaCorrente < 1) paginaCorrente = 1;
+  const start = (paginaCorrente - 1) * righePerPagina; const end = Math.min(start + righePerPagina, totali); const pagina = oggettiFiltrati.slice(start, end); updatePagination(totali, start, end);
+  selezione = []; selezioneConsegna = []; document.getElementById('selectedContainer').style.display = 'none'; document.getElementById('btnConsegnaMassiva').style.display = 'none'; document.getElementById('selectAll').checked = false; document.getElementById('selectAllConsegne').checked = false;
   if (modalitaVista === 'VENDITA') {
     pagina.forEach((obj, idx) => {
-      const row = tbody.insertRow();
-      const chk = document.createElement('input');
-      chk.type = 'checkbox';
-      chk.className = 'row-checkbox';
-      chk.dataset.index = start + idx;
-      chk.addEventListener('change', function() {
-        const i = parseInt(this.dataset.index);
-        if (this.checked) { if (!selezione.includes(i)) selezione.push(i); }
-        else { const pos = selezione.indexOf(i); if (pos > -1) selezione.splice(pos, 1); }
-        aggiornaSelezione();
-      });
-      const tdChk = row.insertCell(0);
-      tdChk.className = 'checkbox-col';
-      tdChk.appendChild(chk);
-
+      const row = tbody.insertRow(); const chk = document.createElement('input'); chk.type = 'checkbox'; chk.className = 'row-checkbox'; chk.dataset.index = start + idx;
+      chk.addEventListener('change', function() { const i = parseInt(this.dataset.index); if (this.checked) { if (!selezione.includes(i)) selezione.push(i); } else { const pos = selezione.indexOf(i); if (pos > -1) selezione.splice(pos, 1); } aggiornaSelezione(); });
+      const tdChk = row.insertCell(0); tdChk.className = 'checkbox-col'; tdChk.appendChild(chk);
       const badge = obj.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
-      row.insertCell(1).innerText = obj.numero || (start + idx + 1);
-      row.insertCell(2).innerHTML = '<span class="badge ' + badge + '">' + obj.tipo + '</span>';
-      row.insertCell(3).innerText = obj.codice || '-';
-      row.insertCell(4).innerText = obj.descrizione || '-';
-      row.insertCell(5).innerText = obj.sigla || 'NA';
-      row.insertCell(6).innerText = obj.lunghezza || '-';
-      row.insertCell(7).innerText = obj.quantita || 0;
-      row.insertCell(8).innerText = obj.stato || '-';
+      row.insertCell(1).innerText = obj.numero || (start + idx + 1); row.insertCell(2).innerHTML = '<span class="badge ' + badge + '">' + obj.tipo + '</span>';
+      row.insertCell(3).innerText = obj.codice || '-'; row.insertCell(4).innerText = obj.descrizione || '-'; row.insertCell(5).innerText = obj.sigla || 'NA';
+      row.insertCell(6).innerText = obj.lunghezza || '-'; row.insertCell(7).innerText = obj.quantita || 0; row.insertCell(8).innerText = obj.stato || '-';
       row.insertCell(9).innerText = obj.magazzinoNome || '-';
     });
-    aggiornaSelezione();
-    return;
+    aggiornaSelezione(); return;
   }
-
-  // Renderizzazione per le modalità "IN_CONSEGNA" e "CONSEGNATO"
   pagina.forEach((obj) => {
-    const row = tbody.insertRow();
-    // 🔥 Aggiunta checkbox per selezione massiva
-    const chk = document.createElement('input');
-    chk.type = 'checkbox';
-    chk.className = 'row-checkbox-consegna';
-    chk.dataset.id = obj.id;
-    chk.addEventListener('change', function() {
-      const id = parseInt(this.dataset.id);
-      if (this.checked) { if (!selezioneConsegna.includes(id)) selezioneConsegna.push(id); }
-      else { const pos = selezioneConsegna.indexOf(id); if (pos > -1) selezioneConsegna.splice(pos, 1); }
-      aggiornaSelezioneConsegna();
-    });
-    const tdChk = row.insertCell(0);
-    tdChk.className = 'checkbox-col';
-    tdChk.appendChild(chk);
-
+    const row = tbody.insertRow(); const chk = document.createElement('input'); chk.type = 'checkbox'; chk.className = 'row-checkbox-consegna'; chk.dataset.id = obj.id;
+    chk.addEventListener('change', function() { const id = parseInt(this.dataset.id); if (this.checked) { if (!selezioneConsegna.includes(id)) selezioneConsegna.push(id); } else { const pos = selezioneConsegna.indexOf(id); if (pos > -1) selezioneConsegna.splice(pos, 1); } aggiornaSelezioneConsegna(); });
+    const tdChk = row.insertCell(0); tdChk.className = 'checkbox-col'; tdChk.appendChild(chk);
     const badge = obj.tipo === 'KIT' ? 'badge-kit' : 'badge-articolo';
-    row.insertCell(1).innerText = obj.id;
-    row.insertCell(2).innerText = formatDate(obj.data);
-    row.insertCell(3).innerText = obj.cliente;
-    row.insertCell(4).innerText = obj.descrizione;
+    row.insertCell(1).innerText = obj.id; row.insertCell(2).innerText = formatDate(obj.data);
+    row.insertCell(3).innerText = obj.cliente; row.insertCell(4).innerText = obj.descrizione;
     row.insertCell(5).innerHTML = '<span class="badge ' + badge + '">' + (obj.tipo || '') + '</span>';
-    row.insertCell(6).innerText = obj.quantita || 0;
-    row.insertCell(7).innerText = obj.importo || '';
+    row.insertCell(6).innerText = obj.quantita || 0; row.insertCell(7).innerText = obj.importo || '';
     row.insertCell(8).innerText = obj.note || '';
     const statoBadge = obj.stato_consegna === 'CONSEGNATO' ? 'badge-consegnato' : 'badge-attesa';
     row.insertCell(9).innerHTML = '<span class="badge ' + statoBadge + '">' + (obj.stato_consegna || '-') + '</span>';
-    const actionCell = row.insertCell(10);
-    // 🔥 Rimosso il pulsante singolo "Segna consegnato". Sostituito con pulsante "Modifica" se necessario.
-    actionCell.innerHTML = `<button class="btn btn-warning btn-sm" onclick="apriModificaVendita(${obj.id})">✏️ Modifica</button>`;
+    row.insertCell(10).innerHTML = `<button class="btn btn-warning btn-sm" onclick="apriModificaVendita(${obj.id})">✏️ Modifica</button>`;
   });
 }
-
-/** Aggiorna i contatori della paginazione in basso */
-function updatePagination(totali, start, end) {
-  document.getElementById('paginationStats').innerText = totali ? 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali : 'Mostrando 0-0 di 0';
-  document.getElementById('paginationCurrentPage').innerText = paginaCorrente;
-  const totPag = Math.ceil(totali / righePerPagina);
-  document.getElementById('btnPrevPage').disabled = (paginaCorrente <= 1);
-  document.getElementById('btnNextPage').disabled = (paginaCorrente >= totPag);
-  document.getElementById('gotoPageInput').max = totPag || 1;
-}
-
+function updatePagination(totali, start, end) { document.getElementById('paginationStats').innerText = totali ? 'Mostrando ' + (start+1) + '-' + end + ' di ' + totali : 'Mostrando 0-0 di 0'; document.getElementById('paginationCurrentPage').innerText = paginaCorrente; const totPag = Math.ceil(totali / righePerPagina); document.getElementById('btnPrevPage').disabled = (paginaCorrente <= 1); document.getElementById('btnNextPage').disabled = (paginaCorrente >= totPag); document.getElementById('gotoPageInput').max = totPag || 1; }
 function cambiaRighePerPagina() { righePerPagina = parseInt(document.getElementById('rowsPerPage').value); paginaCorrente = 1; renderTabella(); }
 function paginaPrecedente() { if (paginaCorrente > 1) { paginaCorrente--; renderTabella(); } }
 function paginaSuccessiva() { const max = Math.ceil(oggettiFiltrati.length / righePerPagina); if (paginaCorrente < max) { paginaCorrente++; renderTabella(); } }
 function vaiAPagina(v) { const p = parseInt(v); if (p && p > 0) { const max = Math.ceil(oggettiFiltrati.length / righePerPagina); if (p <= max) { paginaCorrente = p; renderTabella(); } } }
-
-/** Gestisce la selezione/deselezione di massa per la vendita */
-function toggleSelectAll() {
-  const c = document.getElementById('selectAll').checked;
-  const cbs = document.querySelectorAll('.row-checkbox');
-  if (c) { selezione = []; cbs.forEach(cb => { cb.checked = true; const idx = parseInt(cb.dataset.index); if (!isNaN(idx) && !selezione.includes(idx)) selezione.push(idx); }); }
-  else { cbs.forEach(cb => cb.checked = false); selezione = []; }
-  aggiornaSelezione();
-}
-
-/** 🔥 Gestisce la selezione/deselezione di massa per le consegne */
-function toggleSelectAllConsegne() {
-  const c = document.getElementById('selectAllConsegne').checked;
-  const cbs = document.querySelectorAll('.row-checkbox-consegna');
-  if (c) { selezioneConsegna = []; cbs.forEach(cb => { cb.checked = true; const id = parseInt(cb.dataset.id); if (!isNaN(id) && !selezioneConsegna.includes(id)) selezioneConsegna.push(id); }); }
-  else { cbs.forEach(cb => cb.checked = false); selezioneConsegna = []; }
-  aggiornaSelezioneConsegna();
-}
-
+function toggleSelectAll() { const c = document.getElementById('selectAll').checked; const cbs = document.querySelectorAll('.row-checkbox'); if (c) { selezione = []; cbs.forEach(cb => { cb.checked = true; const idx = parseInt(cb.dataset.index); if (!isNaN(idx) && !selezione.includes(idx)) selezione.push(idx); }); } else { cbs.forEach(cb => cb.checked = false); selezione = []; } aggiornaSelezione(); }
+function toggleSelectAllConsegne() { const c = document.getElementById('selectAllConsegne').checked; const cbs = document.querySelectorAll('.row-checkbox-consegna'); if (c) { selezioneConsegna = []; cbs.forEach(cb => { cb.checked = true; const id = parseInt(cb.dataset.id); if (!isNaN(id) && !selezioneConsegna.includes(id)) selezioneConsegna.push(id); }); } else { cbs.forEach(cb => cb.checked = false); selezioneConsegna = []; } aggiornaSelezioneConsegna(); }
 function deselezionaTutti() { document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false); selezione = []; aggiornaSelezione(); }
-
-/** Aggiorna il riepilogo degli oggetti selezionati per la vendita */
-function aggiornaSelezione() {
-  const container = document.getElementById('selectedContainer');
-  const tbody = document.getElementById('selectedBody');
-  tbody.innerHTML = '';
-  if (selezione.length === 0) { container.style.display = 'none'; return; }
-  container.style.display = 'block';
-  let totali = 0;
-  const unique = [...new Set(selezione)];
-  unique.forEach(idx => {
-    const obj = oggettiFiltrati[idx];
-    if (!obj) return;
-    const row = tbody.insertRow();
-    row.insertCell(0).innerText = obj.tipo || '';
-    row.insertCell(1).innerText = obj.codice || '';
-    row.insertCell(2).innerText = obj.descrizione || '';
-    row.insertCell(3).innerText = obj.quantita || 0;
-    totali += obj.quantita;
-  });
-  document.getElementById('selectedLabel').innerHTML = '📦 Oggetti selezionati (' + unique.length + ' oggetti, totale ' + totali + ' unità):';
-}
-
-/** 🔥 Aggiorna la visibilità del pulsante di consegna massiva in base alla selezione */
-function aggiornaSelezioneConsegna() {
-  const btn = document.getElementById('btnConsegnaMassiva');
-  if (selezioneConsegna.length > 0 && modalitaVista === 'IN_CONSEGNA') {
-    btn.style.display = 'inline-block';
-  } else {
-    btn.style.display = 'none';
-  }
-}
-
-/** Resetta i campi di testo e i filtri della barra di ricerca */
+function aggiornaSelezione() { const container = document.getElementById('selectedContainer'); const tbody = document.getElementById('selectedBody'); tbody.innerHTML = ''; if (selezione.length === 0) { container.style.display = 'none'; return; } container.style.display = 'block'; let totali = 0; const unique = [...new Set(selezione)]; unique.forEach(idx => { const obj = oggettiFiltrati[idx]; if (!obj) return; const row = tbody.insertRow(); row.insertCell(0).innerText = obj.tipo || ''; row.insertCell(1).innerText = obj.codice || ''; row.insertCell(2).innerText = obj.descrizione || ''; row.insertCell(3).innerText = obj.quantita || 0; totali += obj.quantita; }); document.getElementById('selectedLabel').innerHTML = '📦 Oggetti selezionati (' + unique.length + ' oggetti, totale ' + totali + ' unità):'; }
+function aggiornaSelezioneConsegna() { const btn = document.getElementById('btnConsegnaMassiva'); if (selezioneConsegna.length > 0 && modalitaVista === 'IN_CONSEGNA') btn.style.display = 'inline-block'; else btn.style.display = 'none'; }
 function resetFiltri() { filtroDescrizione.value = ''; filtroSigla.value = ''; filtroTipo.value = 'TUTTI'; if (magazzini.length > 0) { const race = magazzini.find(m => m.nome.toLowerCase() === 'race'); filtroMagazzino.value = race ? race.id : magazzini[0].id; } caricaOggetti(); }
-
-/** Mostra/nasconde i filtri per il soggetto e il magazzino in base al radiobutton selezionato e alla Modalità */
-function toggleSorgente() {
-  const isMag = sourceMag.checked;
-  if (modalitaVista === 'VENDITA') {
-    soggettoSection.style.display = isMag ? 'none' : 'flex';
-    document.getElementById('magazzinoSection').style.display = isMag ? 'flex' : 'none';
-    document.getElementById('filtriGenerali').style.display = 'flex';
-  } else {
-    soggettoSection.style.display = 'none';
-    document.getElementById('magazzinoSection').style.display = 'none';
-    document.getElementById('filtriGenerali').style.display = 'none';
-  }
-  if (modalitaVista === 'VENDITA') caricaOggetti();
-}
-sourceMag.addEventListener('change', toggleSorgente);
-sourceSog.addEventListener('change', toggleSorgente);
-
-/** Mostra/nasconde i campi per la Fattura o Bolla nella modale di vendita */
+function toggleSorgente() { const isMag = sourceMag.checked; if (modalitaVista === 'VENDITA') { soggettoSection.style.display = isMag ? 'none' : 'flex'; document.getElementById('magazzinoSection').style.display = isMag ? 'flex' : 'none'; document.getElementById('filtriGenerali').style.display = 'flex'; } else { soggettoSection.style.display = 'none'; document.getElementById('magazzinoSection').style.display = 'none'; document.getElementById('filtriGenerali').style.display = 'none'; } if (modalitaVista === 'VENDITA') caricaOggetti(); }
+sourceMag.addEventListener('change', toggleSorgente); sourceSog.addEventListener('change', toggleSorgente);
 function toggleDocumentiVendita() { const tipo = document.getElementById('tipoDocumentoVendita').value; const section = document.getElementById('documentiVenditaSection'); const labelData = document.getElementById('labelDataDocumento'); const labelNum = document.getElementById('labelNumeroDocumento'); if (tipo) { section.style.display = 'block'; labelData.innerText = 'Data ' + tipo; labelNum.innerText = 'Numero ' + tipo; } else { section.style.display = 'none'; } }
 function toggleModificaDocumenti() { const tipo = document.getElementById('modificaTipoDocumento').value; const section = document.getElementById('modificaDocumentiSection'); const labelData = document.getElementById('modificaLabelData'); const labelNum = document.getElementById('modificaLabelNumero'); if (tipo) { section.style.display = 'block'; labelData.innerText = 'Data ' + tipo; labelNum.innerText = 'Numero ' + tipo; } else { section.style.display = 'none'; } }
-
-/** Apre la modale di vendita mostrando il riepilogo degli oggetti selezionati */
 function apriModaleVendita() { if (selezione.length === 0) { showMessage('Seleziona almeno un oggetto', 'error'); return; } let rip = '<strong>📦 Riepilogo vendita:</strong><ul>'; let tot = 0; const unique = [...new Set(selezione)]; unique.forEach(idx => { const obj = oggettiFiltrati[idx]; if (!obj) return; rip += '<li>' + obj.tipo + ' - ' + obj.descrizione + ' (q.' + obj.quantita + ')</li>'; tot += obj.quantita; }); rip += '</ul><p><strong>Totale unità:</strong> ' + tot + '</p><p><i class="badge badge-attesa">⚠️ Sarà messo IN CONSEGNA e scaricato subito dal magazzino</i></p>'; document.getElementById('venditaRiepilogo').innerHTML = rip; const now = new Date(); const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'); document.getElementById('dataVenditaInput').value = iso; document.getElementById('importoVenditaInput').value = ''; document.getElementById('noteVenditaInput').value = ''; document.getElementById('tipoDocumentoVendita').value = ''; document.getElementById('dataDocumentoVendita').value = ''; document.getElementById('numeroDocumentoVendita').value = ''; toggleDocumentiVendita(); caricaClienti(); document.getElementById('modalVendita').style.display = 'flex'; }
 function chiudiModaleVendita() { document.getElementById('modalVendita').style.display = 'none'; }
-
-/** Esegue la chiamata API per registrare la vendita con i dati inseriti nella modale */
 async function confermaVendita() { const clienteId = document.getElementById('clienteSelect').value; if (!clienteId) { showMessage('Seleziona un cliente', 'error'); return; } const data = document.getElementById('dataVenditaInput').value; const importo = document.getElementById('importoVenditaInput').value; const note = document.getElementById('noteVenditaInput').value.trim(); const tipoDocumento = document.getElementById('tipoDocumentoVendita').value; const dataDocumento = document.getElementById('dataDocumentoVendita').value; const numeroDocumento = document.getElementById('numeroDocumentoVendita').value.trim(); const oggettiVendita = []; const unique = [...new Set(selezione)]; let sorgenteTipo = null, sorgenteId = null, magazzinoId = null; unique.forEach(idx => { const obj = oggettiFiltrati[idx]; if (!obj) return; oggettiVendita.push({ tipoOggetto: obj.tipo, oggettoId: obj.id, siglaId: obj.siglaId || null, quantita: obj.quantita }); if (!sorgenteTipo) { sorgenteTipo = obj.sorgenteTipo; sorgenteId = obj.sorgenteId; if (sorgenteTipo === 'MAGAZZINO') magazzinoId = obj.sorgenteId; } }); const payload = { oggetti: oggettiVendita, clienteId: parseInt(clienteId), importo: importo ? parseFloat(importo) : null, data: data || null, note: note || null, sorgenteTipo, sorgenteId, magazzinoId, tipoDocumento: tipoDocumento || null, dataDocumento: dataDocumento || null, numeroDocumento: numeroDocumento || null }; const btn = document.getElementById('btnConfermaVendita'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; try { const res = await apiFetch('/vendite', { method: 'POST', body: JSON.stringify(payload) }); if (res.success) { showMessage('Vendita registrata con successo! In attesa di consegna.', 'success'); chiudiModaleVendita(); deselezionaTutti(); caricaOggetti(); } else showMessage(res.message, 'error'); } catch(e) { showMessage('Errore: ' + e.message, 'error'); } finally { btn.disabled = false; btn.innerHTML = '💰 Vendi (In Consegna)'; } }
-
-/** Gestisce la modale per la creazione di un nuovo cliente */
 function apriNuovoCliente() { document.getElementById('modalNuovoCliente').style.display = 'flex'; }
 function chiudiModaleNuovoCliente() { document.getElementById('modalNuovoCliente').style.display = 'none'; }
 async function salvaNuovoCliente() { const nome = document.getElementById('nuovoClienteNome').value.trim(); const cognome = document.getElementById('nuovoClienteCognome').value.trim(); const email = document.getElementById('nuovoClienteEmail').value.trim(); const telefono = document.getElementById('nuovoClienteTelefono').value.trim(); const tipo = document.getElementById('nuovoClienteTipo').value; if (!nome) { showMessage('Il nome è obbligatorio', 'error'); return; } try { const payload = { nome, cognome: cognome || null, email: email || null, telefono: telefono || null, tipo, attivo: 1 }; const r = await apiFetch('/soggetti', { method: 'POST', body: JSON.stringify(payload) }); if (r.success) { showMessage('Cliente creato con successo', 'success'); chiudiModaleNuovoCliente(); await caricaClienti(); const sel = document.getElementById('clienteSelect'); for (let i=0; i<sel.options.length; i++) { if (sel.options[i].value == r.id) { sel.value = r.id; break; } } } else showMessage(r.message, 'error'); } catch(e) { showMessage('Errore: ' + e.message, 'error'); } }
-
-/** Modale storico: carica e filtra le vendite */
 async function apriModalStorico() { document.getElementById('modalStorico').style.display = 'flex'; await caricaStorico(); }
 function chiudiModalStorico() { document.getElementById('modalStorico').style.display = 'none'; }
 async function caricaStorico() { const tbody = document.getElementById('storicoBody'); tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>'; try { const res = await apiFetch('/vendite'); if (res.success) { storicoVendite = res.data || []; storicoFiltrato = [...storicoVendite]; renderStorico(); } else { showMessage('Errore caricamento storico', 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); } } catch(e) { showMessage('Errore: ' + e.message, 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); } }
 function renderStorico() { const tbody = document.getElementById('storicoBody'); tbody.innerHTML = ''; if (!storicoFiltrato.length) { tbody.innerHTML = '<tr><td colspan="12" class="text-center">Nessuna vendita registrata</td></tr>'; return; } storicoFiltrato.forEach(v => { const row = tbody.insertRow(); const badge = v.tipo_oggetto === 'KIT' ? 'badge-kit' : 'badge-articolo'; const statoBadge = v.stato_consegna === 'CONSEGNATO' ? 'badge-consegnato' : 'badge-attesa'; row.insertCell(0).innerText = v.id; row.insertCell(1).innerText = formatDate(v.data); const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto'; row.insertCell(2).innerText = clienteNome; row.insertCell(3).innerText = v.oggetto_descrizione || v.oggetto_codice || '-'; row.insertCell(4).innerHTML = '<span class="badge ' + badge + '">' + (v.tipo_oggetto || '') + '</span>'; row.insertCell(5).innerText = v.quantita || 0; row.insertCell(6).innerText = v.importo ? '€ ' + parseFloat(v.importo).toFixed(2) : ''; row.insertCell(7).innerText = v.vendita_note || ''; row.insertCell(8).innerHTML = '<span class="badge ' + statoBadge + '">' + (v.stato_consegna || '-') + '</span>'; row.insertCell(9).innerText = (v.tipo_documento || '') + ' ' + (v.numero_documento || ''); row.insertCell(10).innerText = v.operatore || '-'; row.insertCell(11).innerHTML = `<button class="btn btn-warning btn-sm" onclick="apriModificaVendita(${v.id})">✏️ Modifica</button>`; }); }
 function filtraStorico() { const txt = document.getElementById('filtroStorico').value.toLowerCase(); if (!txt) storicoFiltrato = [...storicoVendite]; else storicoFiltrato = storicoVendite.filter(v => { const cliente = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).toLowerCase(); const oggetto = (v.oggetto_descrizione || v.oggetto_codice || '').toLowerCase(); const operatore = (v.operatore || '').toLowerCase(); return cliente.includes(txt) || oggetto.includes(txt) || operatore.includes(txt); }); renderStorico(); }
-
-/** 🔥 Apre la modale per la consegna massiva delle vendite selezionate */
-function apriModaleConsegnaMassiva() {
-  if (selezioneConsegna.length === 0) { showMessage('Seleziona almeno una vendita da consegnare', 'error'); return; }
-  const unique = [...new Set(selezioneConsegna)];
-  document.getElementById('consegnaMassivaRiepilogo').innerHTML = `<strong>Vendite selezionate:</strong> ${unique.length} ID da consegnare.`;
-  document.getElementById('noteConsegnaMassiva').value = '';
-  document.getElementById('modalConsegnaMassiva').style.display = 'flex';
-}
+function apriModaleConsegnaMassiva() { if (selezioneConsegna.length === 0) { showMessage('Seleziona almeno una vendita da consegnare', 'error'); return; } const unique = [...new Set(selezioneConsegna)]; document.getElementById('consegnaMassivaRiepilogo').innerHTML = `<strong>Vendite selezionate:</strong> ${unique.length} ID da consegnare.`; document.getElementById('noteConsegnaMassiva').value = ''; document.getElementById('modalConsegnaMassiva').style.display = 'flex'; }
 function chiudiModaleConsegnaMassiva() { document.getElementById('modalConsegnaMassiva').style.display = 'none'; }
-
-/** 🔥 Chiama l'API per effettuare la consegna di massa delle vendite selezionate */
-async function confermaConsegnaMassiva() {
-  const ids = [...new Set(selezioneConsegna)];
-  if (!ids.length) { showMessage('Nessuna vendita selezionata.', 'error'); return; }
-  const note = document.getElementById('noteConsegnaMassiva').value.trim();
-
-  const btn = document.getElementById('btnConfermaConsegnaMassiva');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-
-  try {
-    const payload = { ids, note: note || null };
-    const res = await apiFetch('/vendite/consegna-massiva', { method: 'POST', body: JSON.stringify(payload) });
-    if (res.success) {
-      showMessage('✅ Consegna massiva effettuata con successo!', 'success');
-      chiudiModaleConsegnaMassiva();
-      caricaOggetti();
-    } else {
-      showMessage('Errore: ' + res.message, 'error');
-    }
-  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = '✅ Conferma Consegna'; }
-}
-
-/** Gestisce la modale per la modifica dei dati di una vendita già registrata */
+async function confermaConsegnaMassiva() { const ids = [...new Set(selezioneConsegna)]; if (!ids.length) { showMessage('Nessuna vendita selezionata.', 'error'); return; } const note = document.getElementById('noteConsegnaMassiva').value.trim(); const btn = document.getElementById('btnConfermaConsegnaMassiva'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; try { const payload = { ids, note: note || null }; const res = await apiFetch('/vendite/consegna-massiva', { method: 'POST', body: JSON.stringify(payload) }); if (res.success) { showMessage('✅ Consegna massiva effettuata con successo!', 'success'); chiudiModaleConsegnaMassiva(); caricaOggetti(); } else { showMessage('Errore: ' + res.message, 'error'); } } catch(e) { showMessage('Errore: ' + e.message, 'error'); } finally { btn.disabled = false; btn.innerHTML = '✅ Conferma Consegna'; } }
 let venditaDaModificareId = null;
 function apriModificaVendita(id) { venditaDaModificareId = id; const btn = document.getElementById('btnSalvaModifica'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; apiFetch('/vendite/' + id).then(res => { if (res.success) { const v = res.data; document.getElementById('modificaVenditaId').innerText = v.id; document.getElementById('modificaDataVendita').value = formatDate(v.data); const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto'; document.getElementById('modificaClienteVendita').value = clienteNome; document.getElementById('modificaImportoVendita').value = v.importo || ''; document.getElementById('modificaNotaVendita').value = v.note || ''; document.getElementById('modificaTipoDocumento').value = v.tipo_documento || ''; document.getElementById('modificaDataDocumento').value = v.data_documento || ''; document.getElementById('modificaNumeroDocumento').value = v.numero_documento || ''; toggleModificaDocumenti(); document.getElementById('modalModificaVendita').style.display = 'flex'; } else showMessage('Errore nel caricamento dei dati: ' + res.message, 'error'); }).catch(e => showMessage('Errore: ' + e.message, 'error')).finally(() => { btn.disabled = false; btn.innerHTML = '💾 Salva Modifiche'; }); }
 function chiudiModificaVendita() { document.getElementById('modalModificaVendita').style.display = 'none'; }
 async function salvaModificaVendita() { if (!venditaDaModificareId) return; const note = document.getElementById('modificaNotaVendita').value.trim(); const importo = document.getElementById('modificaImportoVendita').value; const tipoDocumento = document.getElementById('modificaTipoDocumento').value; const dataDocumento = document.getElementById('modificaDataDocumento').value; const numeroDocumento = document.getElementById('modificaNumeroDocumento').value.trim(); const payload = { note: note || null, importo: importo ? parseFloat(importo) : null, tipoDocumento: tipoDocumento || null, dataDocumento: dataDocumento || null, numeroDocumento: numeroDocumento || null }; const btn = document.getElementById('btnSalvaModifica'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; try { const res = await apiFetch('/vendite/' + venditaDaModificareId, { method: 'PUT', body: JSON.stringify(payload) }); if (res.success) { showMessage('Nota e dati aggiornati con successo!', 'success'); chiudiModificaVendita(); if (document.getElementById('modalStorico').style.display === 'flex') await caricaStorico(); caricaOggetti(); } else showMessage('Errore: ' + res.message, 'error'); } catch(e) { showMessage('Errore: ' + e.message, 'error'); } finally { btn.disabled = false; btn.innerHTML = '💾 Salva Modifiche'; } }
-
-/** Funzione di inizializzazione eseguita al caricamento della pagina */
 window.onload = async function() { const token = localStorage.getItem('token'); if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; } try { currentUser = JSON.parse(localStorage.getItem('user')); if (!currentUser.riferimento_id && currentUser.RiferimentoID) currentUser.riferimento_id = parseInt(currentUser.RiferimentoID); } catch(e) { logout(); return; } if (currentUser.riferimento_id) { try { const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id); userLevel = sog.livello || 0; console.log('✅ userLevel caricato:', userLevel); } catch(e) { console.warn('Impossibile ottenere il livello del soggetto:', e); userLevel = 0; } } document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')'; await caricaMagazzini(); await caricaSoggetti(); await caricaClienti(); await caricaOggetti(); const now = new Date(); const iso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'); document.getElementById('dataVenditaInput').value = iso; toggleSorgente(); attachSortListeners(); };
 </script>
 </body>
