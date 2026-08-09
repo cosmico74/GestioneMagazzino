@@ -1122,10 +1122,14 @@ async function caricaArticoli() {
     if (f.categoria) params.append('categoria', f.categoria);
     if (f.marca) params.append('marca', f.marca);
     if (f.descrizione) params.append('descrizione', f.descrizione);
+    // 🔥 AGGIUNTE QUESTE RIGHE PER FILTRARE ANCHE LA TABELLA
+    if (f.lunghezza) params.append('lunghezza', f.lunghezza);
+    if (f.durezza) params.append('durezza', f.durezza);
+    if (f.codice_modello) params.append('codice_modello', f.codice_modello);
     if (f.variante) params.append('variante', f.variante);
     if (f.anno_id) params.append('anno_id', f.anno_id);
     if (f.season_status_id) params.append('season_status_id', f.season_status_id);
-    if (f.codice) params.append('codice', f.codice); // 🔥
+    if (f.codice) params.append('codice', f.codice);
 
     const res = await apiFetch('/articoli?' + params.toString());
     if (res.success) {
