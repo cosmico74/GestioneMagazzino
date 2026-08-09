@@ -1064,9 +1064,16 @@ function getCurrentFilters() {
     categoria: filtroCat.value,
     marca: filtroMar.value,
     descrizione: descrizioneInput.value.trim(),
+    // 🔥 Campi del modulo di inserimento (filtraggio incrociato)
+    codice_modello: codiceModelloInput.value.trim(),
+    lunghezza: lunghezzaInput.value.trim(),
+    durezza: durezzaInput.value.trim(),
     variante: varianteInput.value.trim(),
-    anno_id: filtroAnno.value || null,
-    season_status_id: seasonStatusSelect.value || null
+    // 🔥 Anno e Season Status presi DAL MODULO di inserimento
+    anno_id: annoSelect.value || null, // <-- CORRETTO (prima era filtroAnno.value)
+    season_status_id: seasonStatusSelect.value || null, // <-- CORRETTO (prima era filtroSeason.value)
+    // 🔥 Campo di ricerca libero (Codice nella barra filtri)
+    codice: filtroCodice.value.trim()
   };
 }
 
