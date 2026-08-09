@@ -84,7 +84,7 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 }
 
 // ============================================================
-// GET /api/kit - Elenco kit con filtro settore e codice
+// GET /api/kit - Elenco kit con filtro settore e ricerca ESATTA
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -141,27 +141,15 @@ router.get('/', verifyToken, async (req, res) => {
     `;
     const params = [];
 
-    // Filtro magazzino
-    if (req.query.magazzino) {
-      sql += ' AND k.magazzino = ?';
-      params.push(req.query.magazzino);
-    }
+    if (req.query.magazzino) { sql += ' AND k.magazzino = ?'; params.push(req.query.magazzino); }
+    if (req.query.settore) { sql += ' AND k.settore = ?'; params.push(req.query.settore); }
+    
+    // 🔥 Sostituito LIKE con = per le ricerche esatte (case-insensitive)
+    if (req.query.descrizione) { sql += ' AND LOWER(k.descrizione) = LOWER(?)'; params.push(req.query.descrizione); }
+    if (req.query.codice) { sql += ' AND LOWER(k.codice_kit) = LOWER(?)'; params.push(req.query.codice); }
 
-    // Filtro settore
-    if (req.query.settore) {
-      sql += ' AND k.settore = ?';
-      params.push(req.query.settore);
-    }
-
-    // 🔥 Filtro per codice kit (codice_kit)
-    if (req.query.codice) {
-      sql += ' AND LOWER(k.codice_kit) LIKE ?';
-      params.push(`%${req.query.codice.toLowerCase()}%`);
-    }
-
-    // Filtro ricerca testuale (facoltativo)
     if (req.query.search) {
-      sql += ' AND (k.codice_kit LIKE ? OR k.descrizione LIKE ? OR k.sigla_sci LIKE ? OR k.variante_sci LIKE ?)';
+      sql += ' AND (LOWER(k.codice_kit) LIKE ? OR LOWER(k.descrizione) LIKE ? OR LOWER(k.sigla_sci) LIKE ? OR LOWER(k.variante_sci) LIKE ?)';
       const search = '%' + req.query.search + '%';
       params.push(search, search, search, search);
     }

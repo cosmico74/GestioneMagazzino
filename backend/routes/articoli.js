@@ -90,7 +90,7 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 }
 
 // ============================================================
-// GET /api/articoli - con filtri (AND) e supporto codice
+// GET /api/articoli - con filtri (AND) e ricerca ESATTA per tutti i campi
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -126,16 +126,15 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.query.settore) { sql += ' AND a.settore = ?'; params.push(req.query.settore); }
     if (req.query.categoria) { sql += ' AND a.categoria = ?'; params.push(req.query.categoria); }
     if (req.query.marca) { sql += ' AND a.marca = ?'; params.push(req.query.marca); }
-    if (req.query.descrizione) { sql += ' AND a.descrizione LIKE ?'; params.push(`%${req.query.descrizione}%`); }
-    if (req.query.lunghezza) { sql += ' AND a.lunghezza = ?'; params.push(req.query.lunghezza); }
-    if (req.query.durezza) { sql += ' AND a.durezza = ?'; params.push(req.query.durezza); }
-    // 🔥 Filtro per codice (cerca in codice_modello e codice)
-    if (req.query.codice) {
-      sql += ' AND (a.codice_modello LIKE ? OR a.codice LIKE ?)';
-      params.push(`%${req.query.codice}%`, `%${req.query.codice}%`);
-    }
-    if (req.query.codice_modello) { sql += ' AND a.codice_modello = ?'; params.push(req.query.codice_modello); }
-    if (req.query.variante) { sql += ' AND a.variante LIKE ?'; params.push(`%${req.query.variante}%`); }
+    
+    // 🔥 Sostituito LIKE con = per le ricerche esatte (case-insensitive)
+    if (req.query.descrizione) { sql += ' AND LOWER(a.descrizione) = LOWER(?)'; params.push(req.query.descrizione); }
+    if (req.query.lunghezza) { sql += ' AND LOWER(a.lunghezza) = LOWER(?)'; params.push(req.query.lunghezza); }
+    if (req.query.durezza) { sql += ' AND LOWER(a.durezza) = LOWER(?)'; params.push(req.query.durezza); }
+    if (req.query.codice_modello) { sql += ' AND LOWER(a.codice_modello) = LOWER(?)'; params.push(req.query.codice_modello); }
+    if (req.query.variante) { sql += ' AND LOWER(a.variante) = LOWER(?)'; params.push(req.query.variante); }
+    if (req.query.codice) { sql += ' AND (LOWER(a.codice_modello) = LOWER(?) OR LOWER(a.codice) = LOWER(?))'; params.push(req.query.codice, req.query.codice); }
+    
     if (req.query.season_status_id) { sql += ' AND a.season_status_id = ?'; params.push(req.query.season_status_id); }
     if (req.query.anno_id) { sql += ' AND a.anno_id = ?'; params.push(req.query.anno_id); }
     if (req.query.min_giacenza) {
@@ -179,7 +178,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD SIGLE (invariato)
+// CRUD SIGLE
 // ============================================================
 router.get('/:id/sigle', verifyToken, async (req, res) => {
   try {
@@ -440,7 +439,6 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // 🔥 CONTROLLO DUPLICATI
     const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null, anno_id || 5);
     if (exists) {
       await connection.rollback();
@@ -487,7 +485,6 @@ router.post('/', verifyToken, async (req, res) => {
     );
     const siglaId = siglaResult.insertId;
 
-    // 🔥 Ricalcola quantità totale
     await ricalcolaQuantitaTotale(connection, newId);
 
     const [newRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [newId]);
@@ -509,11 +506,11 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /api/articoli/:id - con ricalcolo quantità sempre (ma NON aggiorna la quantità manuale)
+// PUT /api/articoli/:id - con ricalcolo quantità sempre
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
-  const { descrizione, lunghezza, durezza, quantita_totale, quantita_obsoleta, versione, stato, note, codiceModello,
+  const { descrizione, lunghezza, durezza, versione, stato, note, codiceModello,
           magazzino, settore, categoria, marca, inventario_austria, variante, season_status_id, anno_id } = req.body;
 
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
@@ -524,7 +521,6 @@ router.put('/:id', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // 🔥 CONTROLLO DUPLICATI (escludendo l'articolo corrente)
     const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null, anno_id || 5, id);
     if (exists) {
       await connection.rollback();
@@ -535,23 +531,6 @@ router.put('/:id', verifyToken, async (req, res) => {
     }
 
     const [oldRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
-
-    // Aggiornamento quantità solo se la sigla "NA" è presente (per retrocompatibilità)
-    if (quantita_totale !== undefined) {
-      const [sigle] = await connection.query(
-        'SELECT id, sigla FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1',
-        [id]
-      );
-      if (sigle.length === 1 && sigle[0].sigla === 'NA') {
-        await connection.query(
-          'UPDATE sigle_articoli SET quantita = ?, quantita_austria = ? WHERE id = ?',
-          [quantita_totale, quantita_totale, sigle[0].id]
-        );
-        const [oldSigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [sigle[0].id]);
-        const [newSigla] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [sigle[0].id]);
-        await registraAudit(connection, 'sigle_articoli', 'MODIFICA', sigle[0].id, oldSigla[0], newSigla[0], req.userId);
-      }
-    }
 
     const now = db.now();
     const invAustria = (inventario_austria !== undefined) ? (inventario_austria ? 1 : 0) : 1;
@@ -566,8 +545,6 @@ router.put('/:id', verifyToken, async (req, res) => {
         magazzino, settore, categoria, marca, invAustria, req.userId,
         variante || null, season_status_id || null, anno_id || 5, id]);
 
-    // 🔥 FORZA IL RICALCOLO DELLA QUANTITÀ TOTALE dalla somma delle sigle
-    // Questo garantisce che quantita_totale sia sempre la somma delle sigle attive
     await ricalcolaQuantitaTotale(connection, id);
 
     const [newRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
@@ -727,8 +704,8 @@ router.get('/valori/sigle', verifyToken, async (req, res) => {
       params.push(req.query.lunghezza);
     }
     if (req.query.descrizione) {
-      sql += ' AND descrizione LIKE ?';
-      params.push(`%${req.query.descrizione}%`);
+      sql += ' AND LOWER(descrizione) = LOWER(?)';
+      params.push(req.query.descrizione);
     }
     sql += ' ORDER BY sigla';
     const [rows] = await db.query(sql, params);
@@ -755,12 +732,12 @@ router.get('/valori/lunghezze', verifyToken, async (req, res) => {
       params.push(req.query.settore);
     }
     if (req.query.descrizione) {
-      sql += ' AND descrizione LIKE ?';
-      params.push(`%${req.query.descrizione}%`);
+      sql += ' AND LOWER(descrizione) = LOWER(?)';
+      params.push(req.query.descrizione);
     }
     if (req.query.sigla) {
-      sql += ' AND codice_modello LIKE ?';
-      params.push(`%${req.query.sigla}%`);
+      sql += ' AND LOWER(codice_modello) = LOWER(?)';
+      params.push(req.query.sigla);
     }
     sql += ' ORDER BY lunghezza';
     const [rows] = await db.query(sql, params);
