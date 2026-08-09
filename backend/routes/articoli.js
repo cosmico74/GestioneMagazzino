@@ -40,9 +40,9 @@ async function canUserUseMagazzino(userId, userRole, magazzinoId) {
 }
 
 // ============================================================
-// HELPER: verifica duplicati su (descrizione, lunghezza, season_status_id, variante, anno_id)
+// HELPER: verifica duplicati ESATTI su tutti i campi (descrizione, lunghezza, season_status_id, variante, anno_id)
 // ============================================================
-async function checkDuplicate(connection, descrizione, lunghezza, seasonStatusId, variante, annoId, excludeId = null) {
+async function checkDuplicateExact(connection, descrizione, lunghezza, seasonStatusId, variante, annoId, excludeId = null) {
   let sql = `
     SELECT articolo_id FROM articoli 
     WHERE descrizione = ? 
@@ -60,6 +60,28 @@ async function checkDuplicate(connection, descrizione, lunghezza, seasonStatusId
 
   const [rows] = await connection.query(sql, params);
   return rows.length > 0;
+}
+
+// ============================================================
+// HELPER: verifica duplicati PARZIALI (stesso modello, descrizione, lunghezza e anno, ma stagione diversa)
+// ============================================================
+async function checkSimilarArticle(connection, codiceModello, descrizione, lunghezza, annoId, excludeId = null) {
+  let sql = `
+    SELECT articolo_id, season_status_id FROM articoli 
+    WHERE codicemodello = ? 
+      AND descrizione = ? 
+      AND (lunghezza = ? OR (lunghezza IS NULL AND ? IS NULL))
+      AND anno_id = ?
+  `;
+  const params = [codiceModello, descrizione, lunghezza, lunghezza, annoId];
+
+  if (excludeId) {
+    sql += ' AND articolo_id != ?';
+    params.push(excludeId);
+  }
+
+  const [rows] = await connection.query(sql, params);
+  return rows;
 }
 
 // ============================================================
@@ -127,7 +149,6 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.query.categoria) { sql += ' AND a.categoria = ?'; params.push(req.query.categoria); }
     if (req.query.marca) { sql += ' AND a.marca = ?'; params.push(req.query.marca); }
     
-    // 🔥 Sostituito LIKE con = per le ricerche esatte (case-insensitive)
     if (req.query.descrizione) { sql += ' AND LOWER(a.descrizione) = LOWER(?)'; params.push(req.query.descrizione); }
     if (req.query.lunghezza) { sql += ' AND LOWER(a.lunghezza) = LOWER(?)'; params.push(req.query.lunghezza); }
     if (req.query.durezza) { sql += ' AND LOWER(a.durezza) = LOWER(?)'; params.push(req.query.durezza); }
@@ -178,7 +199,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD SIGLE
+// CRUD SIGLE (invariato)
 // ============================================================
 router.get('/:id/sigle', verifyToken, async (req, res) => {
   try {
@@ -330,9 +351,7 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
 
     if (quantitaNum > oldData.quantita) {
       console.log('📈 Aumento quantità: da', oldData.quantita, 'a', quantitaNum, '- nessun controllo');
-      // 🔥 Aggiorna sia quantita che quantita_austria
       await connection.query('UPDATE sigle_articoli SET quantita = ?, quantita_austria = ? WHERE id = ?', [quantitaNum, quantitaNum, req.params.id]);
-      
       const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
       const newData = newRows[0];
       await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
@@ -341,7 +360,6 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       return res.json({ success: true, message: 'Quantità aggiornata (aumento)' });
     }
 
-    // 🔥 Recupera quantità impegnate
     const [usedInKitRaw] = await connection.query(
       'SELECT COALESCE(SUM(quantita), 0) AS totale FROM kit_dettaglio WHERE sigla_id = ?',
       [req.params.id]
@@ -351,7 +369,6 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       [req.params.id, 'ARTICOLO']
     );
     
-    // 🔥 FIX CRITICO: Converti esplicitamente in numeri per evitare concatenazioni di stringhe (es. "3" + "0" = "30")
     const usedInKit = Number(usedInKitRaw[0].totale) || 0;
     const assegnato = Number(assegnatoRaw[0].totale) || 0;
     const impegnato = usedInKit + assegnato;
@@ -374,9 +391,7 @@ router.put('/sigle/:id/quantita', verifyToken, async (req, res) => {
       });
     }
     
-    // 🔥 Aggiorna sia quantita che quantita_austria
     await connection.query('UPDATE sigle_articoli SET quantita = ?, quantita_austria = ? WHERE id = ?', [quantitaNum, quantitaNum, req.params.id]);
-
     const [newRows] = await connection.query('SELECT * FROM sigle_articoli WHERE id = ?', [req.params.id]);
     const newData = newRows[0];
     await registraAudit(connection, 'sigle_articoli', 'MODIFICA', req.params.id, oldData, newData, req.userId);
@@ -441,10 +456,10 @@ router.delete('/sigle/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// POST /api/articoli
+// POST /api/articoli - Con gestione warning per articoli simili
 // ============================================================
 router.post('/', verifyToken, async (req, res) => {
-  const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria, variante, season_status_id, anno_id } = req.body;
+  const { descrizione, magazzino, settore, categoria, marca, lunghezza, durezza, quantita, versione, note, codiceModello, inventario_austria, variante, season_status_id, anno_id, force } = req.body;
 
   if (!(await canUserUseMagazzino(req.userId, req.userRole, magazzino))) {
     return res.status(403).json({ success: false, message: 'Magazzino non autorizzato' });
@@ -454,8 +469,9 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null, anno_id || 5);
-    if (exists) {
+    // 1. Controllo duplicato ESATTO (blocco)
+    const existsExact = await checkDuplicateExact(connection, descrizione, lunghezza, season_status_id || null, variante || null, anno_id || 5);
+    if (existsExact) {
       await connection.rollback();
       return res.status(400).json({
         success: false,
@@ -463,6 +479,22 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
 
+    // 2. Se non è forzato, controllo duplicato SIMILE (avviso)
+    if (!force) {
+      const similarArticles = await checkSimilarArticle(connection, codiceModello, descrizione, lunghezza, anno_id || 5);
+      if (similarArticles.length > 0) {
+        await connection.rollback();
+        return res.json({
+          success: false,
+          warning: true,
+          message: `Esiste già un articolo con lo stesso Modello, Descrizione, Lunghezza e Anno. Vuoi comunque inserirlo? (Stagione diversa)`,
+          similarArticleId: similarArticles[0].articolo_id,
+          similarSeasonId: similarArticles[0].season_status_id
+        });
+      }
+    }
+
+    // Se arriva qui, procedi con la creazione
     const [[{ maxId }]] = await connection.query('SELECT MAX(articolo_id) as maxId FROM articoli');
     const newId = (maxId || 0) + 1;
 
@@ -536,7 +568,7 @@ router.put('/:id', verifyToken, async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    const exists = await checkDuplicate(connection, descrizione, lunghezza, season_status_id || null, variante || null, anno_id || 5, id);
+    const exists = await checkDuplicateExact(connection, descrizione, lunghezza, season_status_id || null, variante || null, anno_id || 5, id);
     if (exists) {
       await connection.rollback();
       return res.status(400).json({
