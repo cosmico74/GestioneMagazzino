@@ -114,7 +114,6 @@
     <div class="btn-group" style="display:flex; gap:6px; align-items:flex-end;">
       <button class="btn btn-secondary" onclick="resetFiltri()">🔄 Reset</button>
       <button class="btn btn-warning" onclick="apriModalStorico()">📜 Storico</button>
-      <button class="btn btn-success" onclick="apriModalConsegne()">📦 Consegne</button>
     </div>
   </div>
 
@@ -215,17 +214,6 @@
   </div>
 </div>
 
-<div id="modalConsegne" class="modal">
-  <div class="modal-content" style="max-width:1100px;">
-    <div class="modal-header"><h3>📦 Consegne in sospeso</h3><span class="close" onclick="chiudiModalConsegne()">&times;</span></div>
-    <div style="margin-bottom:10px;"><input type="text" id="filtroConsegne" placeholder="Filtra per cliente..." style="width:100%; padding:6px 8px; border:1px solid #cbd5e0; border-radius:6px; font-size:0.75rem;" oninput="filtraConsegne()"></div>
-    <div class="table-wrapper" style="max-height:60vh;">
-      <table id="tabellaConsegne"><thead><tr><th>ID</th><th>Data Vendita</th><th>Cliente</th><th>Oggetto</th><th>Tipo</th><th>Qtà</th><th>Note</th><th>Azioni</th></tr></thead><tbody id="consegneBody"><tr><td colspan="8" class="text-center">Caricamento...</td></tr></tbody></table>
-    </div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="chiudiModalConsegne()">Chiudi</button></div>
-  </div>
-</div>
-
 <div id="modalModificaVendita" class="modal">
   <div class="modal-content" style="max-width:600px;">
     <div class="modal-header"><h3>✏️ Modifica Vendita #<span id="modificaVenditaId">-</span></h3><span class="close" onclick="chiudiModificaVendita()">&times;</span></div>
@@ -244,62 +232,22 @@
 
 <script>
 /** Recupera l'header di autorizzazione con il token JWT salvato in localStorage */
-function getAuthHeader() {
-  const token = localStorage.getItem('token');
-  return token ? { 'Authorization': 'Bearer ' + token } : {};
-}
+function getAuthHeader() { const token = localStorage.getItem('token'); return token ? { 'Authorization': 'Bearer ' + token } : {}; }
 
 /** Mostra un messaggio di alert temporaneo (success/error/info) in cima alla pagina */
-function showMessage(msg, type) {
-  const d = document.getElementById('messageArea');
-  d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>';
-  setTimeout(() => d.innerHTML = '', 5000);
-}
+function showMessage(msg, type) { const d = document.getElementById('messageArea'); d.innerHTML = '<div class="message ' + type + '">' + msg + '</div>'; setTimeout(() => d.innerHTML = '', 5000); }
 
 /** Wrapper per le chiamate API con gestione automatica del token e degli errori di autenticazione */
-async function apiFetch(endpoint, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
-  const r = await fetch('/api' + endpoint, { ...options, headers });
-  if (r.status === 401 || r.status === 403) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = 'Login.html';
-    throw new Error('Sessione scaduta');
-  }
-  if (!r.ok) {
-    let msg = 'Errore ' + r.status;
-    try { const data = await r.json(); msg = data.message || msg; } catch(e) {}
-    throw new Error(msg);
-  }
-  return r.json();
-}
+async function apiFetch(endpoint, options = {}) { const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers }; const r = await fetch('/api' + endpoint, { ...options, headers }); if (r.status === 401 || r.status === 403) { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; throw new Error('Sessione scaduta'); } if (!r.ok) { let msg = 'Errore ' + r.status; try { const data = await r.json(); msg = data.message || msg; } catch(e) {} throw new Error(msg); } return r.json(); }
 
 /** Effettua il logout pulendo il localStorage e reindirizzando al login */
-function logout() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-  window.location.href = 'Login.html';
-}
+function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'Login.html'; }
 
 /** Formatta una data ISO in una stringa leggibile (gg-mm-aaaa hh:mm) */
-function formatDate(d) {
-  if (!d) return '-';
-  const dt = new Date(d);
-  return String(dt.getDate()).padStart(2,'0') + '-' +
-         String(dt.getMonth()+1).padStart(2,'0') + '-' +
-         dt.getFullYear() + ' ' +
-         String(dt.getHours()).padStart(2,'0') + ':' +
-         String(dt.getMinutes()).padStart(2,'0');
-}
+function formatDate(d) { if (!d) return '-'; const dt = new Date(d); return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear() + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0'); }
 
 /** Formatta una data ISO in solo giorno (gg-mm-aaaa) */
-function formatDateShort(d) {
-  if (!d) return '-';
-  const dt = new Date(d);
-  return String(dt.getDate()).padStart(2,'0') + '-' +
-         String(dt.getMonth()+1).padStart(2,'0') + '-' +
-         dt.getFullYear();
-}
+function formatDateShort(d) { if (!d) return '-'; const dt = new Date(d); return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear(); }
 
 let sortColumn = 'numero';
 let sortAsc = true;
@@ -311,8 +259,6 @@ let oggettiFiltrati = [];
 let selezione = [];
 let storicoVendite = [];
 let storicoFiltrato = [];
-let consegneList = [];
-let consegneFiltrate = [];
 let paginaCorrente = 1, righePerPagina = 25;
 let userLevel = 0;
 let modalitaVista = 'VENDITA';
@@ -454,7 +400,7 @@ async function caricaClienti() {
   } catch(e) { console.error(e); }
 }
 
-/** Carica gli oggetti dal backend. Se è in modalità VENDITA carica dal magazzino/soggetto, altrimenti carica le vendite con lo stato selezionato */
+/** Carica gli oggetti. In modalità Vendita carica da magazzino/soggetto, altrimenti carica le vendite in base allo stato selezionato */
 async function caricaOggetti() {
   if (modalitaVista !== 'VENDITA') {
     const stato = modalitaVista;
@@ -641,7 +587,7 @@ async function caricaOggetti() {
   }
 }
 
-/** Renderizza la tabella dei dati applicando la paginazione. Se non è in modalità vendita, mostra pulsanti di azione */
+/** Renderizza la tabella dei dati applicando la paginazione. Se non è in modalità vendita, mostra i pulsanti di azione per stato */
 function renderTabella() {
   const tbody = document.getElementById('tabellaBody');
   tbody.innerHTML = '';
@@ -814,7 +760,7 @@ function resetFiltri() {
   caricaOggetti();
 }
 
-/** Mostra/nasconde i filtri per il soggetto e il magazzino in base al radiobutton selezionato */
+/** Mostra/nasconde i filtri per il soggetto e il magazzino in base al radiobutton selezionato e alla Modalità */
 function toggleSorgente() {
   const isMag = sourceMag.checked;
   if (modalitaVista === 'VENDITA') {
@@ -837,35 +783,21 @@ function toggleDocumentiVendita() {
   const section = document.getElementById('documentiVenditaSection');
   const labelData = document.getElementById('labelDataDocumento');
   const labelNum = document.getElementById('labelNumeroDocumento');
-  if (tipo) {
-    section.style.display = 'block';
-    labelData.innerText = 'Data ' + tipo;
-    labelNum.innerText = 'Numero ' + tipo;
-  } else {
-    section.style.display = 'none';
-  }
+  if (tipo) { section.style.display = 'block'; labelData.innerText = 'Data ' + tipo; labelNum.innerText = 'Numero ' + tipo; }
+  else { section.style.display = 'none'; }
 }
-
 function toggleModificaDocumenti() {
   const tipo = document.getElementById('modificaTipoDocumento').value;
   const section = document.getElementById('modificaDocumentiSection');
   const labelData = document.getElementById('modificaLabelData');
   const labelNum = document.getElementById('modificaLabelNumero');
-  if (tipo) {
-    section.style.display = 'block';
-    labelData.innerText = 'Data ' + tipo;
-    labelNum.innerText = 'Numero ' + tipo;
-  } else {
-    section.style.display = 'none';
-  }
+  if (tipo) { section.style.display = 'block'; labelData.innerText = 'Data ' + tipo; labelNum.innerText = 'Numero ' + tipo; }
+  else { section.style.display = 'none'; }
 }
 
 /** Apre la modale di vendita mostrando il riepilogo degli oggetti selezionati */
 function apriModaleVendita() {
-  if (selezione.length === 0) {
-    showMessage('Seleziona almeno un oggetto', 'error');
-    return;
-  }
+  if (selezione.length === 0) { showMessage('Seleziona almeno un oggetto', 'error'); return; }
   let rip = '<strong>📦 Riepilogo vendita:</strong><ul>';
   let tot = 0;
   const unique = [...new Set(selezione)];
@@ -891,17 +823,12 @@ function apriModaleVendita() {
   document.getElementById('modalVendita').style.display = 'flex';
 }
 
-function chiudiModaleVendita() {
-  document.getElementById('modalVendita').style.display = 'none';
-}
+function chiudiModaleVendita() { document.getElementById('modalVendita').style.display = 'none'; }
 
 /** Esegue la chiamata API per registrare la vendita con i dati inseriti nella modale */
 async function confermaVendita() {
   const clienteId = document.getElementById('clienteSelect').value;
-  if (!clienteId) {
-    showMessage('Seleziona un cliente', 'error');
-    return;
-  }
+  if (!clienteId) { showMessage('Seleziona un cliente', 'error'); return; }
   const data = document.getElementById('dataVenditaInput').value;
   const importo = document.getElementById('importoVenditaInput').value;
   const note = document.getElementById('noteVenditaInput').value.trim();
@@ -916,17 +843,8 @@ async function confermaVendita() {
   unique.forEach(idx => {
     const obj = oggettiFiltrati[idx];
     if (!obj) return;
-    oggettiVendita.push({
-      tipoOggetto: obj.tipo,
-      oggettoId: obj.id,
-      siglaId: obj.siglaId || null,
-      quantita: obj.quantita
-    });
-    if (!sorgenteTipo) {
-      sorgenteTipo = obj.sorgenteTipo;
-      sorgenteId = obj.sorgenteId;
-      if (sorgenteTipo === 'MAGAZZINO') magazzinoId = obj.sorgenteId;
-    }
+    oggettiVendita.push({ tipoOggetto: obj.tipo, oggettoId: obj.id, siglaId: obj.siglaId || null, quantita: obj.quantita });
+    if (!sorgenteTipo) { sorgenteTipo = obj.sorgenteTipo; sorgenteId = obj.sorgenteId; if (sorgenteTipo === 'MAGAZZINO') magazzinoId = obj.sorgenteId; }
   });
 
   const payload = {
@@ -949,29 +867,15 @@ async function confermaVendita() {
 
   try {
     const res = await apiFetch('/vendite', { method: 'POST', body: JSON.stringify(payload) });
-    if (res.success) {
-      showMessage('Vendita registrata con successo! In attesa di consegna.', 'success');
-      chiudiModaleVendita();
-      deselezionaTutti();
-      caricaOggetti();
-    } else showMessage(res.message, 'error');
-  } catch(e) {
-    showMessage('Errore: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '💰 Vendi (In Consegna)';
-  }
+    if (res.success) { showMessage('Vendita registrata con successo! In attesa di consegna.', 'success'); chiudiModaleVendita(); deselezionaTutti(); caricaOggetti(); }
+    else showMessage(res.message, 'error');
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '💰 Vendi (In Consegna)'; }
 }
 
 /** Gestisce la modale per la creazione di un nuovo cliente */
-function apriNuovoCliente() {
-  document.getElementById('modalNuovoCliente').style.display = 'flex';
-}
-
-function chiudiModaleNuovoCliente() {
-  document.getElementById('modalNuovoCliente').style.display = 'none';
-}
-
+function apriNuovoCliente() { document.getElementById('modalNuovoCliente').style.display = 'flex'; }
+function chiudiModaleNuovoCliente() { document.getElementById('modalNuovoCliente').style.display = 'none'; }
 async function salvaNuovoCliente() {
   const nome = document.getElementById('nuovoClienteNome').value.trim();
   const cognome = document.getElementById('nuovoClienteCognome').value.trim();
@@ -979,67 +883,34 @@ async function salvaNuovoCliente() {
   const telefono = document.getElementById('nuovoClienteTelefono').value.trim();
   const tipo = document.getElementById('nuovoClienteTipo').value;
   if (!nome) { showMessage('Il nome è obbligatorio', 'error'); return; }
-
   try {
     const payload = { nome, cognome: cognome || null, email: email || null, telefono: telefono || null, tipo, attivo: 1 };
     const r = await apiFetch('/soggetti', { method: 'POST', body: JSON.stringify(payload) });
-    if (r.success) {
-      showMessage('Cliente creato con successo', 'success');
-      chiudiModaleNuovoCliente();
-      await caricaClienti();
-      const sel = document.getElementById('clienteSelect');
-      for (let i=0; i<sel.options.length; i++) {
-        if (sel.options[i].value == r.id) { sel.value = r.id; break; }
-      }
-    } else showMessage(r.message, 'error');
+    if (r.success) { showMessage('Cliente creato con successo', 'success'); chiudiModaleNuovoCliente(); await caricaClienti(); const sel = document.getElementById('clienteSelect'); for (let i=0; i<sel.options.length; i++) { if (sel.options[i].value == r.id) { sel.value = r.id; break; } } }
+    else showMessage(r.message, 'error');
   } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
 }
 
 /** Modale storico: carica e filtra le vendite */
-async function apriModalStorico() {
-  document.getElementById('modalStorico').style.display = 'flex';
-  await caricaStorico();
-}
-
-function chiudiModalStorico() {
-  document.getElementById('modalStorico').style.display = 'none';
-}
-
+async function apriModalStorico() { document.getElementById('modalStorico').style.display = 'flex'; await caricaStorico(); }
+function chiudiModalStorico() { document.getElementById('modalStorico').style.display = 'none'; }
 async function caricaStorico() {
   const tbody = document.getElementById('storicoBody');
   tbody.innerHTML = '<tr><td colspan="12" class="text-center">⏳ Caricamento...</td></tr>';
   try {
     const res = await apiFetch('/vendite');
-    if (res.success) {
-      storicoVendite = res.data || [];
-      storicoFiltrato = [...storicoVendite];
-      renderStorico();
-    } else {
-      showMessage('Errore caricamento storico', 'error');
-      storicoVendite = [];
-      storicoFiltrato = [];
-      renderStorico();
-    }
-  } catch(e) {
-    showMessage('Errore: ' + e.message, 'error');
-    storicoVendite = [];
-    storicoFiltrato = [];
-    renderStorico();
-  }
+    if (res.success) { storicoVendite = res.data || []; storicoFiltrato = [...storicoVendite]; renderStorico(); }
+    else { showMessage('Errore caricamento storico', 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); }
+  } catch(e) { showMessage('Errore: ' + e.message, 'error'); storicoVendite = []; storicoFiltrato = []; renderStorico(); }
 }
-
 function renderStorico() {
   const tbody = document.getElementById('storicoBody');
   tbody.innerHTML = '';
-  if (!storicoFiltrato.length) {
-    tbody.innerHTML = '<tr><td colspan="12" class="text-center">Nessuna vendita registrata</td></tr>';
-    return;
-  }
+  if (!storicoFiltrato.length) { tbody.innerHTML = '<tr><td colspan="12" class="text-center">Nessuna vendita registrata</td></tr>'; return; }
   storicoFiltrato.forEach(v => {
     const row = tbody.insertRow();
     const badge = v.tipo_oggetto === 'KIT' ? 'badge-kit' : 'badge-articolo';
     const statoBadge = v.stato_consegna === 'CONSEGNATO' ? 'badge-consegnato' : 'badge-attesa';
-
     row.insertCell(0).innerText = v.id;
     row.insertCell(1).innerText = formatDate(v.data);
     const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto';
@@ -1055,7 +926,6 @@ function renderStorico() {
     row.insertCell(11).innerHTML = `<button class="btn btn-warning btn-sm" onclick="apriModificaVendita(${v.id})">✏️ Modifica</button>`;
   });
 }
-
 function filtraStorico() {
   const txt = document.getElementById('filtroStorico').value.toLowerCase();
   if (!txt) storicoFiltrato = [...storicoVendite];
@@ -1068,97 +938,8 @@ function filtraStorico() {
   renderStorico();
 }
 
-/** Modale consegne: carica le vendite in stato IN_CONSEGNA e permette di segnarle come CONSEGNATO */
-async function apriModalConsegne() {
-  document.getElementById('modalConsegne').style.display = 'flex';
-  await caricaConsegne();
-}
-
-function chiudiModalConsegne() {
-  document.getElementById('modalConsegne').style.display = 'none';
-}
-
-async function caricaConsegne() {
-  const tbody = document.getElementById('consegneBody');
-  tbody.innerHTML = '<tr><td colspan="8" class="text-center">⏳ Caricamento...</td></tr>';
-  try {
-    const res = await apiFetch('/vendite?stato_consegna=IN_CONSEGNA');
-    if (res.success) {
-      consegneList = res.data || [];
-      consegneFiltrate = [...consegneList];
-      renderConsegne();
-    } else {
-      showMessage('Errore caricamento consegne', 'error');
-      consegneList = [];
-      consegneFiltrate = [];
-      renderConsegne();
-    }
-  } catch(e) {
-    showMessage('Errore: ' + e.message, 'error');
-    consegneList = [];
-    consegneFiltrate = [];
-    renderConsegne();
-  }
-}
-
-function renderConsegne() {
-  const tbody = document.getElementById('consegneBody');
-  tbody.innerHTML = '';
-  if (!consegneFiltrate.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center">🎉 Nessuna vendita in attesa di consegna</td></tr>';
-    return;
-  }
-  consegneFiltrate.forEach(v => {
-    const row = tbody.insertRow();
-    const badge = v.tipo_oggetto === 'KIT' ? 'badge-kit' : 'badge-articolo';
-    row.insertCell(0).innerText = v.id;
-    row.insertCell(1).innerText = formatDate(v.data);
-    const clienteNome = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).trim() || 'Sconosciuto';
-    row.insertCell(2).innerText = clienteNome;
-    row.insertCell(3).innerText = v.oggetto_descrizione || v.oggetto_codice || '-';
-    row.insertCell(4).innerHTML = '<span class="badge ' + badge + '">' + (v.tipo_oggetto || '') + '</span>';
-    row.insertCell(5).innerText = v.quantita || 0;
-    row.insertCell(6).innerText = v.vendita_note || '';
-    row.insertCell(7).innerHTML = `<button class="btn btn-success btn-sm" onclick="segnaConsegnatoDaModale(${v.id})">✅ Segna Consegnato</button>`;
-  });
-}
-
-function filtraConsegne() {
-  const txt = document.getElementById('filtroConsegne').value.toLowerCase();
-  if (!txt) consegneFiltrate = [...consegneList];
-  else consegneFiltrate = consegneList.filter(v => {
-    const cliente = ((v.cliente_nome || '') + ' ' + (v.cliente_cognome || '')).toLowerCase();
-    return cliente.includes(txt);
-  });
-  renderConsegne();
-}
-
-/** Chiamate API per segnare una vendita come consegnata (sia dalla modale che dalla vista principale) */
-async function segnaConsegnatoDaModale(id) {
-  if (!confirm('Confermi la consegna di questa vendita?')) return;
-  try {
-    const res = await apiFetch('/vendite/' + id, { method: 'PUT', body: JSON.stringify({ stato_consegna: 'CONSEGNATO' }) });
-    if (res.success) {
-      showMessage('✅ Consegna registrata!', 'success');
-      await caricaConsegne();
-    } else showMessage('Errore: ' + res.message, 'error');
-  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
-}
-
-async function segnaConsegnatoDaMain(id) {
-  if (!confirm('Confermi la consegna di questa vendita?')) return;
-  try {
-    const res = await apiFetch('/vendite/' + id, { method: 'PUT', body: JSON.stringify({ stato_consegna: 'CONSEGNATO' }) });
-    if (res.success) {
-      showMessage('✅ Consegna registrata!', 'success');
-      caricaOggetti();
-    } else showMessage('Errore: ' + res.message, 'error');
-  } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
-}
-
 /** Gestisce la modale per la modifica dei dati di una vendita già registrata */
 let venditaDaModificareId = null;
-
 function apriModificaVendita(id) {
   venditaDaModificareId = id;
   const btn = document.getElementById('btnSalvaModifica');
@@ -1188,11 +969,7 @@ function apriModificaVendita(id) {
       btn.innerHTML = '💾 Salva Modifiche';
     });
 }
-
-function chiudiModificaVendita() {
-  document.getElementById('modalModificaVendita').style.display = 'none';
-}
-
+function chiudiModificaVendita() { document.getElementById('modalModificaVendita').style.display = 'none'; }
 async function salvaModificaVendita() {
   if (!venditaDaModificareId) return;
   const note = document.getElementById('modificaNotaVendita').value.trim();
@@ -1201,41 +978,23 @@ async function salvaModificaVendita() {
   const dataDocumento = document.getElementById('modificaDataDocumento').value;
   const numeroDocumento = document.getElementById('modificaNumeroDocumento').value.trim();
 
-  const payload = {
-    note: note || null,
-    importo: importo ? parseFloat(importo) : null,
-    tipoDocumento: tipoDocumento || null,
-    dataDocumento: dataDocumento || null,
-    numeroDocumento: numeroDocumento || null
-  };
-
+  const payload = { note: note || null, importo: importo ? parseFloat(importo) : null, tipoDocumento: tipoDocumento || null, dataDocumento: dataDocumento || null, numeroDocumento: numeroDocumento || null };
   const btn = document.getElementById('btnSalvaModifica');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
 
   try {
     const res = await apiFetch('/vendite/' + venditaDaModificareId, { method: 'PUT', body: JSON.stringify(payload) });
-    if (res.success) {
-      showMessage('Nota e dati aggiornati con successo!', 'success');
-      chiudiModificaVendita();
-      if (document.getElementById('modalStorico').style.display === 'flex') await caricaStorico();
-      if (document.getElementById('modalConsegne').style.display === 'flex') await caricaConsegne();
-      caricaOggetti();
-    } else showMessage('Errore: ' + res.message, 'error');
+    if (res.success) { showMessage('Nota e dati aggiornati con successo!', 'success'); chiudiModificaVendita(); if (document.getElementById('modalStorico').style.display === 'flex') await caricaStorico(); caricaOggetti(); }
+    else showMessage('Errore: ' + res.message, 'error');
   } catch(e) { showMessage('Errore: ' + e.message, 'error'); }
-  finally {
-    btn.disabled = false;
-    btn.innerHTML = '💾 Salva Modifiche';
-  }
+  finally { btn.disabled = false; btn.innerHTML = '💾 Salva Modifiche'; }
 }
 
 /** Funzione di inizializzazione eseguita al caricamento della pagina */
 window.onload = async function() {
   const token = localStorage.getItem('token');
-  if (!token) {
-    document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>';
-    return;
-  }
+  if (!token) { document.body.innerHTML = '<div class="container"><h2>Accesso negato</h2><a href="Login.html">Login</a></div>'; return; }
   try {
     currentUser = JSON.parse(localStorage.getItem('user'));
     if (!currentUser.riferimento_id && currentUser.RiferimentoID) currentUser.riferimento_id = parseInt(currentUser.RiferimentoID);
@@ -1246,10 +1005,7 @@ window.onload = async function() {
       const sog = await apiFetch('/soggetti/' + currentUser.riferimento_id);
       userLevel = sog.livello || 0;
       console.log('✅ userLevel caricato:', userLevel);
-    } catch(e) {
-      console.warn('Impossibile ottenere il livello del soggetto:', e);
-      userLevel = 0;
-    }
+    } catch(e) { console.warn('Impossibile ottenere il livello del soggetto:', e); userLevel = 0; }
   }
 
   document.getElementById('loginInfo').innerHTML = '👤 ' + (currentUser.nome_visualizzato || currentUser.username) + ' (' + currentUser.ruolo + ')';

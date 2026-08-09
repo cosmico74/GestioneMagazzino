@@ -73,7 +73,7 @@ async function decrementaArticoloConSigla(connection, articoloId, siglaId, quant
   await ricalcolaQuantitaTotale(connection, articoloId);
 }
 
-/** POST /api/vendite - Crea una nuova vendita, scarica il magazzino/kit e imposta lo stato 'IN_CONSEGNA' di default */
+/** POST /api/vendite - Crea una nuova vendita e imposta lo stato 'IN_CONSEGNA' di default */
 router.post('/', verifyToken, async (req, res) => {
   const { oggetti, clienteId, note, importo, data, sorgenteTipo, sorgenteId, magazzinoId, tipoDocumento, dataDocumento, numeroDocumento } = req.body;
   if (!oggetti || !oggetti.length) return res.status(400).json({ success: false, message: 'Nessun oggetto da vendere' });
@@ -144,7 +144,7 @@ router.post('/', verifyToken, async (req, res) => {
   } finally { connection.release(); }
 });
 
-/** GET /api/vendite - Recupera lo storico, con filtro opzionale per stato_consegna (es. per le viste IN_CONSEGNA e CONSEGNATO) */
+/** GET /api/vendite - Recupera lo storico, con filtro opzionale per stato_consegna (IN_CONSEGNA / CONSEGNATO) */
 router.get('/', verifyToken, async (req, res) => {
   try {
     const { stato_consegna } = req.query;
@@ -172,7 +172,7 @@ router.get('/', verifyToken, async (req, res) => {
   } catch (err) { console.error('Errore GET /vendite:', err); res.status(500).json({ success: false, message: err.message }); }
 });
 
-/** GET /api/vendite/:id - Recupera i dettagli di una singola vendita per la modifica (nota, importo, documenti) */
+/** GET /api/vendite/:id - Recupera i dettagli di una singola vendita per la modifica */
 router.get('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   try {
@@ -187,7 +187,7 @@ router.get('/:id', verifyToken, async (req, res) => {
   } catch (err) { console.error('Errore GET /vendite/:id:', err); res.status(500).json({ success: false, message: err.message }); }
 });
 
-/** PUT /api/vendite/:id - Aggiorna nota, importo e documenti di una vendita (o lo stato di consegna) */
+/** PUT /api/vendite/:id - Aggiorna nota, importo, documenti e stato di consegna di una vendita */
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { stato_consegna, tipo_documento, data_documento, numero_documento, note, importo } = req.body;
