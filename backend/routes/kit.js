@@ -84,7 +84,7 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 }
 
 // ============================================================
-// GET /api/kit - Elenco kit con filtro settore
+// GET /api/kit - Elenco kit con filtro settore e codice
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -151,6 +151,12 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.query.settore) {
       sql += ' AND k.settore = ?';
       params.push(req.query.settore);
+    }
+
+    // 🔥 Filtro per codice kit (codice_kit)
+    if (req.query.codice) {
+      sql += ' AND LOWER(k.codice_kit) LIKE ?';
+      params.push(`%${req.query.codice.toLowerCase()}%`);
     }
 
     // Filtro ricerca testuale (facoltativo)

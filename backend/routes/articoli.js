@@ -90,7 +90,7 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 }
 
 // ============================================================
-// GET /api/articoli - con filtri
+// GET /api/articoli - con filtri (AND) e supporto codice
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -121,6 +121,7 @@ router.get('/', verifyToken, async (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+
     if (req.query.magazzino) { sql += ' AND a.magazzino = ?'; params.push(req.query.magazzino); }
     if (req.query.settore) { sql += ' AND a.settore = ?'; params.push(req.query.settore); }
     if (req.query.categoria) { sql += ' AND a.categoria = ?'; params.push(req.query.categoria); }
@@ -128,6 +129,11 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.query.descrizione) { sql += ' AND a.descrizione LIKE ?'; params.push(`%${req.query.descrizione}%`); }
     if (req.query.lunghezza) { sql += ' AND a.lunghezza = ?'; params.push(req.query.lunghezza); }
     if (req.query.durezza) { sql += ' AND a.durezza = ?'; params.push(req.query.durezza); }
+    // 🔥 Filtro per codice (cerca in codice_modello e codice)
+    if (req.query.codice) {
+      sql += ' AND (a.codice_modello LIKE ? OR a.codice LIKE ?)';
+      params.push(`%${req.query.codice}%`, `%${req.query.codice}%`);
+    }
     if (req.query.codice_modello) { sql += ' AND a.codice_modello = ?'; params.push(req.query.codice_modello); }
     if (req.query.variante) { sql += ' AND a.variante LIKE ?'; params.push(`%${req.query.variante}%`); }
     if (req.query.season_status_id) { sql += ' AND a.season_status_id = ?'; params.push(req.query.season_status_id); }
@@ -136,6 +142,7 @@ router.get('/', verifyToken, async (req, res) => {
       sql += ' AND (COALESCE(a.quantita_totale, 0) - COALESCE(a.quantita_in_kit, 0) - COALESCE(a.quantita_obsoleta, 0) - COALESCE((SELECT SUM(quantita) FROM carico_sintesi WHERE tipo_oggetto = \'ARTICOLO\' AND oggetto_id = a.articolo_id), 0)) >= ?';
       params.push(req.query.min_giacenza);
     }
+
     const [rows] = await db.query(sql, params);
     res.json({ success: true, data: rows });
   } catch (err) {
@@ -502,7 +509,7 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// PUT /api/articoli/:id - con ricalcolo quantità sempre
+// PUT /api/articoli/:id - con ricalcolo quantità sempre (ma NON aggiorna la quantità manuale)
 // ============================================================
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
@@ -529,7 +536,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 
     const [oldRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
 
-    // Aggiornamento quantità se la sigla "NA" è presente (per retrocompatibilità)
+    // Aggiornamento quantità solo se la sigla "NA" è presente (per retrocompatibilità)
     if (quantita_totale !== undefined) {
       const [sigle] = await connection.query(
         'SELECT id, sigla FROM sigle_articoli WHERE articolo_id = ? AND attivo = 1',
@@ -550,18 +557,17 @@ router.put('/:id', verifyToken, async (req, res) => {
     const invAustria = (inventario_austria !== undefined) ? (inventario_austria ? 1 : 0) : 1;
     await connection.query(`
       UPDATE articoli SET 
-        descrizione = ?, lunghezza = ?, durezza = ?, quantita_totale = ?, quantita_obsoleta = ?,
+        descrizione = ?, lunghezza = ?, durezza = ?, 
         versione = ?, stato = ?, note = ?, codice_modello = ?, magazzino = ?, settore = ?, categoria = ?, marca = ?,
         inventario_austria = ?, data_modifica = NOW(), modificato_da = ?,
         variante = ?, season_status_id = ?, anno_id = ?
       WHERE articolo_id = ?
-    `, [descrizione, lunghezza, durezza, quantita_totale, quantita_obsoleta, versione, stato, note, codiceModello,
+    `, [descrizione, lunghezza, durezza, versione, stato, note, codiceModello,
         magazzino, settore, categoria, marca, invAustria, req.userId,
         variante || null, season_status_id || null, anno_id || 5, id]);
 
     // 🔥 FORZA IL RICALCOLO DELLA QUANTITÀ TOTALE dalla somma delle sigle
     // Questo garantisce che quantita_totale sia sempre la somma delle sigle attive
-    // e risolve il problema di discrepanza dopo la modifica di campi che non riguardano le quantità
     await ricalcolaQuantitaTotale(connection, id);
 
     const [newRow] = await connection.query('SELECT * FROM articoli WHERE articolo_id = ?', [id]);
