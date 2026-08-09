@@ -20,11 +20,9 @@ async function canPromoterSellTo(connection, promoterId, clienteId) {
   const [p] = await connection.query('SELECT livello FROM soggetti WHERE id = ?', [promoterId]);
   if (!p.length) return false;
   const livelloPromoter = p[0].livello;
-
   const [c] = await connection.query('SELECT tipo FROM soggetti WHERE id = ?', [clienteId]);
   if (!c.length) return false;
   const tipoCliente = c[0].tipo;
-
   if (tipoCliente === 'PROMOTER') {
     const [t] = await connection.query('SELECT livello FROM soggetti WHERE id = ?', [clienteId]);
     const livelloCliente = t[0]?.livello || 0;
@@ -39,7 +37,6 @@ async function canPromoterSellTo(connection, promoterId, clienteId) {
 /** Sottrae la quantità venduta dal carico di un soggetto (es. da un promoter) */
 async function decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, siglaId, quantita, sorgenteTipo, sorgenteId) {
   if (sorgenteTipo === 'MAGAZZINO') return;
-
   const [rows] = await connection.query(
     `SELECT id, quantita FROM carico_sintesi 
      WHERE destinazione_tipo = ? AND destinazione_id = ? 
@@ -60,7 +57,6 @@ async function decrementaArticoloConSigla(connection, articoloId, siglaId, quant
   const [art] = await connection.query('SELECT quantita_totale, quantita_obsoleta FROM articoli WHERE articolo_id = ? FOR UPDATE', [articoloId]);
   const giacenza = art[0].quantita_totale - (art[0].quantita_obsoleta || 0);
   if (giacenza < quantita) throw new Error(`Quantità insufficiente per articolo ${articoloId}`);
-
   if (siglaId) {
     const [sigla] = await connection.query('SELECT quantita FROM sigle_articoli WHERE id = ? AND articolo_id = ? AND attivo = 1 FOR UPDATE', [siglaId, articoloId]);
     if (!sigla.length || sigla[0].quantita < quantita) throw new Error(`Quantità insufficiente per la sigla ${siglaId}`);
@@ -78,7 +74,6 @@ router.post('/', verifyToken, async (req, res) => {
   const { oggetti, clienteId, note, importo, data, sorgenteTipo, sorgenteId, magazzinoId, tipoDocumento, dataDocumento, numeroDocumento } = req.body;
   if (!oggetti || !oggetti.length) return res.status(400).json({ success: false, message: 'Nessun oggetto da vendere' });
   if (!clienteId) return res.status(400).json({ success: false, message: 'Seleziona un cliente' });
-
   const connection = await pool.getConnection();
   await connection.beginTransaction();
   try {
@@ -95,11 +90,9 @@ router.post('/', verifyToken, async (req, res) => {
     const now = data ? new Date(data) : new Date();
     const dataVendita = now.toISOString().slice(0, 19).replace('T', ' ');
     let totaleVendita = 0;
-
     for (const item of oggetti) {
       const { tipoOggetto, oggettoId, quantita, siglaId } = item;
       if (!quantita || quantita <= 0) continue;
-
       if (sorgenteTipo && sorgenteTipo !== 'MAGAZZINO') await decrementaCaricoSintesi(connection, tipoOggetto, oggettoId, siglaId || null, quantita, sorgenteTipo, sorgenteId);
       else if (sorgenteTipo === 'MAGAZZINO' && magazzinoId) {
         if (tipoOggetto === 'ARTICOLO') await decrementaArticoloConSigla(connection, oggettoId, siglaId || null, quantita);
@@ -108,7 +101,6 @@ router.post('/', verifyToken, async (req, res) => {
           if (!kit.length || kit[0].quantita < quantita) throw new Error(`Quantità kit ${oggettoId} insufficiente (disponibile ${kit[0]?.quantita || 0})`);
         }
       } else throw new Error('Sorgente non specificata correttamente');
-
       if (tipoOggetto === 'KIT') {
         await connection.query('UPDATE kit SET quantita = quantita - ? WHERE id = ?', [quantita, oggettoId]);
         const [dettagli] = await connection.query('SELECT articolo_id FROM kit_dettaglio WHERE kit_id = ?', [oggettoId]);
@@ -117,24 +109,20 @@ router.post('/', verifyToken, async (req, res) => {
           await rimuoviDaKit(connection, det.articolo_id, quantita);
         }
       }
-
       const [movRes] = await connection.query(
         `INSERT INTO movimenti (data, tipo, id_articolo_kit, tipo_oggetto, quantita, operatore, note, stato, sigla_id)
          VALUES (?, 'VENDITA', ?, ?, ?, ?, ?, 'COMPLETATO', ?)`,
         [dataVendita, oggettoId, tipoOggetto, quantita, operatore, note || 'Vendita', siglaId || null]
       );
-
       await connection.query(
         `INSERT INTO vendite (cliente_id, movimento_id, importo, note, data, stato_consegna, tipo_documento, data_documento, numero_documento)
          VALUES (?, ?, ?, ?, ?, 'IN_CONSEGNA', ?, ?, ?)`,
         [clienteId, movRes.insertId, importo || null, note || null, dataVendita, tipoDocumento || null, dataDocumento || null, numeroDocumento || null]
       );
-
       const [venditaRow] = await connection.query('SELECT * FROM vendite WHERE movimento_id = ?', [movRes.insertId]);
       if (venditaRow.length) await registraAudit(connection, 'vendite', 'CREAZIONE', movRes.insertId, null, venditaRow[0], req.userId);
       totaleVendita += quantita;
     }
-
     await connection.commit();
     res.json({ success: true, message: `Vendita registrata con stato 'In Consegna'. ${oggetti.length} oggetti (${totaleVendita} unità totali)` });
   } catch (err) {
@@ -144,14 +132,13 @@ router.post('/', verifyToken, async (req, res) => {
   } finally { connection.release(); }
 });
 
-/** GET /api/vendite - Recupera lo storico, con filtro opzionale per stato_consegna (IN_CONSEGNA / CONSEGNATO) */
+/** GET /api/vendite - Recupera lo storico, con filtro opzionale per stato_consegna */
 router.get('/', verifyToken, async (req, res) => {
   try {
     const { stato_consegna } = req.query;
     let whereClause = '';
     let params = [];
     if (stato_consegna) { whereClause = 'WHERE v.stato_consegna = ?'; params.push(stato_consegna); }
-
     const sql = `
       SELECT 
         v.id, v.data, v.importo, v.note AS vendita_note, v.stato_consegna, v.tipo_documento, v.data_documento, v.numero_documento,
@@ -172,7 +159,7 @@ router.get('/', verifyToken, async (req, res) => {
   } catch (err) { console.error('Errore GET /vendite:', err); res.status(500).json({ success: false, message: err.message }); }
 });
 
-/** GET /api/vendite/:id - Recupera i dettagli di una singola vendita per la modifica */
+/** GET /api/vendite/:id - Recupera i dettagli di una singola vendita */
 router.get('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   try {
@@ -187,31 +174,67 @@ router.get('/:id', verifyToken, async (req, res) => {
   } catch (err) { console.error('Errore GET /vendite/:id:', err); res.status(500).json({ success: false, message: err.message }); }
 });
 
-/** PUT /api/vendite/:id - Aggiorna nota, importo, documenti e stato di consegna di una vendita */
+/** PUT /api/vendite/:id - Aggiorna nota, importo, documenti e stato di consegna di una singola vendita */
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { stato_consegna, tipo_documento, data_documento, numero_documento, note, importo } = req.body;
-
   const connection = await pool.getConnection();
   await connection.beginTransaction();
   try {
     const [vendita] = await connection.query('SELECT * FROM vendite WHERE id = ? FOR UPDATE', [id]);
     if (!vendita.length) throw new Error('Vendita non trovata');
     const datiPrima = { ...vendita[0] };
-
     await connection.query(
       'UPDATE vendite SET stato_consegna = COALESCE(?, stato_consegna), tipo_documento = ?, data_documento = ?, numero_documento = ?, note = ?, importo = ? WHERE id = ?',
       [stato_consegna, tipo_documento || null, data_documento || null, numero_documento || null, note || null, importo || null, id]
     );
-
+    // 🔥 Se è stata appena effettuata la consegna, cancella la sigla associata al movimento
+    if (stato_consegna === 'CONSEGNATO') {
+      await connection.query(
+        `UPDATE movimenti SET sigla_id = NULL WHERE id = (SELECT movimento_id FROM vendite WHERE id = ?)`,
+        [id]
+      );
+    }
     const [datiDopo] = await connection.query('SELECT * FROM vendite WHERE id = ?', [id]);
     await registraAudit(connection, 'vendite', 'MODIFICA', id, datiPrima, datiDopo[0], req.userId);
-
     await connection.commit();
     res.json({ success: true, message: 'Vendita aggiornata con successo' });
   } catch (err) {
     await connection.rollback();
     console.error('❌ Errore aggiornamento vendita:', err);
+    res.status(500).json({ success: false, message: err.message, stack: err.stack });
+  } finally { connection.release(); }
+});
+
+/** POST /api/vendite/consegna-massiva - Effettua la consegna di più vendite selezionate in un colpo solo */
+router.post('/consegna-massiva', verifyToken, async (req, res) => {
+  const { ids, note } = req.body;
+  if (!ids || !ids.length) return res.status(400).json({ success: false, message: 'Nessuna vendita selezionata per la consegna' });
+  const connection = await pool.getConnection();
+  await connection.beginTransaction();
+  try {
+    for (const id of ids) {
+      const [vendita] = await connection.query('SELECT * FROM vendite WHERE id = ? FOR UPDATE', [id]);
+      if (!vendita.length) continue;
+      const datiPrima = { ...vendita[0] };
+      const nuovaNota = note ? (vendita[0].note ? vendita[0].note + ' | ' + note : note) : vendita[0].note;
+      await connection.query(
+        'UPDATE vendite SET stato_consegna = "CONSEGNATO", note = ? WHERE id = ?',
+        [nuovaNota, id]
+      );
+      // 🔥 Cancella la sigla associata al movimento di questa vendita
+      await connection.query(
+        `UPDATE movimenti SET sigla_id = NULL WHERE id = ?`,
+        [vendita[0].movimento_id]
+      );
+      const [datiDopo] = await connection.query('SELECT * FROM vendite WHERE id = ?', [id]);
+      await registraAudit(connection, 'vendite', 'CONSEGNA_MASSIVA', id, datiPrima, datiDopo[0], req.userId);
+    }
+    await connection.commit();
+    res.json({ success: true, message: `Consegna effettuata con successo per ${ids.length} vendite selezionate.` });
+  } catch (err) {
+    await connection.rollback();
+    console.error('❌ Errore consegna massiva:', err);
     res.status(500).json({ success: false, message: err.message, stack: err.stack });
   } finally { connection.release(); }
 });
