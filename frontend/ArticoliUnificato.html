@@ -120,6 +120,7 @@
 <div class="filter-group"><label>Anno</label><select id="filtroAnno" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
 <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
 <div class="filter-group"><label>Codice</label><input type="text" id="filtroCodice" placeholder="Cerca codice..." oninput="caricaArticoli()" class="form-control"></div>
+<div class="filter-group"><label>Sigla</label><input type="text" id="filtroSigla" placeholder="Cerca sigla..." oninput="caricaArticoli()" class="form-control"></div>
 <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
 </div></div>
 <div class="insertion-divider"><span class="line"></span><span class="section-label">📝 Inserimento</span><span class="line"></span></div>
@@ -191,6 +192,7 @@ let articoliCorrente = [], articoliFiltrati = [];
 let sortColumn = 'descrizione', sortAsc = true, paginaCorrente = 1, righePerPagina = 25;
 let currentObsId = null, currentSigleArticoloId = null, currentModificaSiglaId = null, pendingArticleData = null;
 const filtroMag = document.getElementById('filtroMagazzino'), filtroSettore = document.getElementById('filtroSettore'), filtroCat = document.getElementById('filtroCategoria'), filtroMar = document.getElementById('filtroMarca'), filtroAnno = document.getElementById('filtroAnno'), filtroSeason = document.getElementById('filtroSeasonStatus'), filtroCodice = document.getElementById('filtroCodice');
+const filtroSigla = document.getElementById('filtroSigla'); // 🔥 AGGIUNTO
 const descrizioneInput = document.getElementById('descrizione'), codiceModelloInput = document.getElementById('codice_modello'), lunghezzaInput = document.getElementById('lunghezza'), durezzaInput = document.getElementById('durezza'), varianteInput = document.getElementById('variante'), annoSelect = document.getElementById('anno'), seasonStatusSelect = document.getElementById('seasonStatus'), quantitaInput = document.getElementById('quantita'), noteInput = document.getElementById('note'), versioneInput = document.getElementById('versione'), inventarioAustriaCheck = document.getElementById('inventarioAustria'), saveBtn = document.getElementById('saveBtn');
 async function caricaMarchePerCategoria(categoriaId, selectElement, defaultValue = null) {
   if (!categoriaId) { const data = await apiFetch('/anagrafiche/marche'); popolaSelect(selectElement, data, 'id', 'nome'); if (defaultValue !== null) selectElement.value = defaultValue; return; }
@@ -233,17 +235,12 @@ async function onCategoriaChanged() {
   else { const data = await apiFetch('/anagrafiche/marche'); popolaSelect(filtroMar, data, 'id', 'nome'); }
   caricaArticoli();
 }
-const endpointMap = { descrizione: '/articoli/valori/descrizioni', lunghezza: '/articoli/valori/lunghezze', durezza: '/articoli/valori/durezze', codice_modello: '/articoli/valori/modelli', variante: '/articoli/valori/varianti' };
-// 🔥 NUOVA LOGICA: I datalist rispondono SOLO ai filtri della barra di ricerca
+const endpointMap = { descrizione: '/articoli/valori/descrizioni', lunghezza: '/articoli/valori/lunghezze', durezza: '/articoli/valori/durezze', codice_modello: '/articoli/valori/modelli', variante: '/articoli/valori/varianti', sigla: '/articoli/valori/sigle' };
 function getCurrentFilters() {
   return {
-    magazzino: filtroMag.value,
-    settore: filtroSettore.value,
-    categoria: filtroCat.value,
-    marca: filtroMar.value,
-    anno_id: filtroAnno.value || null,
-    season_status_id: filtroSeason.value || null,
-    codice: filtroCodice.value.trim()
+    magazzino: filtroMag.value, settore: filtroSettore.value, categoria: filtroCat.value, marca: filtroMar.value,
+    anno_id: filtroAnno.value || null, season_status_id: filtroSeason.value || null, codice: filtroCodice.value.trim(),
+    sigla: filtroSigla.value.trim() // 🔥 Aggiunta Sigla
   };
 }
 async function aggiornaDatalist(campo) {
@@ -259,7 +256,6 @@ async function aggiornaDatalist(campo) {
   } catch(e) { console.error(e); }
 }
 async function refreshAllDatalists() { for (let campo of Object.keys(endpointMap)) await aggiornaDatalist(campo); }
-// 🔥 caricaArticoli mantiene i campi del modulo per filtrare la tabella, come richiesto
 async function caricaArticoli() {
   try {
     await refreshAllDatalists();
@@ -276,6 +272,7 @@ async function caricaArticoli() {
     if (f.anno_id) params.append('anno_id', f.anno_id);
     if (f.season_status_id) params.append('season_status_id', f.season_status_id);
     if (f.codice) params.append('codice', f.codice);
+    if (f.sigla) params.append('sigla', f.sigla); // 🔥 Aggiunta Sigla
     const res = await apiFetch('/articoli?' + params.toString());
     if (res.success) { articoliCorrente = res.data; articoliFiltrati = [...articoliCorrente]; paginaCorrente = 1; ordinaArticoli(); renderTabellaPaginata(); }
     else { showMessage(res.message || 'Errore caricamento articoli', 'error'); }
@@ -307,7 +304,7 @@ function chiudiWarningModal() { document.getElementById('modalWarningDuplicate')
 function modificaArticoloSimile() { const id = document.getElementById('warningSimilarId').value; chiudiWarningModal(); pendingArticleData = null; modificaArticolo(parseInt(id)); }
 function inserisciComunque() { chiudiWarningModal(); if (pendingArticleData) { salvaArticolo(true); pendingArticleData = null; } }
 function resetForm() { descrizioneInput.value = ''; codiceModelloInput.value = ''; lunghezzaInput.value = ''; durezzaInput.value = ''; varianteInput.value = ''; if (anniList.length > 0) annoSelect.value = anniList.find(a => a.anno === 2026)?.id || anniList[0]?.id || ''; seasonStatusSelect.value = ''; quantitaInput.value = 1; noteInput.value = ''; inventarioAustriaCheck.checked = true; }
-function resetFiltri() { filtroMag.value = ''; filtroSettore.value = ''; filtroCat.value = ''; filtroMar.value = ''; filtroAnno.value = ''; filtroSeason.value = ''; filtroCodice.value = ''; descrizioneInput.value = ''; varianteInput.value = ''; seasonStatusSelect.value = ''; caricaMarchePerCategoria(null, filtroMar); caricaArticoli(); }
+function resetFiltri() { filtroMag.value = ''; filtroSettore.value = ''; filtroCat.value = ''; filtroMar.value = ''; filtroAnno.value = ''; filtroSeason.value = ''; filtroCodice.value = ''; filtroSigla.value = ''; descrizioneInput.value = ''; varianteInput.value = ''; seasonStatusSelect.value = ''; caricaMarchePerCategoria(null, filtroMar); caricaArticoli(); }
 function compare(a,b,col) {
   if (col === 'descrizione') {
     const descA = (a.descrizione || '').substring(0, 8).toLowerCase();
@@ -345,7 +342,8 @@ function renderTabellaPaginata() {
   if (totali === 0) { tbody.innerHTML = '<tr><td colspan="20" class="text-center">Nessun articolo trovato</td></tr>'; document.getElementById('paginationStats').innerText = 'Mostrando 0-0 di 0'; document.getElementById('paginationCurrentPage').innerText = '1'; document.getElementById('btnPrevPage').disabled = true; document.getElementById('btnNextPage').disabled = true; return; }
   const totalePagine = Math.ceil(totali / righePerPagina);
   if (paginaCorrente > totalePagine) paginaCorrente = totalePagine; if (paginaCorrente < 1) paginaCorrente = 1;
-  const start = (paginaCorrente - 1) * righePerPagina; const end = Math.min(start + righePerPagina, totali); const pagina = articoliFiltrati.slice(start, end); updatePagination(totali, start, end);
+  const start = (paginaCorrente - 1) * righePerPagina; const end = Math.min(start + righePerPagina, totali);
+  const pagina = articoliFiltrati.slice(start, end); updatePagination(totali, start, end);
   pagina.forEach(a => {
     if (!a.articolo_id) return;
     const mag = magazzini.find(m => m.id == a.magazzino)?.nome || a.magazzino; const cat = categorie.find(c => c.id == a.categoria)?.nome || a.categoria; const mar = marche.find(m => m.id == a.marca)?.nome || a.marca; const giac = a.GIACENZA_REALE || 0; const row = tbody.insertRow();
@@ -399,46 +397,24 @@ async function modificaArticolo(id) {
   try {
     const btn = document.getElementById('btnSalvaModifica');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
-
     const art = articoliCorrente.find(a => a.articolo_id == id);
     if (!art) { showMessage('Articolo non trovato', 'error'); return; }
-    
     const elId = document.getElementById('editId');
     if (elId) elId.value = art.articolo_id;
-
     await caricaSelectsModale();
-
     const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    setVal('editMagazzino', art.magazzino);
-    setVal('editSettore', art.settore);
-    setVal('editCategoria', art.categoria);
-    
+    setVal('editMagazzino', art.magazzino); setVal('editSettore', art.settore); setVal('editCategoria', art.categoria);
     const marcaSelect = document.getElementById('editMarca');
     await caricaMarchePerCategoria(art.categoria, marcaSelect, art.marca);
-    
-    setVal('editDescrizione', art.descrizione);
-    setVal('editLunghezza', art.lunghezza || '');
-    setVal('editDurezza', art.durezza || '');
-    setVal('editVariante', art.variante || '');
-    setVal('editAnno', art.anno_id || '');
-    setVal('editSeasonStatus', art.season_status_id || '');
-    setVal('editCodiceModello', art.codice_modello || '');
-    setVal('editQuantita', art.quantita_totale);
-    setVal('editNote', art.note || '');
-    
+    setVal('editDescrizione', art.descrizione); setVal('editLunghezza', art.lunghezza || ''); setVal('editDurezza', art.durezza || '');
+    setVal('editVariante', art.variante || ''); setVal('editAnno', art.anno_id || ''); setVal('editSeasonStatus', art.season_status_id || '');
+    setVal('editCodiceModello', art.codice_modello || ''); setVal('editQuantita', art.quantita_totale); setVal('editNote', art.note || '');
     const elAustria = document.getElementById('editInventarioAustria');
     if (elAustria) elAustria.checked = art.inventario_austria == 1;
-
     await refreshEditDatalists();
     document.getElementById('modalEdit').style.display = 'flex';
-
-  } catch (err) {
-    showMessage('Errore nel caricamento della modifica: ' + err.message, 'error');
-    console.error(err);
-  } finally {
-    const btn = document.getElementById('btnSalvaModifica');
-    if (btn) { btn.disabled = false; btn.innerHTML = '💾 Salva modifiche'; }
-  }
+  } catch (err) { showMessage('Errore nel caricamento della modifica: ' + err.message, 'error'); console.error(err); }
+  finally { const btn = document.getElementById('btnSalvaModifica'); if (btn) { btn.disabled = false; btn.innerHTML = '💾 Salva modifiche'; } }
 }
 async function salvaModifica() {
   const id = document.getElementById('editId').value;
@@ -558,6 +534,7 @@ function attachFormEvents() {
   inputs.forEach(id => { const el = document.getElementById(id); if (el) { el.addEventListener('input', () => { refreshAllDatalists(); caricaArticoli(); }); } });
   annoSelect.addEventListener('change', () => { caricaArticoli(); }); seasonStatusSelect.addEventListener('change', () => { caricaArticoli(); });
   filtroCodice.addEventListener('input', () => { caricaArticoli(); });
+  filtroSigla.addEventListener('input', () => { caricaArticoli(); });
 }
 window.onload = async () => {
   if (!restoreSession()) { window.location.href = 'Login.html'; return; }
