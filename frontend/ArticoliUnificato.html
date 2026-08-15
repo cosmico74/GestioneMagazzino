@@ -119,8 +119,8 @@
 <div class="filter-group"><label>Marca</label><select id="filtroMarca" onchange="caricaArticoli()"><option value="">Tutte</option></select></div>
 <div class="filter-group"><label>Anno</label><select id="filtroAnno" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
 <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
-<div class="filter-group"><label>Codice</label><input type="text" id="filtroCodice" placeholder="Cerca codice..." oninput="caricaArticoli()" class="form-control"></div>
-<div class="filter-group"><label>Sigla</label><input type="text" id="filtroSigla" placeholder="Cerca sigla..." oninput="caricaArticoli()" class="form-control"></div>
+<div class="filter-group"><label>Codice</label><input type="text" id="filtroCodice" placeholder="Cerca codice..." oninput="caricaArticoli()" class="form-control"><datalist id="codiceList"></datalist></div>
+<div class="filter-group"><label>Sigla</label><input type="text" id="filtroSigla" placeholder="Cerca sigla..." oninput="caricaArticoli()" class="form-control"><datalist id="siglaList"></datalist></div>
 <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
 </div></div>
 <div class="insertion-divider"><span class="line"></span><span class="section-label">📝 Inserimento</span><span class="line"></span></div>
@@ -192,7 +192,7 @@ let articoliCorrente = [], articoliFiltrati = [];
 let sortColumn = 'descrizione', sortAsc = true, paginaCorrente = 1, righePerPagina = 25;
 let currentObsId = null, currentSigleArticoloId = null, currentModificaSiglaId = null, pendingArticleData = null;
 const filtroMag = document.getElementById('filtroMagazzino'), filtroSettore = document.getElementById('filtroSettore'), filtroCat = document.getElementById('filtroCategoria'), filtroMar = document.getElementById('filtroMarca'), filtroAnno = document.getElementById('filtroAnno'), filtroSeason = document.getElementById('filtroSeasonStatus'), filtroCodice = document.getElementById('filtroCodice');
-const filtroSigla = document.getElementById('filtroSigla'); // 🔥 AGGIUNTO
+const filtroSigla = document.getElementById('filtroSigla');
 const descrizioneInput = document.getElementById('descrizione'), codiceModelloInput = document.getElementById('codice_modello'), lunghezzaInput = document.getElementById('lunghezza'), durezzaInput = document.getElementById('durezza'), varianteInput = document.getElementById('variante'), annoSelect = document.getElementById('anno'), seasonStatusSelect = document.getElementById('seasonStatus'), quantitaInput = document.getElementById('quantita'), noteInput = document.getElementById('note'), versioneInput = document.getElementById('versione'), inventarioAustriaCheck = document.getElementById('inventarioAustria'), saveBtn = document.getElementById('saveBtn');
 async function caricaMarchePerCategoria(categoriaId, selectElement, defaultValue = null) {
   if (!categoriaId) { const data = await apiFetch('/anagrafiche/marche'); popolaSelect(selectElement, data, 'id', 'nome'); if (defaultValue !== null) selectElement.value = defaultValue; return; }
@@ -240,7 +240,7 @@ function getCurrentFilters() {
   return {
     magazzino: filtroMag.value, settore: filtroSettore.value, categoria: filtroCat.value, marca: filtroMar.value,
     anno_id: filtroAnno.value || null, season_status_id: filtroSeason.value || null, codice: filtroCodice.value.trim(),
-    sigla: filtroSigla.value.trim() // 🔥 Aggiunta Sigla
+    sigla: filtroSigla.value.trim()
   };
 }
 async function aggiornaDatalist(campo) {
@@ -272,7 +272,7 @@ async function caricaArticoli() {
     if (f.anno_id) params.append('anno_id', f.anno_id);
     if (f.season_status_id) params.append('season_status_id', f.season_status_id);
     if (f.codice) params.append('codice', f.codice);
-    if (f.sigla) params.append('sigla', f.sigla); // 🔥 Aggiunta Sigla
+    if (f.sigla) params.append('sigla', f.sigla);
     const res = await apiFetch('/articoli?' + params.toString());
     if (res.success) { articoliCorrente = res.data; articoliFiltrati = [...articoliCorrente]; paginaCorrente = 1; ordinaArticoli(); renderTabellaPaginata(); }
     else { showMessage(res.message || 'Errore caricamento articoli', 'error'); }

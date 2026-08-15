@@ -701,7 +701,9 @@ router.get('/valori/categorie', verifyToken, async (req, res) => {
   res.json(rows);
 });
 
-// 🔥 RISCRITTO: Ora restituisce le vere sigle dalla tabella sigle_articoli, filtrate in AND con gli altri campi
+// ============================================================
+// VALORI PER DATALIST
+// ============================================================
 router.get('/valori/sigle', verifyToken, async (req, res) => {
   try {
     let sql = `
@@ -724,7 +726,10 @@ router.get('/valori/sigle', verifyToken, async (req, res) => {
     if (req.query.codice) { sql += ' AND (LOWER(a.codice_modello) = LOWER(?) OR LOWER(a.codice) = LOWER(?))'; params.push(req.query.codice, req.query.codice); }
     if (req.query.season_status_id) { sql += ' AND a.season_status_id = ?'; params.push(req.query.season_status_id); }
     if (req.query.anno_id) { sql += ' AND a.anno_id = ?'; params.push(req.query.anno_id); }
-    sql += ' ORDER BY s.sigla';
+    
+    // 🔥 ORDINAMENTO ALFABETICO GARANTITO
+    sql += ' ORDER BY s.sigla ASC';
+    
     const [rows] = await db.query(sql, params);
     res.json(rows);
   } catch (err) { console.error('❌ Errore /valori/sigle:', err); res.status(500).json({ error: err.message }); }
