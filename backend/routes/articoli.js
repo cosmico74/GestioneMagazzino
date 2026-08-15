@@ -52,12 +52,10 @@ async function checkDuplicate(connection, descrizione, lunghezza, seasonStatusId
       AND anno_id = ?
   `;
   const params = [descrizione, lunghezza, lunghezza, seasonStatusId, seasonStatusId, variante, variante, annoId];
-
   if (excludeId) {
     sql += ' AND articolo_id != ?';
     params.push(excludeId);
   }
-
   const [rows] = await connection.query(sql, params);
   return rows.length > 0;
 }
@@ -90,7 +88,7 @@ async function registraAudit(connection, tabella, operazione, rigaId, datiPrima,
 }
 
 // ============================================================
-// GET /api/articoli - con filtri (AND) e ricerca ESATTA per tutti i campi
+// GET /api/articoli - con filtri (AND) e NUOVO filtro Sigla
 // ============================================================
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -126,14 +124,24 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.query.settore) { sql += ' AND a.settore = ?'; params.push(req.query.settore); }
     if (req.query.categoria) { sql += ' AND a.categoria = ?'; params.push(req.query.categoria); }
     if (req.query.marca) { sql += ' AND a.marca = ?'; params.push(req.query.marca); }
-    
     if (req.query.descrizione) { sql += ' AND LOWER(a.descrizione) = LOWER(?)'; params.push(req.query.descrizione); }
     if (req.query.lunghezza) { sql += ' AND LOWER(a.lunghezza) = LOWER(?)'; params.push(req.query.lunghezza); }
     if (req.query.durezza) { sql += ' AND LOWER(a.durezza) = LOWER(?)'; params.push(req.query.durezza); }
     if (req.query.codice_modello) { sql += ' AND LOWER(a.codice_modello) = LOWER(?)'; params.push(req.query.codice_modello); }
     if (req.query.variante) { sql += ' AND LOWER(a.variante) = LOWER(?)'; params.push(req.query.variante); }
     if (req.query.codice) { sql += ' AND (LOWER(a.codice_modello) = LOWER(?) OR LOWER(a.codice) = LOWER(?))'; params.push(req.query.codice, req.query.codice); }
-    
+
+    // 🔥 NUOVO: FILTRO PER SIGLA (JOIN con sigle_articoli tramite EXISTS)
+    if (req.query.sigla) {
+      sql += ` AND EXISTS (
+        SELECT 1 FROM sigle_articoli s 
+        WHERE s.articolo_id = a.articolo_id 
+          AND s.attivo = 1 
+          AND LOWER(s.sigla) LIKE LOWER(?)
+      )`;
+      params.push(`%${req.query.sigla}%`);
+    }
+
     if (req.query.season_status_id) { sql += ' AND a.season_status_id = ?'; params.push(req.query.season_status_id); }
     if (req.query.anno_id) { sql += ' AND a.anno_id = ?'; params.push(req.query.anno_id); }
     if (req.query.min_giacenza) {
@@ -177,7 +185,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ============================================================
-// CRUD SIGLE (invariato)
+// CRUD SIGLE
 // ============================================================
 router.get('/:id/sigle', verifyToken, async (req, res) => {
   try {
@@ -693,36 +701,33 @@ router.get('/valori/categorie', verifyToken, async (req, res) => {
   res.json(rows);
 });
 
+// 🔥 RISCRITTO: Ora restituisce le vere sigle dalla tabella sigle_articoli, filtrate in AND con gli altri campi
 router.get('/valori/sigle', verifyToken, async (req, res) => {
   try {
-    const params = [];
     let sql = `
-      SELECT DISTINCT codice_modello AS sigla FROM articoli 
-      WHERE codice_modello IS NOT NULL AND codice_modello != ''
+      SELECT DISTINCT s.sigla
+      FROM sigle_articoli s
+      INNER JOIN articoli a ON s.articolo_id = a.articolo_id
+      WHERE s.attivo = 1
+        AND (s.quantita > 0 OR s.quantita_austria > 0)
     `;
-    if (req.query.magazzino) {
-      sql += ' AND magazzino = ?';
-      params.push(req.query.magazzino);
-    }
-    if (req.query.settore) {
-      sql += ' AND settore = ?';
-      params.push(req.query.settore);
-    }
-    if (req.query.lunghezza) {
-      sql += ' AND lunghezza = ?';
-      params.push(req.query.lunghezza);
-    }
-    if (req.query.descrizione) {
-      sql += ' AND LOWER(descrizione) = LOWER(?)';
-      params.push(req.query.descrizione);
-    }
-    sql += ' ORDER BY sigla';
+    const params = [];
+    if (req.query.magazzino) { sql += ' AND a.magazzino = ?'; params.push(req.query.magazzino); }
+    if (req.query.settore) { sql += ' AND a.settore = ?'; params.push(req.query.settore); }
+    if (req.query.categoria) { sql += ' AND a.categoria = ?'; params.push(req.query.categoria); }
+    if (req.query.marca) { sql += ' AND a.marca = ?'; params.push(req.query.marca); }
+    if (req.query.descrizione) { sql += ' AND LOWER(a.descrizione) = LOWER(?)'; params.push(req.query.descrizione); }
+    if (req.query.lunghezza) { sql += ' AND LOWER(a.lunghezza) = LOWER(?)'; params.push(req.query.lunghezza); }
+    if (req.query.durezza) { sql += ' AND LOWER(a.durezza) = LOWER(?)'; params.push(req.query.durezza); }
+    if (req.query.codice_modello) { sql += ' AND LOWER(a.codice_modello) = LOWER(?)'; params.push(req.query.codice_modello); }
+    if (req.query.variante) { sql += ' AND LOWER(a.variante) = LOWER(?)'; params.push(req.query.variante); }
+    if (req.query.codice) { sql += ' AND (LOWER(a.codice_modello) = LOWER(?) OR LOWER(a.codice) = LOWER(?))'; params.push(req.query.codice, req.query.codice); }
+    if (req.query.season_status_id) { sql += ' AND a.season_status_id = ?'; params.push(req.query.season_status_id); }
+    if (req.query.anno_id) { sql += ' AND a.anno_id = ?'; params.push(req.query.anno_id); }
+    sql += ' ORDER BY s.sigla';
     const [rows] = await db.query(sql, params);
     res.json(rows);
-  } catch (err) {
-    console.error('❌ Errore /valori/sigle:', err);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { console.error('❌ Errore /valori/sigle:', err); res.status(500).json({ error: err.message }); }
 });
 
 router.get('/valori/lunghezze', verifyToken, async (req, res) => {
@@ -732,29 +737,18 @@ router.get('/valori/lunghezze', verifyToken, async (req, res) => {
       SELECT DISTINCT lunghezza FROM articoli 
       WHERE lunghezza IS NOT NULL AND lunghezza != ''
     `;
-    if (req.query.magazzino) {
-      sql += ' AND magazzino = ?';
-      params.push(req.query.magazzino);
-    }
-    if (req.query.settore) {
-      sql += ' AND settore = ?';
-      params.push(req.query.settore);
-    }
-    if (req.query.descrizione) {
-      sql += ' AND LOWER(descrizione) = LOWER(?)';
-      params.push(req.query.descrizione);
-    }
+    if (req.query.magazzino) { sql += ' AND magazzino = ?'; params.push(req.query.magazzino); }
+    if (req.query.settore) { sql += ' AND settore = ?'; params.push(req.query.settore); }
+    if (req.query.descrizione) { sql += ' AND LOWER(descrizione) = LOWER(?)'; params.push(req.query.descrizione); }
+    // 🔥 Aggiornato per filtrare correttamente tramite le sigle reali
     if (req.query.sigla) {
-      sql += ' AND LOWER(codice_modello) = LOWER(?)';
-      params.push(req.query.sigla);
+      sql += ' AND articolo_id IN (SELECT articolo_id FROM sigle_articoli WHERE attivo = 1 AND LOWER(sigla) LIKE LOWER(?))';
+      params.push(`%${req.query.sigla}%`);
     }
     sql += ' ORDER BY lunghezza';
     const [rows] = await db.query(sql, params);
     res.json(rows);
-  } catch (err) {
-    console.error('❌ Errore /valori/lunghezze:', err);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { console.error('❌ Errore /valori/lunghezze:', err); res.status(500).json({ error: err.message }); }
 });
 
 router.get('/valori/attacchi', verifyToken, async (req, res) => {
