@@ -20,6 +20,16 @@
     .filter-group label { font-weight: 600; font-size: 0.65rem; margin-bottom: 1px; display: block; color: #2c3e50; }
     .filter-group select, .filter-group input { width: 100%; padding: 3px 5px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.7rem; background: #f9fafb; }
     .filter-group select:focus, .filter-group input:focus { border-color: #1a73e8; outline: none; box-shadow: 0 0 0 2px rgba(26,115,232,0.2); }
+    
+    /* 🔥 STILE PER IL DROPDOWN DELLE SIGLE CON FRECCIA */
+    .filter-group input[list] {
+      background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23999%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 10px;
+      padding-right: 24px;
+    }
+    
     .insertion-divider { display: flex; align-items: center; gap: 12px; margin: 6px 0 4px 0; }
     .insertion-divider .line { flex: 1; height: 2px; background: linear-gradient(to right, #1a73e8, #cbd5e0); border: none; }
     .insertion-divider .section-label { font-size: 0.7rem; font-weight: 700; color: #27ae60; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; display: flex; align-items: center; gap: 6px; padding: 0 4px; }
@@ -120,7 +130,8 @@
 <div class="filter-group"><label>Anno</label><select id="filtroAnno" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
 <div class="filter-group"><label>Season Status</label><select id="filtroSeasonStatus" onchange="caricaArticoli()"><option value="">Tutti</option></select></div>
 <div class="filter-group"><label>Codice</label><input type="text" id="filtroCodice" placeholder="Cerca codice..." oninput="caricaArticoli()" class="form-control"><datalist id="codiceList"></datalist></div>
-<div class="filter-group"><label>Sigla</label><input type="text" id="filtroSigla" placeholder="Cerca sigla..." oninput="caricaArticoli()" class="form-control"><datalist id="siglaList"></datalist></div>
+<!-- 🔥 DROPDOWN SIGLA CON FRECCIA E DATALIST -->
+<div class="filter-group"><label>Sigla</label><input type="text" id="filtroSigla" list="siglaList" placeholder="Cerca sigla..." oninput="caricaArticoli()" class="form-control"><datalist id="siglaList"></datalist></div>
 <button class="btn btn-secondary" onclick="resetFiltri()" style="align-self:flex-end;">🔄 Reset</button>
 </div></div>
 <div class="insertion-divider"><span class="line"></span><span class="section-label">📝 Inserimento</span><span class="line"></span></div>
